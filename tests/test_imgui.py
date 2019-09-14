@@ -6,20 +6,6 @@ import cpptypeinfo
 HERE = pathlib.Path(__file__).absolute().parent
 IMGUI_H = HERE.parent / 'libs/imgui/imgui.h'
 
-
-class TypedefDecl:
-    def __init__(self, name: str, src: cpptypeinfo.Declaration):
-        self.name = name
-        self.src = src
-
-    def __eq__(self, value):
-        return (isinstance(value, TypedefDecl) and self.name == value.name
-                and self.src == value.src)
-
-    def __repr__(self) -> str:
-        return f'<typedef {self.name} = {self.src}>'
-
-
 EXPECTS = {
     'ImDrawChannel':
     cpptypeinfo.Struct('ImDrawChannel'),
@@ -70,61 +56,62 @@ EXPECTS = {
     'ImGuiTextFilter':
     cpptypeinfo.Struct('ImGuiTextFilter'),
     'ImTextureID':
-    TypedefDecl('ImTextureID', cpptypeinfo.Pointer(cpptypeinfo.Void())),
+    cpptypeinfo.Typedef('ImTextureID',
+                        cpptypeinfo.Pointer(cpptypeinfo.Void())),
     'ImGuiID':
-    TypedefDecl('ImGuiID', cpptypeinfo.UInt32()),
+    cpptypeinfo.Typedef('ImGuiID', cpptypeinfo.UInt32()),
     'ImWchar':
-    TypedefDecl('ImWchar', cpptypeinfo.UInt16()),
+    cpptypeinfo.Typedef('ImWchar', cpptypeinfo.UInt16()),
     'ImGuiCol':
-    TypedefDecl('ImGuiCol', cpptypeinfo.Int32()),
+    cpptypeinfo.Typedef('ImGuiCol', cpptypeinfo.Int32()),
     'ImGuiCond':
-    TypedefDecl('ImGuiCond', cpptypeinfo.Int32()),
+    cpptypeinfo.Typedef('ImGuiCond', cpptypeinfo.Int32()),
     'ImGuiDataType':
-    TypedefDecl('ImGuiDataType', cpptypeinfo.Int32()),
+    cpptypeinfo.Typedef('ImGuiDataType', cpptypeinfo.Int32()),
     'ImGuiDir':
-    TypedefDecl('ImGuiDir', cpptypeinfo.Int32()),
+    cpptypeinfo.Typedef('ImGuiDir', cpptypeinfo.Int32()),
     'ImGuiKey':
-    TypedefDecl('ImGuiKey', cpptypeinfo.Int32()),
+    cpptypeinfo.Typedef('ImGuiKey', cpptypeinfo.Int32()),
     'ImGuiNavInput':
-    TypedefDecl('ImGuiNavInput', cpptypeinfo.Int32()),
+    cpptypeinfo.Typedef('ImGuiNavInput', cpptypeinfo.Int32()),
     'ImGuiMouseCursor':
-    TypedefDecl('ImGuiMouseCursor', cpptypeinfo.Int32()),
+    cpptypeinfo.Typedef('ImGuiMouseCursor', cpptypeinfo.Int32()),
     'ImGuiStyleVar':
-    TypedefDecl('ImGuiStyleVar', cpptypeinfo.Int32()),
+    cpptypeinfo.Typedef('ImGuiStyleVar', cpptypeinfo.Int32()),
     'ImDrawCornerFlags':
-    TypedefDecl('ImDrawCornerFlags', cpptypeinfo.Int32()),
+    cpptypeinfo.Typedef('ImDrawCornerFlags', cpptypeinfo.Int32()),
     'ImDrawListFlags':
-    TypedefDecl('ImDrawListFlags', cpptypeinfo.Int32()),
+    cpptypeinfo.Typedef('ImDrawListFlags', cpptypeinfo.Int32()),
     'ImFontAtlasFlags':
-    TypedefDecl('ImFontAtlasFlags', cpptypeinfo.Int32()),
+    cpptypeinfo.Typedef('ImFontAtlasFlags', cpptypeinfo.Int32()),
     'ImGuiBackendFlags':
-    TypedefDecl('ImGuiBackendFlags', cpptypeinfo.Int32()),
+    cpptypeinfo.Typedef('ImGuiBackendFlags', cpptypeinfo.Int32()),
     'ImGuiColorEditFlags':
-    TypedefDecl('ImGuiColorEditFlags', cpptypeinfo.Int32()),
+    cpptypeinfo.Typedef('ImGuiColorEditFlags', cpptypeinfo.Int32()),
     'ImGuiConfigFlags':
-    TypedefDecl('ImGuiConfigFlags', cpptypeinfo.Int32()),
+    cpptypeinfo.Typedef('ImGuiConfigFlags', cpptypeinfo.Int32()),
     'ImGuiComboFlags':
-    TypedefDecl('ImGuiComboFlags', cpptypeinfo.Int32()),
+    cpptypeinfo.Typedef('ImGuiComboFlags', cpptypeinfo.Int32()),
     'ImGuiDragDropFlags':
-    TypedefDecl('ImGuiDragDropFlags', cpptypeinfo.Int32()),
+    cpptypeinfo.Typedef('ImGuiDragDropFlags', cpptypeinfo.Int32()),
     'ImGuiFocusedFlags':
-    TypedefDecl('ImGuiFocusedFlags', cpptypeinfo.Int32()),
+    cpptypeinfo.Typedef('ImGuiFocusedFlags', cpptypeinfo.Int32()),
     'ImGuiHoveredFlags':
-    TypedefDecl('ImGuiHoveredFlags', cpptypeinfo.Int32()),
+    cpptypeinfo.Typedef('ImGuiHoveredFlags', cpptypeinfo.Int32()),
     'ImGuiInputTextFlags':
-    TypedefDecl('ImGuiInputTextFlags', cpptypeinfo.Int32()),
+    cpptypeinfo.Typedef('ImGuiInputTextFlags', cpptypeinfo.Int32()),
     'ImGuiSelectableFlags':
-    TypedefDecl('ImGuiSelectableFlags', cpptypeinfo.Int32()),
+    cpptypeinfo.Typedef('ImGuiSelectableFlags', cpptypeinfo.Int32()),
     'ImGuiTabBarFlags':
-    TypedefDecl('ImGuiTabBarFlags', cpptypeinfo.Int32()),
+    cpptypeinfo.Typedef('ImGuiTabBarFlags', cpptypeinfo.Int32()),
     'ImGuiTabItemFlags':
-    TypedefDecl('ImGuiTabItemFlags', cpptypeinfo.Int32()),
+    cpptypeinfo.Typedef('ImGuiTabItemFlags', cpptypeinfo.Int32()),
     'ImGuiTreeNodeFlags':
-    TypedefDecl('ImGuiTreeNodeFlags', cpptypeinfo.Int32()),
+    cpptypeinfo.Typedef('ImGuiTreeNodeFlags', cpptypeinfo.Int32()),
     'ImGuiWindowFlags':
-    TypedefDecl('ImGuiWindowFlags', cpptypeinfo.Int32()),
+    cpptypeinfo.Typedef('ImGuiWindowFlags', cpptypeinfo.Int32()),
     'ImGuiInputTextCallback':
-    TypedefDecl(
+    cpptypeinfo.Typedef(
         'ImGuiInputTextCallback',
         cpptypeinfo.Function(cpptypeinfo.Int32(), [
             cpptypeinfo.Param(
@@ -132,7 +119,7 @@ EXPECTS = {
                     cpptypeinfo.Struct('ImGuiInputTextCallbackData')))
         ])),
     'ImGuiSizeCallback':
-    TypedefDecl(
+    cpptypeinfo.Typedef(
         'ImGuiSizeCallback',
         cpptypeinfo.Function(cpptypeinfo.Void(), [
             cpptypeinfo.Param(
@@ -140,21 +127,21 @@ EXPECTS = {
                     cpptypeinfo.Struct('ImGuiSizeCallbackData')))
         ])),
     'ImS8':
-    TypedefDecl('ImS8', cpptypeinfo.Int8()),
+    cpptypeinfo.Typedef('ImS8', cpptypeinfo.Int8()),
     'ImU8':
-    TypedefDecl('ImU8', cpptypeinfo.UInt8()),
+    cpptypeinfo.Typedef('ImU8', cpptypeinfo.UInt8()),
     'ImS16':
-    TypedefDecl('ImS16', cpptypeinfo.Int16()),
+    cpptypeinfo.Typedef('ImS16', cpptypeinfo.Int16()),
     'ImU16':
-    TypedefDecl('ImU16', cpptypeinfo.UInt16()),
+    cpptypeinfo.Typedef('ImU16', cpptypeinfo.UInt16()),
     'ImS32':
-    TypedefDecl('ImS32', cpptypeinfo.Int32()),
+    cpptypeinfo.Typedef('ImS32', cpptypeinfo.Int32()),
     'ImU32':
-    TypedefDecl('ImU32', cpptypeinfo.UInt32()),
+    cpptypeinfo.Typedef('ImU32', cpptypeinfo.UInt32()),
     'ImS64':
-    TypedefDecl('ImS64', cpptypeinfo.Int64()),
+    cpptypeinfo.Typedef('ImS64', cpptypeinfo.Int64()),
     'ImU64':
-    TypedefDecl('ImU64', cpptypeinfo.UInt64()),
+    cpptypeinfo.Typedef('ImU64', cpptypeinfo.UInt64()),
     'ImVec2':
     cpptypeinfo.Struct('ImVec2', False, [
         cpptypeinfo.Field(cpptypeinfo.Float(), 'x'),
@@ -272,6 +259,19 @@ EXPECTS = {
         cpptypeinfo.Param(cpptypeinfo.parse('bool *'), 'p_open', 'NULL'),
         cpptypeinfo.Param(cpptypeinfo.parse('ImGuiWindowFlags'), 'flags', '0')
     ]),
+    'End':
+    cpptypeinfo.Function(cpptypeinfo.Void(), []),
+    # bool BeginChild ( const char * str_id , const ImVec2 & size = ImVec2 ( 0 , 0 ) , bool border = false , ImGuiWindowFlags flags = 0 )
+    # bool BeginChild(ImGuiID id, const ImVec2& size = ImVec2(0,0), bool border = false, ImGuiWindowFlags flags = 0);
+    # function overloading
+    'BeginChild':
+    cpptypeinfo.Function(cpptypeinfo.Bool(), [
+        cpptypeinfo.Param(cpptypeinfo.parse('const char *'), 'str_id'),
+        cpptypeinfo.Param(cpptypeinfo.Param('const ImVec2 &'), 'size',
+                          'ImVec2(0, 0)'),
+        cpptypeinfo.Param(cpptypeinfo.Param('bool'), 'border', 'false'),
+        cpptypeinfo.Param(cpptypeinfo.parse('ImGuiWindowFlags'), 'flags', '0')
+    ]),
 }
 
 
@@ -289,7 +289,11 @@ def parse_param(c: cindex.Cursor) -> cpptypeinfo.Param:
             assert (len(children) == 1)
             # decl = cpptypeinfo.parse(child.type.spelling)
             childchild = children[0]
-            assert (childchild.kind == cindex.CursorKind.INTEGER_LITERAL)
+            # assert (childchild.kind == cindex.CursorKind.INTEGER_LITERAL)
+            default_value = tokens[-1]
+        elif child.kind == cindex.CursorKind.INTEGER_LITERAL:
+            default_value = tokens[-1]
+        elif child.kind == cindex.CursorKind.CXX_BOOL_LITERAL_EXPR:
             default_value = tokens[-1]
         else:
             raise NotImplementedError(f'{child.kind}')
@@ -336,9 +340,8 @@ def parse(c: cindex.Cursor):
         return decl
 
     elif c.kind == cindex.CursorKind.TYPEDEF_DECL:
-        # return TypedefDecl.parse(c)
         decl = cpptypeinfo.parse(c.underlying_typedef_type.spelling)
-        return TypedefDecl(c.spelling, decl)
+        return cpptypeinfo.Typedef(c.spelling, decl)
 
     elif c.kind == cindex.CursorKind.FUNCTION_DECL:
         return parse_function(c)

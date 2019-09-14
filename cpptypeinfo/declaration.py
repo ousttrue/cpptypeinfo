@@ -218,6 +218,26 @@ class Function(Declaration):
         return f'{self.result}({params})'
 
 
+class Typedef(Declaration):
+    def __init__(self, type_name: str, src: Declaration):
+        super().__init__(is_const=False)
+        self.type_name = type_name
+        self.src = src
+        STACK[-1].user_type_map[self.type_name] = self
+
+    def __hash__(self):
+        return hash(self.src)
+
+    def __eq__(self, value):
+        if not super().__eq__(value):
+            return False
+        # if self.type_name!=value.type_name:
+        #     return False
+        if self.src != value.src:
+            return False
+        return True
+
+
 type_map = {
     'void': Void,
     'char': Int8,
@@ -239,7 +259,7 @@ type_map = {
 class Namespace:
     def __init__(self, name: str = ''):
         self.name = name
-        self.user_type_map: Dict[str, Struct] = {}
+        self.user_type_map: Dict[str, Declaration] = {}
 
 
 STACK = [Namespace()]  # root namespace
