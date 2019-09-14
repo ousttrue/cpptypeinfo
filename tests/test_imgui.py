@@ -24,28 +24,6 @@ def tmp(src):
         os.unlink(tmp_name)
 
 
-class StructDecl:
-    def __init__(self, name, *fields):
-        self.name = name
-        self.fields = fields
-
-    def __eq__(self, rhs) -> bool:
-        return (isinstance(rhs, StructDecl) and self.name == rhs.name
-                and len(self.fields) == len(rhs.fields))
-
-    def __repr__(self) -> str:
-        return f'<struct {self.name}{{}}>'
-
-    @classmethod
-    def parse(cls, c: cindex.Cursor) -> 'StructDecl':
-        fields = []
-        for child in c.get_children():
-            fields.append(child)
-        # if len(fields) == 0. forward decl
-        cpptypeinfo.parse(f'struct {c.spelling}')
-        return StructDecl(c.spelling, *fields)
-
-
 class TypedefDecl:
     def __init__(self, name: str, src: cpptypeinfo.Declaration):
         self.name = name
@@ -80,53 +58,53 @@ class TypedefDecl:
 
 EXPECTS = {
     'ImDrawChannel':
-    StructDecl('ImDrawChannel'),
+    cpptypeinfo.Struct('ImDrawChannel'),
     'ImDrawCmd':
-    StructDecl('ImDrawCmd'),
+    cpptypeinfo.Struct('ImDrawCmd'),
     'ImDrawData':
-    StructDecl('ImDrawData'),
+    cpptypeinfo.Struct('ImDrawData'),
     'ImDrawList':
-    StructDecl('ImDrawList'),
+    cpptypeinfo.Struct('ImDrawList'),
     'ImDrawListSharedData':
-    StructDecl('ImDrawListSharedData'),
+    cpptypeinfo.Struct('ImDrawListSharedData'),
     'ImDrawListSplitter':
-    StructDecl('ImDrawListSplitter'),
+    cpptypeinfo.Struct('ImDrawListSplitter'),
     'ImDrawVert':
-    StructDecl('ImDrawVert'),
+    cpptypeinfo.Struct('ImDrawVert'),
     'ImFont':
-    StructDecl('ImFont'),
+    cpptypeinfo.Struct('ImFont'),
     'ImFontAtlas':
-    StructDecl('ImFontAtlas'),
+    cpptypeinfo.Struct('ImFontAtlas'),
     'ImFontConfig':
-    StructDecl('ImFontConfig'),
+    cpptypeinfo.Struct('ImFontConfig'),
     'ImFontGlyph':
-    StructDecl('ImFontGlyph'),
+    cpptypeinfo.Struct('ImFontGlyph'),
     'ImFontGlyphRangesBuilder':
-    StructDecl('ImFontGlyphRangesBuilder'),
+    cpptypeinfo.Struct('ImFontGlyphRangesBuilder'),
     'ImColor':
-    StructDecl('ImColor'),
+    cpptypeinfo.Struct('ImColor'),
     'ImGuiContext':
-    StructDecl('ImGuiContext'),
+    cpptypeinfo.Struct('ImGuiContext'),
     'ImGuiIO':
-    StructDecl('ImGuiIO'),
+    cpptypeinfo.Struct('ImGuiIO'),
     'ImGuiInputTextCallbackData':
-    StructDecl('ImGuiInputTextCallbackData'),
+    cpptypeinfo.Struct('ImGuiInputTextCallbackData'),
     'ImGuiListClipper':
-    StructDecl('ImGuiListClipper'),
+    cpptypeinfo.Struct('ImGuiListClipper'),
     'ImGuiOnceUponAFrame':
-    StructDecl('ImGuiOnceUponAFrame'),
+    cpptypeinfo.Struct('ImGuiOnceUponAFrame'),
     'ImGuiPayload':
-    StructDecl('ImGuiPayload'),
+    cpptypeinfo.Struct('ImGuiPayload'),
     'ImGuiSizeCallbackData':
-    StructDecl('ImGuiSizeCallbackData'),
+    cpptypeinfo.Struct('ImGuiSizeCallbackData'),
     'ImGuiStorage':
-    StructDecl('ImGuiStorage'),
+    cpptypeinfo.Struct('ImGuiStorage'),
     'ImGuiStyle':
-    StructDecl('ImGuiStyle'),
+    cpptypeinfo.Struct('ImGuiStyle'),
     'ImGuiTextBuffer':
-    StructDecl('ImGuiTextBuffer'),
+    cpptypeinfo.Struct('ImGuiTextBuffer'),
     'ImGuiTextFilter':
-    StructDecl('ImGuiTextFilter'),
+    cpptypeinfo.Struct('ImGuiTextFilter'),
     'ImTextureID':
     TypedefDecl('ImTextureID', cpptypeinfo.Pointer(cpptypeinfo.Void())),
     'ImGuiID':
@@ -195,7 +173,13 @@ def parse(c: cindex.Cursor):
     if c.kind == cindex.CursorKind.UNEXPOSED_DECL:
         tokens = [t.spelling for t in c.get_tokens()]
     elif c.kind == cindex.CursorKind.STRUCT_DECL:
-        return StructDecl.parse(c)
+        fields = []
+        for child in c.get_children():
+            fields.append(child)
+        if fields:
+            raise NotImplementedError()
+        return cpptypeinfo.parse(f'struct {c.spelling}')
+
     elif c.kind == cindex.CursorKind.TYPEDEF_DECL:
         return TypedefDecl.parse(c)
     else:
