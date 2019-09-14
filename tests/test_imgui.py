@@ -192,7 +192,13 @@ EXPECTS = {
             cpptypeinfo.Param(
                 cpptypeinfo.Pointer(cpptypeinfo.Struct('ImFontAtlas')),
                 'shared_font_atlas', 'NULL')
-        ])
+        ]),
+    'DestroyContext':
+    cpptypeinfo.Function(cpptypeinfo.Void(), [
+        cpptypeinfo.Param(
+            cpptypeinfo.Pointer(cpptypeinfo.Struct('ImGuiContext')), 'ctx',
+            'NULL')
+    ])
 }
 
 
@@ -285,7 +291,9 @@ class ImGuiTest(unittest.TestCase):
             for i, child in enumerate(c.get_children()):
                 if child.location.file.name != str(IMGUI_H):
                     continue
-                with self.subTest(i=i, spelling=child.spelling):
+                with self.subTest(i=counter.count,
+                                  kind=child.kind,
+                                  spelling=child.spelling):
                     if child.kind == cindex.CursorKind.NAMESPACE:
                         # nested
                         cpptypeinfo.push_namespace(child.spelling)
@@ -293,10 +301,15 @@ class ImGuiTest(unittest.TestCase):
                         cpptypeinfo.pop_namespace()
                     else:
                         counter.count += 1
-                        self.assertEqual(EXPECTS.get(child.spelling),
-                                         parse(child))
+                        expected = EXPECTS.get(child.spelling)
+                        if expected:
+                            self.assertEqual(expected, parse(child))
+                        else:
+                            raise Exception('not found :' + ' '.join(
+                                t.spelling for t in child.get_tokens()))
                 if counter.count > len(EXPECTS):
                     break
+                    # pass
 
         parse_namespace(c)
 
