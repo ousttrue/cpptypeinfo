@@ -1,4 +1,5 @@
 import re
+import copy
 from typing import List, NamedTuple, Dict
 
 
@@ -15,6 +16,9 @@ class Declaration:
             return f'const {self.__class__.__name__}'
         else:
             return self.__class__.__name__
+
+    def clone(self):
+        return copy.copy(self)
 
 
 class Void(Declaration):
@@ -123,7 +127,11 @@ class Pointer(Declaration):
         return self._hash
 
     def __eq__(self, value):
-        return super().__eq__(value) and self.target == value.target
+        if not super().__eq__(value):
+            return False
+        if self.target != value.target:
+            return False
+        return True
 
     def __str__(self):
         return f'Ptr({self.target})'
@@ -157,7 +165,6 @@ class Struct(Declaration):
         if fields:
             for f in fields:
                 self.add_field(f)
-
         STACK[-1].user_type_map[self.type_name] = self
 
     def add_field(self, f: Field) -> None:
@@ -261,6 +268,15 @@ class Namespace:
         self.name = name
         self.user_type_map: Dict[str, Declaration] = {}
 
+    def get(self, src: str, is_const: bool):
+        user_type = self.user_type_map.get(src)
+        if not user_type:
+            return None
+        if user_type.is_const != is_const:
+            user_type = user_type.clone()
+            user_type.is_const = is_const
+        return user_type
+
 
 STACK = [Namespace()]  # root namespace
 
@@ -322,7 +338,7 @@ def parse(src: str, is_const=False) -> Declaration:
                 return t(is_const)
 
             for namespace in reversed(STACK):
-                decl = namespace.user_type_map.get(src)
+                decl = namespace.get(src, is_const)
                 if decl:
                     return decl
 
@@ -370,3 +386,6 @@ if __name__ == '__main__':
     assert (vec2 == Struct(
         'ImVec2', False,
         [Field(Float(), 'x'), Field(Float(), 'y')]))
+
+    parsed = parse('const ImVec2 &')
+    assert (parsed == Pointer(Struct('ImVec2', True)))

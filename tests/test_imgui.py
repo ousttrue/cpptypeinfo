@@ -264,19 +264,317 @@ EXPECTS = {
     # bool BeginChild ( const char * str_id , const ImVec2 & size = ImVec2 ( 0 , 0 ) , bool border = false , ImGuiWindowFlags flags = 0 )
     # bool BeginChild(ImGuiID id, const ImVec2& size = ImVec2(0,0), bool border = false, ImGuiWindowFlags flags = 0);
     # function overloading
-    'BeginChild':
+    'BeginChild': [
+        cpptypeinfo.Function(cpptypeinfo.Bool(), [
+            cpptypeinfo.Param(cpptypeinfo.parse('const char *'), 'str_id'),
+            cpptypeinfo.Param(cpptypeinfo.Param('const ImVec2 &'), 'size',
+                              'ImVec2(0,0)'),
+            cpptypeinfo.Param(cpptypeinfo.Param('bool'), 'border', 'false'),
+            cpptypeinfo.Param(cpptypeinfo.parse('ImGuiWindowFlags'), 'flags',
+                              '0')
+        ])
+    ],
+    '__dummy__0':
+    None,
+    'EndChild':
+    cpptypeinfo.Function(cpptypeinfo.Void(), []),
+    # bool IsWindowAppearing ( )
+    'IsWindowAppearing':
+    cpptypeinfo.Function(cpptypeinfo.Bool(), []),
+    # bool IsWindowCollapsed ( )
+    'IsWindowCollapsed':
+    cpptypeinfo.Function(cpptypeinfo.Bool(), []),
+    # bool IsWindowFocused ( ImGuiFocusedFlags flags = 0 )
+    'IsWindowFocused':
     cpptypeinfo.Function(cpptypeinfo.Bool(), [
-        cpptypeinfo.Param(cpptypeinfo.parse('const char *'), 'str_id'),
-        cpptypeinfo.Param(cpptypeinfo.Param('const ImVec2 &'), 'size',
-                          'ImVec2(0, 0)'),
-        cpptypeinfo.Param(cpptypeinfo.Param('bool'), 'border', 'false'),
-        cpptypeinfo.Param(cpptypeinfo.parse('ImGuiWindowFlags'), 'flags', '0')
+        cpptypeinfo.Param(cpptypeinfo.parse('ImGuiFocusedFlags'), 'flags', '0')
     ]),
+    # bool IsWindowHovered ( ImGuiHoveredFlags flags = 0 )
+    'IsWindowHovered':
+    cpptypeinfo.Function(cpptypeinfo.Bool(), [
+        cpptypeinfo.Param(cpptypeinfo.parse('ImGuiHoveredFlags'), 'flags', '0')
+    ]),
+    # ImDrawList * GetWindowDrawList ( )
+    'GetWindowDrawList':
+    cpptypeinfo.Function(cpptypeinfo.parse('ImDrawList*'), []),
+    # ImVec2 GetWindowPos ( )
+    'GetWindowPos':
+    cpptypeinfo.Function(cpptypeinfo.parse('ImVec2'), []),
+    # ImVec2 GetWindowSize ( )
+    'GetWindowSize':
+    cpptypeinfo.Function(cpptypeinfo.parse('ImVec2'), []),
+    # float GetWindowWidth ( )
+    'GetWindowWidth':
+    cpptypeinfo.Function(cpptypeinfo.Float(), []),
+    'GetWindowHeight':
+    cpptypeinfo.Function(cpptypeinfo.Float(), []),
+    # void SetNextWindowPos ( const ImVec2 & pos , ImGuiCond cond = 0 , const ImVec2 & pivot = ImVec2 ( 0 , 0 ) )
+    'SetNextWindowPos':
+    cpptypeinfo.Function(cpptypeinfo.Void(), [
+        cpptypeinfo.Param(cpptypeinfo.parse('const ImVec2&'), 'pos'),
+        cpptypeinfo.Param(cpptypeinfo.parse('ImGuiCond'), 'cond', '0'),
+        cpptypeinfo.Param(cpptypeinfo.parse('const ImVec2 &'), 'pivot',
+                          'ImVec2(0,0)'),
+    ]),
+    # void SetNextWindowSize ( const ImVec2 & size , ImGuiCond cond = 0 )
+    'SetNextWindowSize':
+    cpptypeinfo.Function(cpptypeinfo.Void(), [
+        cpptypeinfo.Param(cpptypeinfo.parse('const ImVec2 &'), 'size'),
+        cpptypeinfo.Param(cpptypeinfo.parse('ImGuiCond'), 'cond', '0')
+    ]),
+    # void SetNextWindowSizeConstraints ( const ImVec2 & size_min , const ImVec2 & size_max , ImGuiSizeCallback custom_callback = NULL , void * custom_callback_data = NULL )
+    'SetNextWindowSizeConstraints':
+    cpptypeinfo.Function(cpptypeinfo.Void(), [
+        cpptypeinfo.Param(cpptypeinfo.parse('const ImVec2 &'), 'size_min'),
+        cpptypeinfo.Param(cpptypeinfo.parse('const ImVec2 &'), 'size_max'),
+        cpptypeinfo.Param(cpptypeinfo.parse('ImGuiSizeCallback'),
+                          'custom_callback', 'NULL'),
+        cpptypeinfo.Param(cpptypeinfo.parse('void *'), 'custom_callback_data',
+                          'NULL')
+    ]),
+    # void SetNextWindowContentSize ( const ImVec2 & size )
+    'SetNextWindowContentSize':
+    cpptypeinfo.Function(cpptypeinfo.Void(), [
+        cpptypeinfo.Param(cpptypeinfo.parse('const ImVec2 &'), 'size'),
+    ]),
+    # void SetNextWindowCollapsed ( bool collapsed , ImGuiCond cond = 0 )
+    'SetNextWindowCollapsed':
+    cpptypeinfo.Function(cpptypeinfo.Void(), [
+        cpptypeinfo.Param(cpptypeinfo.Bool(), 'collapsed'),
+        cpptypeinfo.Param(cpptypeinfo.parse('ImGuiCond'), 'cond', '0'),
+    ]),
+    # void SetNextWindowFocus ( )
+    'SetNextWindowFocus':
+    cpptypeinfo.Function(cpptypeinfo.Void(), []),
+    # void SetNextWindowBgAlpha ( float alpha )
+    'SetNextWindowBgAlpha':
+    cpptypeinfo.Function(cpptypeinfo.Void(),
+                         [cpptypeinfo.Param(cpptypeinfo.Float(), 'alpha')]),
+    # void SetWindowPos ( const ImVec2 & pos , ImGuiCond cond = 0 )
+    # void SetWindowPos(const char* name, const ImVec2& pos, ImGuiCond cond = 0);
+    # function overloading
+    'SetWindowPos': [
+        cpptypeinfo.Function(cpptypeinfo.Void(), [
+            cpptypeinfo.Param(cpptypeinfo.parse('const ImVec2 &'), 'pos'),
+            cpptypeinfo.Param(cpptypeinfo.parse('ImGuiCond'), 'cond', '0'),
+        ])
+    ],
+    '__dummy__1':
+    None,
+    # void SetWindowSize ( const ImVec2 & size , ImGuiCond cond = 0 )
+    # void          SetWindowSize(const char* name, const ImVec2& size, ImGuiCond cond = 0);
+    # function overloading
+    'SetWindowSize': [
+        cpptypeinfo.Function(cpptypeinfo.Void(), [
+            cpptypeinfo.Param(cpptypeinfo.parse('const ImVec2 &'), 'size'),
+            cpptypeinfo.Param(cpptypeinfo.parse('ImGuiCond'), 'cond', '0'),
+        ])
+    ],
+    '__dummy__2':
+    None,
+    # void SetWindowCollapsed ( bool collapsed , ImGuiCond cond = 0 )
+    #  IMGUI_API void          SetWindowCollapsed(const char* name, bool collapsed, ImGuiCond cond = 0);   // set named window collapsed state
+    'SetWindowCollapsed': [
+        cpptypeinfo.Function(cpptypeinfo.Void(), [
+            cpptypeinfo.Param(cpptypeinfo.Bool(), 'collapsed'),
+            cpptypeinfo.Param(cpptypeinfo.parse('ImGuiCond'), 'cond', '0'),
+        ])
+    ],
+    '__dummy__3':
+    None,
+    # void SetWindowFocus ( )
+    # IMGUI_API void          SetWindowFocus(const char* name);
+    'SetWindowFocus': [cpptypeinfo.Function(cpptypeinfo.Void(), [])],
+    '__dummy__4':
+    None,
+    # void SetWindowFontScale ( float scale )
+    'SetWindowFontScale':
+    cpptypeinfo.Function(cpptypeinfo.Void(),
+                         [cpptypeinfo.Param(cpptypeinfo.Float(), 'scale')]),
+    # ImVec2 GetContentRegionMax ( )
+    'GetContentRegionMax':
+    cpptypeinfo.Function(cpptypeinfo.parse('ImVec2'), []),
+    # ImVec2 GetContentRegionAvail ( )
+    'GetContentRegionAvail':
+    cpptypeinfo.Function(cpptypeinfo.parse('ImVec2'), []),
+    # ImVec2 GetWindowContentRegionMin ( )
+    'GetWindowContentRegionMin':
+    cpptypeinfo.Function(cpptypeinfo.parse('ImVec2'), []),
+    # ImVec2 GetWindowContentRegionMax ( )
+    'GetWindowContentRegionMax':
+    cpptypeinfo.Function(cpptypeinfo.parse('ImVec2'), []),
+    # float GetWindowContentRegionWidth ( )
+    'GetWindowContentRegionWidth':
+    cpptypeinfo.Function(cpptypeinfo.Float(), []),
+    # float GetScrollX ( )
+    'GetScrollX':
+    cpptypeinfo.Function(cpptypeinfo.Float(), []),
+    'GetScrollY':
+    cpptypeinfo.Function(cpptypeinfo.Float(), []),
+    'GetScrollMaxX':
+    cpptypeinfo.Function(cpptypeinfo.Float(), []),
+    'GetScrollMaxY':
+    cpptypeinfo.Function(cpptypeinfo.Float(), []),
+    # void SetScrollX ( float scroll_x )
+    'SetScrollX':
+    cpptypeinfo.Function(cpptypeinfo.Void(),
+                         [cpptypeinfo.Param(cpptypeinfo.Float(), 'scroll_x')]),
+    'SetScrollY':
+    cpptypeinfo.Function(cpptypeinfo.Void(),
+                         [cpptypeinfo.Param(cpptypeinfo.Float(), 'scroll_y')]),
+    # void SetScrollHereX ( float center_x_ratio = 0.5f )
+    'SetScrollHereX':
+    cpptypeinfo.Function(
+        cpptypeinfo.Void(),
+        [cpptypeinfo.Param(cpptypeinfo.Float(), 'center_x_ratio', '0.5f')]),
+    'SetScrollHereY':
+    cpptypeinfo.Function(
+        cpptypeinfo.Void(),
+        [cpptypeinfo.Param(cpptypeinfo.Float(), 'center_y_ratio', '0.5f')]),
+    # void SetScrollFromPosX ( float local_x , float center_x_ratio = 0.5f )
+    'SetScrollFromPosX':
+    cpptypeinfo.Function(cpptypeinfo.Void(), [
+        cpptypeinfo.Param(cpptypeinfo.Float(), 'local_x'),
+        cpptypeinfo.Param(cpptypeinfo.Float(), 'center_x_ratio', '0.5f')
+    ]),
+    'SetScrollFromPosY':
+    cpptypeinfo.Function(cpptypeinfo.Void(), [
+        cpptypeinfo.Param(cpptypeinfo.Float(), 'local_y'),
+        cpptypeinfo.Param(cpptypeinfo.Float(), 'center_y_ratio', '0.5f')
+    ]),
+    # void PushFont ( ImFont * font )
+    'PushFont':
+    cpptypeinfo.Function(
+        cpptypeinfo.Void(),
+        [cpptypeinfo.Param(cpptypeinfo.parse('ImFont*'), 'font')]),
+    # void PopFont ( )
+    'PopFont':
+    cpptypeinfo.Function(cpptypeinfo.Void(), []),
+    # void PushStyleColor ( ImGuiCol idx , ImU32 col )
+    # void PushStyleColor ( ImGuiCol idx , ImU32 col )
+    'PushStyleColor': [
+        cpptypeinfo.Function(cpptypeinfo.Void(), [
+            cpptypeinfo.Param(cpptypeinfo.parse('ImGuiCol'), 'idx'),
+            cpptypeinfo.Param(cpptypeinfo.parse('ImU32'), 'col')
+        ])
+    ],
+    '__dummy__5':
+    None,
+    # void PopStyleColor ( int count = 1 )
+    'PopStyleColor':
+    cpptypeinfo.Function(
+        cpptypeinfo.Void(),
+        [cpptypeinfo.Param(cpptypeinfo.Int32(), 'count', '1')]),
+    # void PushStyleVar ( ImGuiStyleVar idx , float val )
+    # void PushStyleVar(ImGuiStyleVar idx, const ImVec2& val);
+    'PushStyleVar': [
+        cpptypeinfo.Function(cpptypeinfo.Void(), [
+            cpptypeinfo.Param(cpptypeinfo.parse('ImGuiCol'), 'idx'),
+            cpptypeinfo.Param(cpptypeinfo.Float(), 'val')
+        ])
+    ],
+    '__dummy__6':
+    None,
+    # :void PopStyleVar ( int count = 1 )
+    'PopStyleVar':
+    cpptypeinfo.Function(cpptypeinfo.Void(), [
+        cpptypeinfo.Param(cpptypeinfo.Int32(), 'count', '1'),
+    ]),
+    # const ImVec4 & GetStyleColorVec4 ( ImGuiCol idx )
+    'GetStyleColorVec4':
+    cpptypeinfo.Function(
+        cpptypeinfo.parse('const ImVec4 &'),
+        [cpptypeinfo.Param(cpptypeinfo.parse('ImGuiCol'), 'idx')]),
+    # ImFont * GetFont ( )
+    'GetFont':
+    cpptypeinfo.Function(cpptypeinfo.parse('ImFont*'), []),
+    'GetFontSize': [],
+    'GetFontTexUvWhitePixel': [],
+    # 3 overloading
+    'GetColorU32': [],
+    '__dummy__7':
+    None,
+    '__dummy__8':
+    None,
+    'PushItemWidth': [],
+    'PopItemWidth': [],
+    'SetNextItemWidth': [],
+    'CalcItemWidth': [],
+    'PushTextWrapPos': [],
+    'PopTextWrapPos': [],
+    'PushAllowKeyboardFocus': [],
+    'PopAllowKeyboardFocus': [],
+    'PushButtonRepeat': [],
+    'PopButtonRepeat': [],
+    'Separator': [],
+    'SameLine': [],
+    'NewLine': [],
+    'Spacing': [],
+    'Dummy': [],
+    'Indent': [],
+    'Unindent': [],
+    'BeginGroup': [],
+    'EndGroup': [],
+    'GetCursorPos': [],
+    'GetCursorPosX': [],
+    'GetCursorPosY': [],
+    'SetCursorPos': [],
+    'SetCursorPosX': [],
+    'SetCursorPosY': [],
+    'GetCursorStartPos': [],
+    'GetCursorScreenPos': [],
+    'SetCursorScreenPos': [],
+    'AlignTextToFramePadding': [],
+    'GetTextLineHeight': [],
+    'GetTextLineHeightWithSpacing': [],
+    'GetFrameHeight': [],
+    'GetFrameHeightWithSpacing': [],
+    'PushID': [],
+    '__dummy__9': [],
+    '__dummy__10': [],
+    '__dummy__11': [],
+    'PopID': [],
+    'GetID': [],
+    '__dummy__12': [],
+    '__dummy__13': [],
+    'TextUnformatted': [],
+    'Text': [],
+    'TextV': [],
+    'TextColored': [],
+    'TextColoredV': [],
+    'TextDisabled': [],
+    'TextDisabledV': [],
+    'TextWrapped': [],
+    'TextWrappedV': [],
+    'LabelText': [],
+    'LabelTextV': [],
+    'BulletText': [],
+    'BulletTextV': [],
+    'Button': [],
+    'SmallButton': [],
+    'InvisibleButton': [],
+    'ArrowButton': [],
+    'Image': [],
+    'ImageButton': [],
+    'Checkbox': [],
+    'CheckboxFlags': [],
+    'RadioButton': [],
+    'RadioButton': [],
+    'ProgressBar': [],
+    'Bullet': [],
 }
 
 
 def parse_param(c: cindex.Cursor) -> cpptypeinfo.Param:
     tokens = [x.spelling for x in c.get_tokens()]
+
+    def get_value():
+        pos = tokens.index('=')
+        if pos == -1:
+            raise Exception('not found =')
+        value = ''.join(tokens[pos + 1:])
+        return value
+
     decl = cpptypeinfo.parse(c.type.spelling)
     name = c.spelling
     default_value = ''
@@ -290,11 +588,16 @@ def parse_param(c: cindex.Cursor) -> cpptypeinfo.Param:
             # decl = cpptypeinfo.parse(child.type.spelling)
             childchild = children[0]
             # assert (childchild.kind == cindex.CursorKind.INTEGER_LITERAL)
-            default_value = tokens[-1]
+            default_value = get_value()
         elif child.kind == cindex.CursorKind.INTEGER_LITERAL:
-            default_value = tokens[-1]
+            default_value = get_value()
+        elif child.kind == cindex.CursorKind.FLOATING_LITERAL:
+            default_value = get_value()
         elif child.kind == cindex.CursorKind.CXX_BOOL_LITERAL_EXPR:
-            default_value = tokens[-1]
+            default_value = get_value()
+        elif child.kind == cindex.CursorKind.UNARY_OPERATOR:
+            # negative value
+            pass
         else:
             raise NotImplementedError(f'{child.kind}')
     return cpptypeinfo.Param(decl, name, default_value)
@@ -312,12 +615,16 @@ def parse_function(c: cindex.Cursor) -> cpptypeinfo.Function:
     for child in c.get_children():
         if child.kind == cindex.CursorKind.TYPE_REF:
             pass
+        elif child.kind == cindex.CursorKind.UNEXPOSED_ATTR:
+            # macro
+            # tokens = [token.spelling for token in child.get_tokens()]
+            pass
         elif child.kind == cindex.CursorKind.PARM_DECL:
             params.append(parse_param(child))
             # traverse(child)
             pass
         else:
-            raise NotImplementedError()
+            raise NotImplementedError(f'{child.kind}')
 
     return cpptypeinfo.Function(result, params)
 
@@ -382,11 +689,16 @@ class ImGuiTest(unittest.TestCase):
                     else:
                         counter.count += 1
                         expected = EXPECTS.get(child.spelling)
-                        if expected:
-                            self.assertEqual(expected, parse(child))
-                        else:
+                        if expected is None:
                             raise Exception('not found :' + ' '.join(
                                 t.spelling for t in child.get_tokens()))
+                        else:
+                            parsed = parse(child)
+                            if isinstance(expected, list):
+                                # print(parsed)
+                                pass
+                            else:
+                                self.assertEqual(expected, parsed)
                 if counter.count > len(EXPECTS):
                     break
                     # pass
