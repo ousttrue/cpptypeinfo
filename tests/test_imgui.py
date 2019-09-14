@@ -146,16 +146,18 @@ EXPECTS = {
     TypedefDecl(
         'ImGuiInputTextCallback',
         cpptypeinfo.Function(cpptypeinfo.Int32(), [
-            cpptypeinfo.Pointer(
-                cpptypeinfo.Struct('ImGuiInputTextCallbackData'))
+            cpptypeinfo.Param(
+                cpptypeinfo.Pointer(
+                    cpptypeinfo.Struct('ImGuiInputTextCallbackData')))
         ])),
     'ImGuiSizeCallback':
     TypedefDecl(
         'ImGuiSizeCallback',
-        cpptypeinfo.Function(
-            cpptypeinfo.Void(),
-            [cpptypeinfo.Pointer(cpptypeinfo.Struct('ImGuiSizeCallbackData'))
-             ])),
+        cpptypeinfo.Function(cpptypeinfo.Void(), [
+            cpptypeinfo.Param(
+                cpptypeinfo.Pointer(
+                    cpptypeinfo.Struct('ImGuiSizeCallbackData')))
+        ])),
     'ImS8':
     TypedefDecl('ImS8', cpptypeinfo.Int8()),
     'ImU8':
@@ -173,30 +175,32 @@ EXPECTS = {
     'ImU64':
     TypedefDecl('ImU64', cpptypeinfo.UInt64()),
     'ImVec2':
-    cpptypeinfo.Struct(
-        'ImVec2', False,
-        [cpptypeinfo.Float(name='x'),
-         cpptypeinfo.Float(name='y')]),
+    cpptypeinfo.Struct('ImVec2', False, [
+        cpptypeinfo.Field(cpptypeinfo.Float(), 'x'),
+        cpptypeinfo.Field(cpptypeinfo.Float(), 'y')
+    ]),
     'ImVec4':
     cpptypeinfo.Struct('ImVec4', False, [
-        cpptypeinfo.Float(name='x'),
-        cpptypeinfo.Float(name='y'),
-        cpptypeinfo.Float(name='z'),
-        cpptypeinfo.Float(name='w')
+        cpptypeinfo.Field(cpptypeinfo.Float(), 'x'),
+        cpptypeinfo.Field(cpptypeinfo.Float(), 'y'),
+        cpptypeinfo.Field(cpptypeinfo.Float(), 'z'),
+        cpptypeinfo.Field(cpptypeinfo.Float(), 'w')
     ]),
     'CreateContext':
     cpptypeinfo.Function(
         cpptypeinfo.Pointer(cpptypeinfo.Struct('ImGuiContext')), [
-            cpptypeinfo.Pointer(
-                cpptypeinfo.Struct('ImFontAtlas', name='shared_font_atlas'))
+            cpptypeinfo.Param(
+                cpptypeinfo.Pointer(cpptypeinfo.Struct('ImFontAtlas')),
+                'shared_font_atlas', 'NULL')
         ])
 }
 
 
-def parse_param(c: cindex.Cursor) -> cpptypeinfo.Declaration:
+def parse_param(c: cindex.Cursor) -> cpptypeinfo.Param:
     tokens = [x.spelling for x in c.get_tokens()]
     decl = cpptypeinfo.parse(c.type.spelling)
-    decl.name = c.spelling
+    name = c.spelling
+    default_value = None
     for child in c.get_children():
         if child.kind == cindex.CursorKind.TYPE_REF:
             pass
@@ -207,10 +211,10 @@ def parse_param(c: cindex.Cursor) -> cpptypeinfo.Declaration:
             # decl = cpptypeinfo.parse(child.type.spelling)
             childchild = children[0]
             assert (childchild.kind == cindex.CursorKind.INTEGER_LITERAL)
-            decl.value = tokens[-1]
+            default_value = tokens[-1]
         else:
             raise NotImplementedError(f'{child.kind}')
-    return decl
+    return cpptypeinfo.Param(decl, name, default_value)
 
 
 def traverse(c, level=''):
@@ -243,8 +247,7 @@ def parse(c: cindex.Cursor):
         for child in c.get_children():
             if child.kind == cindex.CursorKind.FIELD_DECL:
                 field = cpptypeinfo.parse(child.type.spelling)
-                field.name = child.spelling
-                decl.add_field(field)
+                decl.add_field(cpptypeinfo.Field(field, child.spelling))
             elif child.kind == cindex.CursorKind.CONSTRUCTOR:
                 pass
             elif child.kind == cindex.CursorKind.CXX_METHOD:

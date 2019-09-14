@@ -1,12 +1,10 @@
 import re
-from typing import List
+from typing import List, NamedTuple, Dict
 
 
 class Declaration:
-    def __init__(self, is_const=False, name=None):
+    def __init__(self, is_const=False):
         self.is_const = is_const
-        self.name = name  # field/param name
-        self.value = None  # field/param default value
 
     def __eq__(self, value):
         return isinstance(value,
@@ -17,110 +15,109 @@ class Declaration:
             return f'const {self.__class__.__name__}'
         else:
             return self.__class__.__name__
-        # return f'Ptr({self.target})'
 
 
 class Void(Declaration):
-    def __init__(self, is_const=False, name=None):
-        super().__init__(is_const, name)
+    def __init__(self, is_const=False):
+        super().__init__(is_const)
 
     def __hash__(self):
         return 1
 
 
 class Int8(Declaration):
-    def __init__(self, is_const=False, name=None):
-        super().__init__(is_const, name)
+    def __init__(self, is_const=False):
+        super().__init__(is_const)
 
     def __hash__(self):
         return 2
 
 
 class Int16(Declaration):
-    def __init__(self, is_const=False, name=None):
-        super().__init__(is_const, name)
+    def __init__(self, is_const=False):
+        super().__init__(is_const)
 
     def __hash__(self):
         return 3
 
 
 class Int32(Declaration):
-    def __init__(self, is_const=False, name=None):
-        super().__init__(is_const, name)
+    def __init__(self, is_const=False):
+        super().__init__(is_const)
 
     def __hash__(self):
         return 4
 
 
 class Int64(Declaration):
-    def __init__(self, is_const=False, name=None):
-        super().__init__(is_const, name)
+    def __init__(self, is_const=False):
+        super().__init__(is_const)
 
     def __hash__(self):
         return 5
 
 
 class UInt8(Declaration):
-    def __init__(self, is_const=False, name=None):
-        super().__init__(is_const, name)
+    def __init__(self, is_const=False):
+        super().__init__(is_const)
 
     def __hash__(self):
         return 6
 
 
 class UInt16(Declaration):
-    def __init__(self, is_const=False, name=None):
-        super().__init__(is_const, name)
+    def __init__(self, is_const=False):
+        super().__init__(is_const)
 
     def __hash__(self):
         return 7
 
 
 class UInt32(Declaration):
-    def __init__(self, is_const=False, name=None):
-        super().__init__(is_const, name)
+    def __init__(self, is_const=False):
+        super().__init__(is_const)
 
     def __hash__(self):
         return 8
 
 
 class UInt64(Declaration):
-    def __init__(self, is_const=False, name=None):
-        super().__init__(is_const, name)
+    def __init__(self, is_const=False):
+        super().__init__(is_const)
 
     def __hash__(self):
         return 9
 
 
 class Float(Declaration):
-    def __init__(self, is_const=False, name=None):
-        super().__init__(is_const, name)
+    def __init__(self, is_const=False):
+        super().__init__(is_const)
 
     def __hash__(self):
         return 10
 
 
 class Double(Declaration):
-    def __init__(self, is_const=False, name=None):
-        super().__init__(is_const, name)
+    def __init__(self, is_const=False):
+        super().__init__(is_const)
 
     def __hash__(self):
         return 11
 
 
 class Bool(Declaration):
-    def __init__(self, is_const=False, name=None):
-        super().__init__(is_const, name)
+    def __init__(self, is_const=False):
+        super().__init__(is_const)
 
     def __hash__(self):
         return 12
 
 
 class Pointer(Declaration):
-    def __init__(self, target: Declaration, is_const=False, name=None):
-        super().__init__(is_const, name)
+    def __init__(self, target: Declaration, is_const=False):
+        super().__init__(is_const)
         self.target = target
-        self._hash = target.__hash__() * 12 + 1
+        self._hash = target.__hash__() * 13 + 1
 
     def __hash__(self):
         return self._hash
@@ -133,12 +130,8 @@ class Pointer(Declaration):
 
 
 class Array(Declaration):
-    def __init__(self,
-                 target: Declaration,
-                 length=None,
-                 is_const=False,
-                 name=None):
-        super().__init__(is_const, name)
+    def __init__(self, target: Declaration, length=None, is_const=False):
+        super().__init__(is_const)
         self.target = target
         self.length = length
         self._hash = target.__hash__() * 12 + 1
@@ -150,18 +143,22 @@ class Array(Declaration):
         return super().__eq__(value) and self.target == value.target
 
 
+class Field(NamedTuple):
+    type: Declaration
+    name: str
+    value: str = ''
+
+
 class Struct(Declaration):
-    def __init__(self, type_name, is_const=False, fields: List[Declaration] = None, name = None):
-        super().__init__(is_const, name)
+    def __init__(self, type_name, is_const=False, fields: List[Field] = None):
+        super().__init__(is_const)
         self.type_name = type_name
-        self.fields: List[Declaration] = []
+        self.fields: List[Field] = []
         if fields:
             for f in fields:
                 self.add_field(f)
 
-    def add_field(self, f: Declaration) -> None:
-        if not f.name:
-            raise Exception('no field name')
+    def add_field(self, f: Field) -> None:
         self.fields.append(f)
 
     def __hash__(self):
@@ -181,10 +178,16 @@ class Struct(Declaration):
         return f'struct {self.type_name}'
 
 
+class Param(NamedTuple):
+    type: Declaration
+    name: str = ''
+    value: str = ''
+
+
 class Function(Declaration):
     def __init__(self,
                  result: Declaration,
-                 params: List[Declaration],
+                 params: List[Param],
                  is_const=False):
         super().__init__(is_const=is_const)
         self.result = result
@@ -209,7 +212,7 @@ class Function(Declaration):
         return True
 
     def __str__(self) -> str:
-        params = ', '.join(str(p) for p in self.params)
+        params = ', '.join(str(p.type) for p in self.params)
         return f'{self.result}({params})'
 
 
@@ -232,7 +235,7 @@ type_map = {
 class Namespace:
     def __init__(self, name: str = ''):
         self.name = name
-        self.user_type_map = {}
+        self.user_type_map: Dict[str, Struct] = {}
 
 
 STACK = [Namespace()]  # root namespace
@@ -259,7 +262,7 @@ def parse(src: str, is_const=False) -> Declaration:
     if m:
         result = m.group(1)
         params = m.group(2).split(',')
-        return Function(parse(result), [parse(x) for x in params])
+        return Function(parse(result), [Param(type=parse(x)) for x in params])
 
     if src[-1] == ']':
         # array
@@ -337,10 +340,11 @@ if __name__ == '__main__':
     assert (parse('struct ImGuiInputTextCallbackData') == Struct(
         'ImGuiInputTextCallbackData'))
     assert (parse('int (*)(ImGuiInputTextCallbackData *)') == Function(
-        Int32(), [Pointer(Struct('ImGuiInputTextCallbackData'))]))
+        Int32(), [Param(Pointer(Struct('ImGuiInputTextCallbackData')))]))
 
     vec2 = parse('struct ImVec2')
-    vec2.add_field(Float(name='x'))
-    vec2.add_field(Float(name='y'))
-    assert (vec2 == Struct('ImVec2', False,
-                           [Float(name='x'), Float(name='y')]))
+    vec2.add_field(Field(Float(), 'x'))
+    vec2.add_field(Field(Float(), 'y'))
+    assert (vec2 == Struct(
+        'ImVec2', False,
+        [Field(Float(), 'x'), Field(Float(), 'y')]))
