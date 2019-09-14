@@ -158,6 +158,8 @@ class Struct(Declaration):
             for f in fields:
                 self.add_field(f)
 
+        STACK[-1].user_type_map[self.type_name] = self
+
     def add_field(self, f: Field) -> None:
         self.fields.append(f)
 
@@ -293,9 +295,7 @@ def parse(src: str, is_const=False) -> Declaration:
         elif splitted[0] == 'struct':
             if len(splitted) != 2:
                 raise Exception()
-            user_type = Struct(splitted[1])
-            STACK[-1].user_type_map[user_type.type_name] = user_type
-            return user_type
+            return Struct(splitted[1])
         else:
             t = type_map.get(src)
             if t:

@@ -219,10 +219,10 @@ EXPECTS = {
     ]),
     # ImGuiIO & GetIO ( )
     'GetIO':
-    cpptypeinfo.Function(cpptypeinfo.parse('struct ImGuiIO &'), []),
+    cpptypeinfo.Function(cpptypeinfo.parse('ImGuiIO &'), []),
     # ImGuiStyle & GetStyle ( )
     'GetStyle':
-    cpptypeinfo.Function(cpptypeinfo.parse('struct ImGuiStyle &'), []),
+    cpptypeinfo.Function(cpptypeinfo.parse('ImGuiStyle &'), []),
     # void NewFrame ( )
     'NewFrame':
     cpptypeinfo.Function(cpptypeinfo.Void(), []),
@@ -232,7 +232,7 @@ EXPECTS = {
     cpptypeinfo.Function(cpptypeinfo.Void(), []),
     # ImDrawData * GetDrawData ( )
     'GetDrawData':
-    cpptypeinfo.Function(cpptypeinfo.parse('struct ImDrawData *'), []),
+    cpptypeinfo.Function(cpptypeinfo.parse('ImDrawData *'), []),
     # void ShowDemoWindow ( bool * p_open = NULL )
     'ShowDemoWindow':
     cpptypeinfo.Function(
@@ -250,10 +250,9 @@ EXPECTS = {
         [cpptypeinfo.Param(cpptypeinfo.parse('bool *'), 'p_open', 'NULL')]),
     # void ShowStyleEditor ( ImGuiStyle * ref = NULL )
     'ShowStyleEditor':
-    cpptypeinfo.Function(cpptypeinfo.Void(), [
-        cpptypeinfo.Param(cpptypeinfo.parse('struct ImGuiStyle *'), 'ref',
-                          'NULL')
-    ]),
+    cpptypeinfo.Function(
+        cpptypeinfo.Void(),
+        [cpptypeinfo.Param(cpptypeinfo.parse('ImGuiStyle *'), 'ref', 'NULL')]),
     # bool ShowStyleSelector ( const char * label )
     'ShowStyleSelector':
     cpptypeinfo.Function(
@@ -272,30 +271,27 @@ EXPECTS = {
     cpptypeinfo.Function(cpptypeinfo.parse('const char*'), []),
     # void StyleColorsDark ( ImGuiStyle * dst = NULL )
     'StyleColorsDark':
-    cpptypeinfo.Function(cpptypeinfo.Void(), [
-        cpptypeinfo.Param(cpptypeinfo.parse('struct ImGuiStyle *'), 'dst',
-                          'NULL')
-    ]),
+    cpptypeinfo.Function(
+        cpptypeinfo.Void(),
+        [cpptypeinfo.Param(cpptypeinfo.parse('ImGuiStyle *'), 'dst', 'NULL')]),
     # void StyleColorsClassic ( ImGuiStyle * dst = NULL )
     'StyleColorsClassic':
-    cpptypeinfo.Function(cpptypeinfo.Void(), [
-        cpptypeinfo.Param(cpptypeinfo.parse('struct ImGuiStyle *'), 'dst',
-                          'NULL')
-    ]),
+    cpptypeinfo.Function(
+        cpptypeinfo.Void(),
+        [cpptypeinfo.Param(cpptypeinfo.parse('ImGuiStyle *'), 'dst', 'NULL')]),
     # void StyleColorsLight ( ImGuiStyle * dst = NULL )
     'StyleColorsLight':
-    cpptypeinfo.Function(cpptypeinfo.Void(), [
-        cpptypeinfo.Param(cpptypeinfo.parse('struct ImGuiStyle *'), 'dst',
-                          'NULL')
-    ]),
+    cpptypeinfo.Function(
+        cpptypeinfo.Void(),
+        [cpptypeinfo.Param(cpptypeinfo.parse('ImGuiStyle *'), 'dst', 'NULL')]),
     # bool Begin ( const char * name , bool * p_open = NULL , ImGuiWindowFlags flags = 0 )
     'Begin':
     cpptypeinfo.Function(cpptypeinfo.Bool(), [
         cpptypeinfo.Param(cpptypeinfo.parse('const char *'), 'name'),
         cpptypeinfo.Param(cpptypeinfo.parse('bool *'), 'p_open', 'NULL'),
-        cpptypeinfo.Param(cpptypeinfo.parse('typedef ImGuiWindowFlags'), 'flags', '0')
+        cpptypeinfo.Param(cpptypeinfo.parse('ImGuiWindowFlags'), 'flags', '0')
     ]),
- }
+}
 
 
 def parse_param(c: cindex.Cursor) -> cpptypeinfo.Param:
