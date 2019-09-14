@@ -19,25 +19,6 @@ class TypedefDecl:
     def __repr__(self) -> str:
         return f'<typedef {self.name} = {self.src}>'
 
-    @classmethod
-    def parse(cls, c: cindex.Cursor) -> 'TypedefDecl':
-        # children = [child for child in c.get_children()]
-        # if children:
-        #     # may function pointer
-        #     # ImGuiInputTextCallback
-        #     assert (len(children) == 1)
-        #     params = []
-        #     for p in children:
-        #         if p.kind == cindex.CursorKind.PARM_DECL:
-        #             params.append((p.spelling, p.type.spelling))
-        #         else:
-        #             raise NotImplementedError()
-        #     return TypedefDecl(c.spelling, decl)
-        # else:
-        # tokens = [token.spelling for token in c.get_tokens()]
-        decl = cpptypeinfo.parse(c.underlying_typedef_type.spelling)
-        return TypedefDecl(c.spelling, decl)
-
 
 EXPECTS = {
     'ImDrawChannel':
@@ -355,9 +336,13 @@ def parse(c: cindex.Cursor):
         return decl
 
     elif c.kind == cindex.CursorKind.TYPEDEF_DECL:
-        return TypedefDecl.parse(c)
+        # return TypedefDecl.parse(c)
+        decl = cpptypeinfo.parse(c.underlying_typedef_type.spelling)
+        return TypedefDecl(c.spelling, decl)
+
     elif c.kind == cindex.CursorKind.FUNCTION_DECL:
         return parse_function(c)
+
     else:
         raise NotImplementedError(str(c.kind))
 
