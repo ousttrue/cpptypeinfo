@@ -184,20 +184,32 @@ EXPECTS = {
         cpptypeinfo.Float(name='z'),
         cpptypeinfo.Float(name='w')
     ]),
+    'CreateContext':
+    cpptypeinfo.Function(
+        cpptypeinfo.Pointer(cpptypeinfo.Struct('ImGuiContext')), [
+            cpptypeinfo.Pointer(
+                cpptypeinfo.Struct('ImFontAtlas', name='shared_font_atlas'))
+        ])
 }
 
 
 def parse_param(c: cindex.Cursor) -> cpptypeinfo.Declaration:
-    name = c.spelling
+    tokens = [x.spelling for x in c.get_tokens()]
+    decl = cpptypeinfo.parse(c.type.spelling)
+    decl.name = c.spelling
     for child in c.get_children():
         if child.kind == cindex.CursorKind.TYPE_REF:
-            # typedef reference ?
             pass
         elif child.kind == cindex.CursorKind.UNEXPOSED_EXPR:
-            decl = cpptypeinfo.parse(child.type.spelling)
+            # default param assignment
+            children = [x for x in child.get_children()]
+            assert (len(children) == 1)
+            # decl = cpptypeinfo.parse(child.type.spelling)
+            childchild = children[0]
+            assert (childchild.kind == cindex.CursorKind.INTEGER_LITERAL)
+            decl.value = tokens[-1]
         else:
             raise NotImplementedError(f'{child.kind}')
-    decl.name = name
     return decl
 
 
@@ -209,9 +221,10 @@ def traverse(c, level=''):
 
 def parse_function(c: cindex.Cursor) -> cpptypeinfo.Function:
     params = []
+    result = cpptypeinfo.parse(c.result_type.spelling)
     for child in c.get_children():
         if child.kind == cindex.CursorKind.TYPE_REF:
-            result = cpptypeinfo.parse(child.type.spelling)
+            pass
         elif child.kind == cindex.CursorKind.PARM_DECL:
             params.append(parse_param(child))
             traverse(child)
@@ -229,8 +242,9 @@ def parse(c: cindex.Cursor):
         decl = cpptypeinfo.parse(f'struct {c.spelling}')
         for child in c.get_children():
             if child.kind == cindex.CursorKind.FIELD_DECL:
-                decl.add_field(child.spelling,
-                               cpptypeinfo.parse(child.type.spelling))
+                field = cpptypeinfo.parse(child.type.spelling)
+                field.name = child.spelling
+                decl.add_field(field)
             elif child.kind == cindex.CursorKind.CONSTRUCTOR:
                 pass
             elif child.kind == cindex.CursorKind.CXX_METHOD:
@@ -270,8 +284,10 @@ class ImGuiTest(unittest.TestCase):
                     continue
                 with self.subTest(i=i, spelling=child.spelling):
                     if child.kind == cindex.CursorKind.NAMESPACE:
-                        print(f'namespace {child.spelling}')
+                        # nested
+                        cpptypeinfo.push_namespace(child.spelling)
                         parse_namespace(child)
+                        cpptypeinfo.pop_namespace()
                     else:
                         counter.count += 1
                         self.assertEqual(EXPECTS.get(child.spelling),

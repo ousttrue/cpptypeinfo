@@ -5,7 +5,8 @@ from typing import List
 class Declaration:
     def __init__(self, is_const=False, name=None):
         self.is_const = is_const
-        self.name = name
+        self.name = name  # field/param name
+        self.value = None  # field/param default value
 
     def __eq__(self, value):
         return isinstance(value,
@@ -150,8 +151,9 @@ class Array(Declaration):
 
 
 class Struct(Declaration):
-    def __init__(self, name, is_const=False, fields: List[Declaration] = None):
+    def __init__(self, type_name, is_const=False, fields: List[Declaration] = None, name = None):
         super().__init__(is_const, name)
+        self.type_name = type_name
         self.fields: List[Declaration] = []
         if fields:
             for f in fields:
@@ -163,12 +165,12 @@ class Struct(Declaration):
         self.fields.append(f)
 
     def __hash__(self):
-        return hash(self.name)
+        return hash(self.type_name)
 
     def __eq__(self, value):
         if not super().__eq__(value):
             return False
-        if self.name != value.name:
+        if self.type_name != value.type_name:
             return False
         for l, r in zip(self.fields, value.fields):
             if l != r:
@@ -176,7 +178,7 @@ class Struct(Declaration):
         return True
 
     def __str__(self) -> str:
-        return f'struct {self.name}'
+        return f'struct {self.type_name}'
 
 
 class Function(Declaration):
@@ -226,7 +228,25 @@ type_map = {
     'double': Double,
 }
 
-user_type_map = {}
+
+class Namespace:
+    def __init__(self, name: str = ''):
+        self.name = name
+        self.user_type_map = {}
+
+
+STACK = [Namespace()]  # root namespace
+
+
+def push_namespace(name: str):
+    namespace = Namespace(name)
+    STACK.append(namespace)
+    return namespace
+
+
+def pop_namespace():
+    STACK.pop()
+
 
 SPLIT_PATTERN = re.compile(r'[*&]')
 FUNC_PATTERN = re.compile(r'^(.*)\(.*\)\((.*)\)$')
@@ -269,14 +289,19 @@ def parse(src: str, is_const=False) -> Declaration:
             if len(splitted) != 2:
                 raise Exception()
             user_type = Struct(splitted[1])
-            user_type_map[user_type.name] = user_type
+            STACK[-1].user_type_map[user_type.type_name] = user_type
             return user_type
         else:
             t = type_map.get(src)
             if t:
                 return t(is_const)
 
-            return user_type_map[src]
+            for namespace in reversed(STACK):
+                t = namespace.user_type_map.get(src)
+                if t:
+                    return t
+
+            raise Exception(f'not found: {src}')
 
 
 if __name__ == '__main__':
