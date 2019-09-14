@@ -59,7 +59,10 @@ class TypedefDecl:
     @classmethod
     def parse(cls, c: cindex.Cursor) -> 'TypedefDecl':
         children = [child for child in c.get_children()]
-        assert (len(children) == 0)
+        if children:
+            # may function pointer
+            # ImGuiInputTextCallback
+            assert (len(children) == 0)
         # tokens = [token.spelling for token in c.get_tokens()]
         decl = cpptypeinfo.parse(c.underlying_typedef_type.spelling)
         return TypedefDecl(c.spelling, decl)
@@ -124,8 +127,51 @@ EXPECTS = {
     TypedefDecl('ImGuiCol', cpptypeinfo.Int32()),
     'ImGuiCond':
     TypedefDecl('ImGuiCond', cpptypeinfo.Int32()),
+    'ImGuiDataType':
+    TypedefDecl('ImGuiDataType', cpptypeinfo.Int32()),
+    'ImGuiDir':
+    TypedefDecl('ImGuiDir', cpptypeinfo.Int32()),
+    'ImGuiKey':
+    TypedefDecl('ImGuiKey', cpptypeinfo.Int32()),
+    'ImGuiNavInput':
+    TypedefDecl('ImGuiNavInput', cpptypeinfo.Int32()),
+    'ImGuiMouseCursor':
+    TypedefDecl('ImGuiMouseCursor', cpptypeinfo.Int32()),
+    'ImGuiStyleVar':
+    TypedefDecl('ImGuiStyleVar', cpptypeinfo.Int32()),
+    'ImDrawCornerFlags':
+    TypedefDecl('ImDrawCornerFlags', cpptypeinfo.Int32()),
+    'ImDrawListFlags':
+    TypedefDecl('ImDrawListFlags', cpptypeinfo.Int32()),
+    'ImFontAtlasFlags':
+    TypedefDecl('ImFontAtlasFlags', cpptypeinfo.Int32()),
+    'ImGuiBackendFlags':
+    TypedefDecl('ImGuiBackendFlags', cpptypeinfo.Int32()),
+    'ImGuiColorEditFlags':
+    TypedefDecl('ImGuiColorEditFlags', cpptypeinfo.Int32()),
+    'ImGuiConfigFlags':
+    TypedefDecl('ImGuiConfigFlags', cpptypeinfo.Int32()),
+    'ImGuiComboFlags':
+    TypedefDecl('ImGuiComboFlags', cpptypeinfo.Int32()),
+    'ImGuiDragDropFlags':
+    TypedefDecl('ImGuiDragDropFlags', cpptypeinfo.Int32()),
+    'ImGuiFocusedFlags':
+    TypedefDecl('ImGuiFocusedFlags', cpptypeinfo.Int32()),
+    'ImGuiHoveredFlags':
+    TypedefDecl('ImGuiHoveredFlags', cpptypeinfo.Int32()),
+    'ImGuiInputTextFlags':
+    TypedefDecl('ImGuiInputTextFlags', cpptypeinfo.Int32()),
+    'ImGuiSelectableFlags':
+    TypedefDecl('ImGuiSelectableFlags', cpptypeinfo.Int32()),
+    'ImGuiTabBarFlags':
+    TypedefDecl('ImGuiTabBarFlags', cpptypeinfo.Int32()),
+    'ImGuiTabItemFlags':
+    TypedefDecl('ImGuiTabItemFlags', cpptypeinfo.Int32()),
+    'ImGuiTreeNodeFlags':
+    TypedefDecl('ImGuiTreeNodeFlags', cpptypeinfo.Int32()),
+    'ImGuiWindowFlags':
+    TypedefDecl('ImGuiWindowFlags', cpptypeinfo.Int32()),
 }
-
 
 def parse(c: cindex.Cursor):
     if c.kind == cindex.CursorKind.UNEXPOSED_DECL:
