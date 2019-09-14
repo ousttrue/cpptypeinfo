@@ -9,6 +9,13 @@ class Declaration:
         return isinstance(value,
                           self.__class__) and self.is_const == value.is_const
 
+    def __str__(self):
+        if self.is_const:
+            return f'const {self.__class__.__name__}'
+        else:
+            return self.__class__.__name__
+        # return f'Ptr({self.target})'
+
 
 class Void(Declaration):
     def __init__(self, is_const=False):
@@ -117,6 +124,9 @@ class Pointer(Declaration):
 
     def __eq__(self, value):
         return super().__eq__(value) and self.target == value.target
+
+    def __str__(self):
+        return f'Ptr({self.target})'
 
 
 class Array(Declaration):

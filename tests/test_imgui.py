@@ -28,10 +28,11 @@ class StructDecl:
         self.fields = fields
 
     def __eq__(self, rhs) -> bool:
-        return (self.name == rhs.name and len(self.fields) == len(rhs.fields))
+        return (isinstance(rhs, StructDecl) and self.name == rhs.name
+                and len(self.fields) == len(rhs.fields))
 
     def __repr__(self) -> str:
-        return f'struct {self.name}{{}}'
+        return f'<struct {self.name}{{}}>'
 
     @classmethod
     def parse(cls, c: cindex.Cursor) -> 'StructDecl':
@@ -47,8 +48,13 @@ class TypedefDecl:
         self.name = name
         self.src = src
 
+    def __eq__(self, value):
+        return (isinstance(value, TypedefDecl) and self.name == value.name
+                and self.src == value.src)
+
     def __repr__(self) -> str:
-        return f'typedef {self.name} = {self.src}'
+        src_name = str(self.src)
+        return f'<typedef {self.name} = {self.src}>'
 
     @classmethod
     def parse(cls, c: cindex.Cursor) -> 'TypedefDecl':
@@ -109,7 +115,15 @@ EXPECTS = {
     'ImGuiTextFilter':
     StructDecl('ImGuiTextFilter'),
     'ImTextureID':
-    TypedefDecl('ImTextureID', cpptypeinfo.Pointer(cpptypeinfo.Void()))
+    TypedefDecl('ImTextureID', cpptypeinfo.Pointer(cpptypeinfo.Void())),
+    'ImGuiID':
+    TypedefDecl('ImGuiID', cpptypeinfo.UInt32()),
+    'ImWchar':
+    TypedefDecl('ImWchar', cpptypeinfo.UInt16()),
+    'ImGuiCol':
+    TypedefDecl('ImGuiCol', cpptypeinfo.Int32()),
+    'ImGuiCond':
+    TypedefDecl('ImGuiCond', cpptypeinfo.Int32()),
 }
 
 
