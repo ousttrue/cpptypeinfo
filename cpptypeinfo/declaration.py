@@ -1,5 +1,5 @@
 import re
-from typing import List
+from typing import List, NamedTuple
 
 
 class Declaration:
@@ -144,16 +144,35 @@ class Array(Declaration):
         return super().__eq__(value) and self.target == value.target
 
 
+class Field(NamedTuple):
+    name: str
+    declaration: Declaration
+
+
 class Struct(Declaration):
-    def __init__(self, name, is_const=False):
+    def __init__(self, name, is_const=False, fields: List[Field] = None):
         super().__init__(is_const=is_const)
         self.name = name
+        self.fields: List[Field] = fields if fields else []
+
+    def add_field(self, name: str, declaration: Declaration) -> None:
+        self.fields.append(Field(name, declaration))
 
     def __hash__(self):
         return hash(self.name)
 
     def __eq__(self, value):
-        return super().__eq__(value) and self.name == value.name
+        if not super().__eq__(value):
+            return False
+        if self.name != value.name:
+            return False
+        for l, r in zip(self.fields, value.fields):
+            if l != r:
+                return False
+        return True
+
+    def __str__(self) -> str:
+        return f'struct {self.name}'
 
 
 class Function(Declaration):
@@ -179,21 +198,28 @@ class Function(Declaration):
         if (len(self.params) != len(value.params)):
             return False
         for l, r in zip(self.params, value.params):
-            if (l != r): 
+            if (l != r):
                 return False
         return True
+
+    def __str__(self) -> str:
+        params = ', '.join(str(p) for p in self.params)
+        return f'{self.result}({params})'
 
 
 type_map = {
     'void': Void,
     'char': Int8,
+    'signed char': Int8,
     'int': Int32,
     'short': Int16,
-    'long': Int64,
+    'long long': Int64,
     'unsigned char': UInt8,
     'unsigned int': UInt32,
     'unsigned short': UInt16,
-    'unsigned long': UInt64,
+    'unsigned long long': UInt64,
+    'float': Float,
+    'double': Double,
 }
 
 user_type_map = {}
@@ -256,13 +282,13 @@ if __name__ == '__main__':
     assert (parse('int') != Int32(True))
     assert (parse('char') == Int8())
     assert (parse('short') == Int16())
-    assert (parse('long') == Int64())
+    assert (parse('long long') == Int64())
     assert (parse('unsigned int') == UInt32())
     assert (parse('const unsigned int') == UInt32(True))
     assert (parse('unsigned int') != UInt32(True))
     assert (parse('unsigned char') == UInt8())
     assert (parse('unsigned short') == UInt16())
-    assert (parse('unsigned long') == UInt64())
+    assert (parse('unsigned long long') == UInt64())
 
     assert (parse('void*') == Pointer(Void()))
     assert (parse('const int*') == Pointer(Int32(True)))
@@ -283,3 +309,10 @@ if __name__ == '__main__':
         'ImGuiInputTextCallbackData'))
     assert (parse('int (*)(ImGuiInputTextCallbackData *)') == Function(
         Int32(), [Pointer(Struct('ImGuiInputTextCallbackData'))]))
+
+    vec2 = parse('struct ImVec2')
+    vec2.add_field('x', Float())
+    vec2.add_field('y', Float())
+    assert (vec2 == Struct(
+        'ImVec2', False,
+        [Field('x', Float()), Field('y', Float())]))

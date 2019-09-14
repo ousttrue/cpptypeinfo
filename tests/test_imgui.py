@@ -165,7 +165,42 @@ EXPECTS = {
         cpptypeinfo.Function(cpptypeinfo.Int32(), [
             cpptypeinfo.Pointer(
                 cpptypeinfo.Struct('ImGuiInputTextCallbackData'))
-        ]))
+        ])),
+    'ImGuiSizeCallback':
+    TypedefDecl(
+        'ImGuiSizeCallback',
+        cpptypeinfo.Function(
+            cpptypeinfo.Void(),
+            [cpptypeinfo.Pointer(cpptypeinfo.Struct('ImGuiSizeCallbackData'))
+             ])),
+    'ImS8':
+    TypedefDecl('ImS8', cpptypeinfo.Int8()),
+    'ImU8':
+    TypedefDecl('ImU8', cpptypeinfo.UInt8()),
+    'ImS16':
+    TypedefDecl('ImS16', cpptypeinfo.Int16()),
+    'ImU16':
+    TypedefDecl('ImU16', cpptypeinfo.UInt16()),
+    'ImS32':
+    TypedefDecl('ImS32', cpptypeinfo.Int32()),
+    'ImU32':
+    TypedefDecl('ImU32', cpptypeinfo.UInt32()),
+    'ImS64':
+    TypedefDecl('ImS64', cpptypeinfo.Int64()),
+    'ImU64':
+    TypedefDecl('ImU64', cpptypeinfo.UInt64()),
+    'ImVec2':
+    cpptypeinfo.Struct('ImVec2', False, [
+        cpptypeinfo.Field('x', cpptypeinfo.Float()),
+        cpptypeinfo.Field('y', cpptypeinfo.Float())
+    ]),
+    'ImVec4':
+    cpptypeinfo.Struct('ImVec4', False, [
+        cpptypeinfo.Field('x', cpptypeinfo.Float()),
+        cpptypeinfo.Field('y', cpptypeinfo.Float()),
+        cpptypeinfo.Field('z', cpptypeinfo.Float()),
+        cpptypeinfo.Field('w', cpptypeinfo.Float())
+    ]),
 }
 
 
@@ -173,17 +208,26 @@ def parse(c: cindex.Cursor):
     if c.kind == cindex.CursorKind.UNEXPOSED_DECL:
         tokens = [t.spelling for t in c.get_tokens()]
     elif c.kind == cindex.CursorKind.STRUCT_DECL:
-        fields = []
+        decl = cpptypeinfo.parse(f'struct {c.spelling}')
         for child in c.get_children():
-            fields.append(child)
-        if fields:
-            raise NotImplementedError()
-        return cpptypeinfo.parse(f'struct {c.spelling}')
+            if child.kind == cindex.CursorKind.FIELD_DECL:
+                decl.add_field(child.spelling,
+                               cpptypeinfo.parse(child.type.spelling))
+            elif child.kind == cindex.CursorKind.CONSTRUCTOR:
+                pass
+            elif child.kind == cindex.CursorKind.CXX_METHOD:
+                pass
+            else:
+                raise NotImplementedError()
+        return decl
 
     elif c.kind == cindex.CursorKind.TYPEDEF_DECL:
         return TypedefDecl.parse(c)
+    elif c.kind == cindex.CursorKind.FUNCTION_DECL:
+        children = [child for child in c.get_children()]
+        print(f'function {c.spelling} {c.type.spelling}')
     else:
-        print(c.kind)
+        raise NotImplementedError(str(c.kind))
 
 
 class ImGuiTest(unittest.TestCase):
@@ -197,15 +241,27 @@ class ImGuiTest(unittest.TestCase):
         self.assertEqual(cindex.CursorKind.TRANSLATION_UNIT, c.kind)
         self.assertIsNone(c.location.file)
 
-        count = 0
-        for i, c in enumerate(c.get_children()):
-            if c.location.file.name != str(IMGUI_H):
-                continue
-            count += 1
-            with self.subTest(i=i, spelling=c.spelling):
-                self.assertEqual(EXPECTS.get(c.spelling), parse(c))
-            if count > len(EXPECTS):
-                break
+        class Counter:
+            def __init__(self):
+                self.count = 0
+        counter = Counter()
+
+        def parse_namespace(c: cindex.Cursor):
+            for i, child in enumerate(c.get_children()):
+                if child.location.file.name != str(IMGUI_H):
+                    continue
+                with self.subTest(i=i, spelling=child.spelling):
+                    if child.kind == cindex.CursorKind.NAMESPACE:
+                        print(f'namespace {child.spelling}')
+                        parse_namespace(child)
+                    else:
+                        counter.count += 1
+                        self.assertEqual(EXPECTS.get(child.spelling),
+                                         parse(child))
+                if counter.count > len(EXPECTS):
+                    break
+
+        parse_namespace(c)
 
 
 if __name__ == '__main__':
