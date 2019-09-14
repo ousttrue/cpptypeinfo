@@ -198,15 +198,111 @@ EXPECTS = {
         cpptypeinfo.Param(
             cpptypeinfo.Pointer(cpptypeinfo.Struct('ImGuiContext')), 'ctx',
             'NULL')
-    ])
-}
+    ]),
+    'GetCurrentContext':
+    cpptypeinfo.Function(
+        cpptypeinfo.Pointer(cpptypeinfo.Struct('ImGuiContext')), []),
+    'SetCurrentContext':
+    cpptypeinfo.Function(cpptypeinfo.Void(), [
+        cpptypeinfo.Param(
+            cpptypeinfo.Pointer(cpptypeinfo.Struct('ImGuiContext')), 'ctx')
+    ]),
+    'DebugCheckVersionAndDataLayout':
+    cpptypeinfo.Function(cpptypeinfo.Bool(), [
+        cpptypeinfo.Param(cpptypeinfo.parse('const char*'), 'version_str'),
+        cpptypeinfo.Param(cpptypeinfo.UInt64(), 'sz_io'),
+        cpptypeinfo.Param(cpptypeinfo.UInt64(), 'sz_style'),
+        cpptypeinfo.Param(cpptypeinfo.UInt64(), 'sz_vec2'),
+        cpptypeinfo.Param(cpptypeinfo.UInt64(), 'sz_vec4'),
+        cpptypeinfo.Param(cpptypeinfo.UInt64(), 'sz_drawvert'),
+        cpptypeinfo.Param(cpptypeinfo.UInt64(), 'sz_drawidx'),
+    ]),
+    # ImGuiIO & GetIO ( )
+    'GetIO':
+    cpptypeinfo.Function(cpptypeinfo.parse('struct ImGuiIO &'), []),
+    # ImGuiStyle & GetStyle ( )
+    'GetStyle':
+    cpptypeinfo.Function(cpptypeinfo.parse('struct ImGuiStyle &'), []),
+    # void NewFrame ( )
+    'NewFrame':
+    cpptypeinfo.Function(cpptypeinfo.Void(), []),
+    'EndFrame':
+    cpptypeinfo.Function(cpptypeinfo.Void(), []),
+    'Render':
+    cpptypeinfo.Function(cpptypeinfo.Void(), []),
+    # ImDrawData * GetDrawData ( )
+    'GetDrawData':
+    cpptypeinfo.Function(cpptypeinfo.parse('struct ImDrawData *'), []),
+    # void ShowDemoWindow ( bool * p_open = NULL )
+    'ShowDemoWindow':
+    cpptypeinfo.Function(
+        cpptypeinfo.Void(),
+        [cpptypeinfo.Param(cpptypeinfo.parse('bool *'), 'p_open', 'NULL')]),
+    # void ShowAboutWindow ( bool * p_open = NULL )
+    'ShowAboutWindow':
+    cpptypeinfo.Function(
+        cpptypeinfo.Void(),
+        [cpptypeinfo.Param(cpptypeinfo.parse('bool *'), 'p_open', 'NULL')]),
+    # void ShowMetricsWindow ( bool * p_open = NULL )
+    'ShowMetricsWindow':
+    cpptypeinfo.Function(
+        cpptypeinfo.Void(),
+        [cpptypeinfo.Param(cpptypeinfo.parse('bool *'), 'p_open', 'NULL')]),
+    # void ShowStyleEditor ( ImGuiStyle * ref = NULL )
+    'ShowStyleEditor':
+    cpptypeinfo.Function(cpptypeinfo.Void(), [
+        cpptypeinfo.Param(cpptypeinfo.parse('struct ImGuiStyle *'), 'ref',
+                          'NULL')
+    ]),
+    # bool ShowStyleSelector ( const char * label )
+    'ShowStyleSelector':
+    cpptypeinfo.Function(
+        cpptypeinfo.Bool(),
+        [cpptypeinfo.Param(cpptypeinfo.parse('const char*'), 'label')]),
+    # void ShowFontSelector ( const char * label )
+    'ShowFontSelector':
+    cpptypeinfo.Function(
+        cpptypeinfo.Void(),
+        [cpptypeinfo.Param(cpptypeinfo.parse('const char*'), 'label')]),
+    # void ShowUserGuide ( )
+    'ShowUserGuide':
+    cpptypeinfo.Function(cpptypeinfo.Void(), []),
+    # const char * GetVersion ( )
+    'GetVersion':
+    cpptypeinfo.Function(cpptypeinfo.parse('const char*'), []),
+    # void StyleColorsDark ( ImGuiStyle * dst = NULL )
+    'StyleColorsDark':
+    cpptypeinfo.Function(cpptypeinfo.Void(), [
+        cpptypeinfo.Param(cpptypeinfo.parse('struct ImGuiStyle *'), 'dst',
+                          'NULL')
+    ]),
+    # void StyleColorsClassic ( ImGuiStyle * dst = NULL )
+    'StyleColorsClassic':
+    cpptypeinfo.Function(cpptypeinfo.Void(), [
+        cpptypeinfo.Param(cpptypeinfo.parse('struct ImGuiStyle *'), 'dst',
+                          'NULL')
+    ]),
+    # void StyleColorsLight ( ImGuiStyle * dst = NULL )
+    'StyleColorsLight':
+    cpptypeinfo.Function(cpptypeinfo.Void(), [
+        cpptypeinfo.Param(cpptypeinfo.parse('struct ImGuiStyle *'), 'dst',
+                          'NULL')
+    ]),
+    # bool Begin ( const char * name , bool * p_open = NULL , ImGuiWindowFlags flags = 0 )
+    'Begin':
+    cpptypeinfo.Function(cpptypeinfo.Bool(), [
+        cpptypeinfo.Param(cpptypeinfo.parse('const char *'), 'name'),
+        cpptypeinfo.Param(cpptypeinfo.parse('bool *'), 'p_open', 'NULL'),
+        cpptypeinfo.Param(cpptypeinfo.parse('typedef ImGuiWindowFlags'), 'flags', '0')
+    ]),
+ }
 
 
 def parse_param(c: cindex.Cursor) -> cpptypeinfo.Param:
     tokens = [x.spelling for x in c.get_tokens()]
     decl = cpptypeinfo.parse(c.type.spelling)
     name = c.spelling
-    default_value = None
+    default_value = ''
     for child in c.get_children():
         if child.kind == cindex.CursorKind.TYPE_REF:
             pass
@@ -237,7 +333,7 @@ def parse_function(c: cindex.Cursor) -> cpptypeinfo.Function:
             pass
         elif child.kind == cindex.CursorKind.PARM_DECL:
             params.append(parse_param(child))
-            traverse(child)
+            # traverse(child)
             pass
         else:
             raise NotImplementedError()

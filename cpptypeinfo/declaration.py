@@ -227,8 +227,10 @@ type_map = {
     'unsigned int': UInt32,
     'unsigned short': UInt16,
     'unsigned long long': UInt64,
+    'size_t': UInt64,
     'float': Float,
     'double': Double,
+    'bool': Bool,
 }
 
 
@@ -300,9 +302,9 @@ def parse(src: str, is_const=False) -> Declaration:
                 return t(is_const)
 
             for namespace in reversed(STACK):
-                t = namespace.user_type_map.get(src)
-                if t:
-                    return t
+                decl = namespace.user_type_map.get(src)
+                if decl:
+                    return decl
 
             raise Exception(f'not found: {src}')
 
