@@ -117,6 +117,14 @@ class Bool(Declaration):
         return 12
 
 
+class VaList(Declaration):
+    def __init__(self, is_const=False):
+        super().__init__(is_const)
+
+    def __hash__(self):
+        return 13
+
+
 class Pointer(Declaration):
     def __init__(self, target: Declaration, is_const=False):
         super().__init__(is_const)
@@ -245,6 +253,20 @@ class Typedef(Declaration):
         return True
 
 
+class EnumValue(NamedTuple):
+    name: str
+    value: int
+
+
+class Enum(Declaration):
+    def __init__(self, type_name: str, values: List[EnumValue],
+                 is_const=False):
+        super().__init__(is_const=is_const)
+        self.type_name = type_name
+        self.values = values
+        STACK[-1].user_type_map[self.type_name] = self
+
+
 type_map = {
     'void': Void,
     'char': Int8,
@@ -260,6 +282,7 @@ type_map = {
     'float': Float,
     'double': Double,
     'bool': Bool,
+    'va_list': VaList,
 }
 
 

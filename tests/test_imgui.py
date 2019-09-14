@@ -7,6 +7,8 @@ HERE = pathlib.Path(__file__).absolute().parent
 IMGUI_H = HERE.parent / 'libs/imgui/imgui.h'
 
 EXPECTS = {
+    'ImNewDummy':
+    cpptypeinfo.Struct('ImNewDummy'),
     'ImDrawChannel':
     cpptypeinfo.Struct('ImDrawChannel'),
     'ImDrawCmd':
@@ -559,47 +561,272 @@ EXPECTS = {
     'Checkbox': [],
     'CheckboxFlags': [],
     'RadioButton': [],
-    'RadioButton': [],
+    '__dummy__14':
+    None,
     'ProgressBar': [],
     'Bullet': [],
+    'BeginCombo': [],
+    'EndCombo': [],
+    'Combo': [],
+    '__dummy__15': [],
+    '__dummy__16': [],
+    'DragFloat': [],
+    'DragFloat2': [],
+    'DragFloat3': [],
+    'DragFloat4': [],
+    'DragFloatRange2': [],
+    'DragInt': [],
+    'DragInt2': [],
+    'DragInt3': [],
+    'DragInt4': [],
+    'DragIntRange2': [],
+    'DragScalar': [],
+    'DragScalarN': [],
+    'SliderFloat': [],
+    'SliderFloat2': [],
+    'SliderFloat3': [],
+    'SliderFloat4': [],
+    'SliderAngle': [],
+    'SliderInt': [],
+    'SliderInt2': [],
+    'SliderInt3': [],
+    'SliderInt4': [],
+    'SliderScalar': [],
+    'SliderScalarN': [],
+    'VSliderFloat': [],
+    'VSliderInt': [],
+    'VSliderScalar': [],
+    'InputText': [],
+    'InputTextMultiline': [],
+    'InputTextWithHint': [],
+    'InputFloat': [],
+    'InputFloat2': [],
+    'InputFloat3': [],
+    'InputFloat4': [],
+    'InputInt': [],
+    'InputInt2': [],
+    'InputInt3': [],
+    'InputInt4': [],
+    'InputDouble': [],
+    'InputScalar': [],
+    'InputScalarN': [],
+    'ColorEdit3': [],
+    'ColorEdit4': [],
+    'ColorPicker3': [],
+    'ColorPicker4': [],
+    'ColorButton': [],
+    'SetColorEditOptions': [],
+    'TreeNode': [],
+    '__dummy__17': [],
+    '__dummy__18': [],
+    'TreeNodeV': [],
+    '__dummy__19': [],
+    'TreeNodeEx': [],
+    '__dummy__20': [],
+    '__dummy__21': [],
+    'TreeNodeExV': [],
+    '__dummy__22': [],
+    'TreePush': [],
+    '__dummy__23': [],
+    'TreePop': [],
+    'GetTreeNodeToLabelSpacing': [],
+    'CollapsingHeader': [],
+    '__dummy__24': [],
+    'SetNextItemOpen': [],
+    'Selectable': [],
+    '__dummy__25': [],
+    'ListBox': [],
+    '__dummy__26': [],
+    'ListBoxHeader': [],
+    '__dummy__27': [],
+    'ListBoxFooter': [],
+    'PlotLines': [],
+    '__dummy__28': [],
+    'PlotHistogram': [],
+    '__dummy__29': [],
+    'Value': [],
+    '__dummy__30': [],
+    '__dummy__31': [],
+    '__dummy__32': [],
+    'BeginMainMenuBar': [],
+    'EndMainMenuBar': [],
+    'BeginMenuBar': [],
+    'EndMenuBar': [],
+    'BeginMenu': [],
+    'EndMenu': [],
+    'MenuItem': [],
+    '__dummy__33': [],
+    'BeginTooltip': [],
+    'EndTooltip': [],
+    'SetTooltip': [],
+    'SetTooltipV': [],
+    'OpenPopup': [],
+    'BeginPopup': [],
+    'BeginPopupContextItem': [],
+    'BeginPopupContextWindow': [],
+    'BeginPopupContextVoid': [],
+    'BeginPopupModal': [],
+    'EndPopup': [],
+    'OpenPopupOnItemClick': [],
+    'IsPopupOpen': [],
+    'CloseCurrentPopup': [],
+    'Columns': [],
+    'NextColumn': [],
+    'GetColumnIndex': [],
+    'GetColumnWidth': [],
+    'SetColumnWidth': [],
+    'GetColumnOffset': [],
+    'SetColumnOffset': [],
+    'GetColumnsCount': [],
+    'BeginTabBar': [],
+    'EndTabBar': [],
+    'BeginTabItem': [],
+    'EndTabItem': [],
+    'SetTabItemClosed': [],
+    'LogToTTY': [],
+    'LogToFile': [],
+    'LogToClipboard': [],
+    'LogFinish': [],
+    'LogButtons': [],
+    'LogText': [],
+    'BeginDragDropSource': [],
+    'SetDragDropPayload': [],
+    'EndDragDropSource': [],
+    'BeginDragDropTarget': [],
+    'AcceptDragDropPayload': [],
+    'EndDragDropTarget': [],
+    'GetDragDropPayload': [],
+    'PushClipRect': [],
+    'PopClipRect': [],
+    'SetItemDefaultFocus': [],
+    'SetKeyboardFocusHere': [],
+    'IsItemHovered': [],
+    'IsItemActive': [],
+    'IsItemFocused': [],
+    'IsItemClicked': [],
+    'IsItemVisible': [],
+    'IsItemEdited': [],
+    'IsItemActivated': [],
+    'IsItemDeactivated': [],
+    'IsItemDeactivatedAfterEdit': [],
+    'IsAnyItemHovered': [],
+    'IsAnyItemActive': [],
+    'IsAnyItemFocused': [],
+    'GetItemRectMin': [],
+    'GetItemRectMax': [],
+    'GetItemRectSize': [],
+    'SetItemAllowOverlap': [],
+    'IsRectVisible': [],
+    '__dummy__34': [],
+    'GetTime': [],
+    'GetFrameCount': [],
+    'GetBackgroundDrawList': [],
+    'GetForegroundDrawList': [],
+    'GetDrawListSharedData': [],
+    'GetStyleColorName': [],
+    'SetStateStorage': [],
+    'GetStateStorage': [],
+    'CalcTextSize': [],
+    'CalcListClipping': [],
+    'BeginChildFrame': [],
+    'EndChildFrame': [],
+    'ColorConvertU32ToFloat4': [],
+    'ColorConvertFloat4ToU32': [],
+    'ColorConvertRGBtoHSV': [],
+    'ColorConvertHSVtoRGB': [],
+    'GetKeyIndex': [],
+    'IsKeyDown': [],
+    'IsKeyPressed': [],
+    'IsKeyReleased': [],
+    'GetKeyPressedAmount': [],
+    'IsMouseDown': [],
+    'IsAnyMouseDown': [],
+    'IsMouseClicked': [],
+    'IsMouseDoubleClicked': [],
+    'IsMouseReleased': [],
+    'IsMouseDragging': [],
+    'IsMouseHoveringRect': [],
+    'IsMousePosValid': [],
+    'GetMousePos': [],
+    'GetMousePosOnOpeningCurrentPopup': [],
+    'GetMouseDragDelta': [],
+    'ResetMouseDragDelta': [],
+    'GetMouseCursor': [],
+    'SetMouseCursor': [],
+    'CaptureKeyboardFromApp': [],
+    'CaptureMouseFromApp': [],
+    'GetClipboardText': [],
+    'SetClipboardText': [],
+    'LoadIniSettingsFromDisk': [],
+    'LoadIniSettingsFromMemory': [],
+    'SaveIniSettingsToDisk': [],
+    'SaveIniSettingsToMemory': [],
+    'SetAllocatorFunctions': [],
+    'MemAlloc': [],
+    'MemFree': [],
+    # enum
+    'ImGuiWindowFlags_': [],
+    'ImGuiInputTextFlags_': [],
+    'ImGuiTreeNodeFlags_': [],
+    'ImGuiSelectableFlags_': [],
+    'ImGuiComboFlags_': [],
+    'ImGuiTabBarFlags_': [],
+    'ImGuiTabBarFlags_': [],
+    'ImGuiFocusedFlags_': [],
+    'ImGuiTabBarFlags_': [],
+    'ImGuiDragDropFlags_': [],
+    'ImGuiDataType_': [],
+    'ImGuiDir_': [],
+    'ImGuiKey_': [],
+    'ImGuiNavInput_': [],
+    'ImGuiConfigFlags_': [],
+    'ImGuiBackendFlags_': [],
+    'ImGuiCol_': [],
+    'ImGuiStyleVar_': [],
+    'ImGuiColorEditFlags_': [],
+    'ImGuiMouseCursor_': [],
+    'ImGuiCond_': [],
+    'ImGuiHoveredFlags_': [],
+    'ImGuiTabItemFlags_': [],
+    # struct
 }
 
 
 def parse_param(c: cindex.Cursor) -> cpptypeinfo.Param:
     tokens = [x.spelling for x in c.get_tokens()]
-
-    def get_value():
-        pos = tokens.index('=')
-        if pos == -1:
-            raise Exception('not found =')
-        value = ''.join(tokens[pos + 1:])
-        return value
+    default_value = ''
+    for i, token in enumerate(tokens):
+        if token == '=':
+            default_value = ''.join(tokens[i + 1:])
+            break
 
     decl = cpptypeinfo.parse(c.type.spelling)
     name = c.spelling
-    default_value = ''
-    for child in c.get_children():
-        if child.kind == cindex.CursorKind.TYPE_REF:
-            pass
-        elif child.kind == cindex.CursorKind.UNEXPOSED_EXPR:
-            # default param assignment
-            children = [x for x in child.get_children()]
-            assert (len(children) == 1)
-            # decl = cpptypeinfo.parse(child.type.spelling)
-            childchild = children[0]
-            # assert (childchild.kind == cindex.CursorKind.INTEGER_LITERAL)
-            default_value = get_value()
-        elif child.kind == cindex.CursorKind.INTEGER_LITERAL:
-            default_value = get_value()
-        elif child.kind == cindex.CursorKind.FLOATING_LITERAL:
-            default_value = get_value()
-        elif child.kind == cindex.CursorKind.CXX_BOOL_LITERAL_EXPR:
-            default_value = get_value()
-        elif child.kind == cindex.CursorKind.UNARY_OPERATOR:
-            # negative value
-            pass
-        else:
-            raise NotImplementedError(f'{child.kind}')
+    # for child in c.get_children():
+    #     if child.kind == cindex.CursorKind.TYPE_REF:
+    #         pass
+    #     elif child.kind == cindex.CursorKind.UNEXPOSED_EXPR:
+    #         # default param assignment
+    #         children = [x for x in child.get_children()]
+    #         assert (len(children) == 1)
+    #         # decl = cpptypeinfo.parse(child.type.spelling)
+    #         # childchild = children[0]
+    #         # assert (childchild.kind == cindex.CursorKind.INTEGER_LITERAL)
+    #         # default_value = get_value()
+    #     elif child.kind == cindex.CursorKind.INTEGER_LITERAL:
+    #         pass
+    #         # default_value = get_value()
+    #     elif child.kind == cindex.CursorKind.FLOATING_LITERAL:
+    #         pass
+    #         # default_value = get_value()
+    #     elif child.kind == cindex.CursorKind.CXX_BOOL_LITERAL_EXPR:
+    #         pass
+    #         # default_value = get_value()
+    #     elif child.kind == cindex.CursorKind.UNARY_OPERATOR:
+    #         # negative value
+    #         pass
+    #     else:
+    #         raise NotImplementedError(f'{child.kind}')
     return cpptypeinfo.Param(decl, name, default_value)
 
 
@@ -623,10 +850,25 @@ def parse_function(c: cindex.Cursor) -> cpptypeinfo.Function:
             params.append(parse_param(child))
             # traverse(child)
             pass
+        elif child.kind == cindex.CursorKind.COMPOUND_STMT:
+            # function body
+            pass
         else:
             raise NotImplementedError(f'{child.kind}')
 
     return cpptypeinfo.Function(result, params)
+
+
+def parse_enum(c: cindex.Cursor):
+    name = c.spelling
+    values = []
+    for child in c.get_children():
+        if child.kind == cindex.CursorKind.ENUM_CONSTANT_DECL:
+            values.append(
+                cpptypeinfo.EnumValue(child.spelling, child.enum_value))
+        else:
+            raise Exception(f'{child.kind}')
+    return cpptypeinfo.Enum(name, values)
 
 
 def parse(c: cindex.Cursor):
@@ -652,6 +894,9 @@ def parse(c: cindex.Cursor):
 
     elif c.kind == cindex.CursorKind.FUNCTION_DECL:
         return parse_function(c)
+
+    elif c.kind == cindex.CursorKind.ENUM_DECL:
+        return parse_enum(c)
 
     else:
         raise NotImplementedError(str(c.kind))
@@ -688,12 +933,12 @@ class ImGuiTest(unittest.TestCase):
                         cpptypeinfo.pop_namespace()
                     else:
                         counter.count += 1
+                        parsed = parse(child)
                         expected = EXPECTS.get(child.spelling)
                         if expected is None:
                             raise Exception('not found :' + ' '.join(
                                 t.spelling for t in child.get_tokens()))
                         else:
-                            parsed = parse(child)
                             if isinstance(expected, list):
                                 # print(parsed)
                                 pass
