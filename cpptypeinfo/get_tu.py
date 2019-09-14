@@ -1,5 +1,8 @@
 import pathlib
 from typing import List, Optional
+import tempfile
+import os
+import contextlib
 from clang import cindex
 
 # helper {{{
@@ -50,3 +53,20 @@ def get_tu(path: pathlib.Path,
 #     return int(tokens[0])
 
 # }}}
+
+
+@contextlib.contextmanager
+def tmp(src):
+    fd, tmp_name = tempfile.mkstemp(prefix='tmpheader_', suffix='.h')
+    os.close(fd)
+    with open(tmp_name, 'w', encoding='utf-8') as f:
+        f.write(src)
+    try:
+        yield pathlib.Path(tmp_name)
+    finally:
+        os.unlink(tmp_name)
+
+
+def get_tu_from_source(src: str):
+    with tmp(src) as path:
+        return get_tu(path)

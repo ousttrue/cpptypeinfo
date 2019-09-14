@@ -1,27 +1,10 @@
 import unittest
-import tempfile
-import os
 import pathlib
-import contextlib
-from typing import List
-
 from clang import cindex
 import cpptypeinfo
 
 HERE = pathlib.Path(__file__).absolute().parent
 IMGUI_H = HERE.parent / 'libs/imgui/imgui.h'
-
-
-@contextlib.contextmanager
-def tmp(src):
-    fd, tmp_name = tempfile.mkstemp(prefix='tmpheader_', suffix='.h')
-    os.close(fd)
-    with open(tmp_name, 'w', encoding='utf-8') as f:
-        f.write(src)
-    try:
-        yield pathlib.Path(tmp_name)
-    finally:
-        os.unlink(tmp_name)
 
 
 class TypedefDecl:
@@ -190,18 +173,53 @@ EXPECTS = {
     'ImU64':
     TypedefDecl('ImU64', cpptypeinfo.UInt64()),
     'ImVec2':
-    cpptypeinfo.Struct('ImVec2', False, [
-        cpptypeinfo.Field('x', cpptypeinfo.Float()),
-        cpptypeinfo.Field('y', cpptypeinfo.Float())
-    ]),
+    cpptypeinfo.Struct(
+        'ImVec2', False,
+        [cpptypeinfo.Float(name='x'),
+         cpptypeinfo.Float(name='y')]),
     'ImVec4':
     cpptypeinfo.Struct('ImVec4', False, [
-        cpptypeinfo.Field('x', cpptypeinfo.Float()),
-        cpptypeinfo.Field('y', cpptypeinfo.Float()),
-        cpptypeinfo.Field('z', cpptypeinfo.Float()),
-        cpptypeinfo.Field('w', cpptypeinfo.Float())
+        cpptypeinfo.Float(name='x'),
+        cpptypeinfo.Float(name='y'),
+        cpptypeinfo.Float(name='z'),
+        cpptypeinfo.Float(name='w')
     ]),
 }
+
+
+def parse_param(c: cindex.Cursor) -> cpptypeinfo.Declaration:
+    name = c.spelling
+    for child in c.get_children():
+        if child.kind == cindex.CursorKind.TYPE_REF:
+            # typedef reference ?
+            pass
+        elif child.kind == cindex.CursorKind.UNEXPOSED_EXPR:
+            decl = cpptypeinfo.parse(child.type.spelling)
+        else:
+            raise NotImplementedError(f'{child.kind}')
+    decl.name = name
+    return decl
+
+
+def traverse(c, level=''):
+    print(f'{level}{c.kind}=>{c.spelling}: {c.type.kind}=>{c.type.spelling}')
+    for child in c.get_children():
+        traverse(child, level + '  ')
+
+
+def parse_function(c: cindex.Cursor) -> cpptypeinfo.Function:
+    params = []
+    for child in c.get_children():
+        if child.kind == cindex.CursorKind.TYPE_REF:
+            result = cpptypeinfo.parse(child.type.spelling)
+        elif child.kind == cindex.CursorKind.PARM_DECL:
+            params.append(parse_param(child))
+            traverse(child)
+            pass
+        else:
+            raise NotImplementedError()
+
+    return cpptypeinfo.Function(result, params)
 
 
 def parse(c: cindex.Cursor):
@@ -224,8 +242,7 @@ def parse(c: cindex.Cursor):
     elif c.kind == cindex.CursorKind.TYPEDEF_DECL:
         return TypedefDecl.parse(c)
     elif c.kind == cindex.CursorKind.FUNCTION_DECL:
-        children = [child for child in c.get_children()]
-        print(f'function {c.spelling} {c.type.spelling}')
+        return parse_function(c)
     else:
         raise NotImplementedError(str(c.kind))
 
@@ -244,6 +261,7 @@ class ImGuiTest(unittest.TestCase):
         class Counter:
             def __init__(self):
                 self.count = 0
+
         counter = Counter()
 
         def parse_namespace(c: cindex.Cursor):
