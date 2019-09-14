@@ -3,8 +3,10 @@ import tempfile
 import os
 import pathlib
 import contextlib
-import cpptypeinfo
+from typing import List
+
 from clang import cindex
+import cpptypeinfo
 
 HERE = pathlib.Path(__file__).absolute().parent
 IMGUI_H = HERE.parent / 'libs/imgui/imgui.h'
@@ -40,6 +42,7 @@ class StructDecl:
         for child in c.get_children():
             fields.append(child)
         # if len(fields) == 0. forward decl
+        cpptypeinfo.parse(f'struct {c.spelling}')
         return StructDecl(c.spelling, *fields)
 
 
@@ -53,16 +56,23 @@ class TypedefDecl:
                 and self.src == value.src)
 
     def __repr__(self) -> str:
-        src_name = str(self.src)
         return f'<typedef {self.name} = {self.src}>'
 
     @classmethod
     def parse(cls, c: cindex.Cursor) -> 'TypedefDecl':
-        children = [child for child in c.get_children()]
-        if children:
-            # may function pointer
-            # ImGuiInputTextCallback
-            assert (len(children) == 0)
+        # children = [child for child in c.get_children()]
+        # if children:
+        #     # may function pointer
+        #     # ImGuiInputTextCallback
+        #     assert (len(children) == 1)
+        #     params = []
+        #     for p in children:
+        #         if p.kind == cindex.CursorKind.PARM_DECL:
+        #             params.append((p.spelling, p.type.spelling))
+        #         else:
+        #             raise NotImplementedError()
+        #     return TypedefDecl(c.spelling, decl)
+        # else:
         # tokens = [token.spelling for token in c.get_tokens()]
         decl = cpptypeinfo.parse(c.underlying_typedef_type.spelling)
         return TypedefDecl(c.spelling, decl)
@@ -171,7 +181,15 @@ EXPECTS = {
     TypedefDecl('ImGuiTreeNodeFlags', cpptypeinfo.Int32()),
     'ImGuiWindowFlags':
     TypedefDecl('ImGuiWindowFlags', cpptypeinfo.Int32()),
+    'ImGuiInputTextCallback':
+    TypedefDecl(
+        'ImGuiInputTextCallback',
+        cpptypeinfo.Function(cpptypeinfo.Int32(), [
+            cpptypeinfo.Pointer(
+                cpptypeinfo.Struct('ImGuiInputTextCallbackData'))
+        ]))
 }
+
 
 def parse(c: cindex.Cursor):
     if c.kind == cindex.CursorKind.UNEXPOSED_DECL:

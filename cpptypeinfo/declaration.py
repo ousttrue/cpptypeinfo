@@ -1,4 +1,5 @@
 import re
+from typing import List
 
 
 class Declaration:
@@ -143,6 +144,46 @@ class Array(Declaration):
         return super().__eq__(value) and self.target == value.target
 
 
+class Struct(Declaration):
+    def __init__(self, name, is_const=False):
+        super().__init__(is_const=is_const)
+        self.name = name
+
+    def __hash__(self):
+        return hash(self.name)
+
+    def __eq__(self, value):
+        return super().__eq__(value) and self.name == value.name
+
+
+class Function(Declaration):
+    def __init__(self,
+                 result: Declaration,
+                 params: List[Declaration],
+                 is_const=False):
+        super().__init__(is_const=is_const)
+        self.result = result
+        self.params = params
+        self._hash = hash(result)
+        for p in self.params:
+            self._hash += hash(p)
+
+    def __hash__(self):
+        return self._hash
+
+    def __eq__(self, value):
+        if not super().__eq__(value):
+            return False
+        if not self.result == value.result:
+            return False
+        if (len(self.params) != len(value.params)):
+            return False
+        for l, r in zip(self.params, value.params):
+            if (l != r): 
+                return False
+        return True
+
+
 type_map = {
     'void': Void,
     'char': Int8,
@@ -155,11 +196,20 @@ type_map = {
     'unsigned long': UInt64,
 }
 
+user_type_map = {}
+
 SPLIT_PATTERN = re.compile(r'[*&]')
+FUNC_PATTERN = re.compile(r'^(.*)\(.*\)\((.*)\)$')
 
 
 def parse(src: str, is_const=False) -> Declaration:
     src = src.strip()
+
+    m = FUNC_PATTERN.match(src)
+    if m:
+        result = m.group(1)
+        params = m.group(2).split(',')
+        return Function(parse(result), [parse(x) for x in params])
 
     if src[-1] == ']':
         # array
@@ -167,10 +217,9 @@ def parse(src: str, is_const=False) -> Declaration:
         if pos == -1:
             raise Exception('"[" not found')
         length_str = src[pos + 1:-2].strip()
+        length = None
         if length_str:
             length = int(length_str)
-        else:
-            length = None
         return Array(parse(src[0:pos]), length, is_const)
 
     found = [x for x in SPLIT_PATTERN.finditer(src)]
@@ -186,8 +235,18 @@ def parse(src: str, is_const=False) -> Declaration:
             return parse(' '.join(splitted[1:]), True)
         elif splitted[-1] == 'const':
             return parse(' '.join(splitted[:-1]), True)
+        elif splitted[0] == 'struct':
+            if len(splitted) != 2:
+                raise Exception()
+            user_type = Struct(splitted[1])
+            user_type_map[user_type.name] = user_type
+            return user_type
         else:
-            return type_map[src](is_const)
+            t = type_map.get(src)
+            if t:
+                return t(is_const)
+
+            return user_type_map[src]
 
 
 if __name__ == '__main__':
@@ -219,3 +278,8 @@ if __name__ == '__main__':
     assert (parse('int[5]') == Array(Int32(), 5))
     assert (parse('const int[5]') == Array(Int32(True), 5))
     assert (parse('const int*[5]') == Array(Pointer(Int32(True)), 5))
+
+    assert (parse('struct ImGuiInputTextCallbackData') == Struct(
+        'ImGuiInputTextCallbackData'))
+    assert (parse('int (*)(ImGuiInputTextCallbackData *)') == Function(
+        Int32(), [Pointer(Struct('ImGuiInputTextCallbackData'))]))
