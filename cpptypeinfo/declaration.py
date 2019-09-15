@@ -23,8 +23,9 @@ class Declaration:
     def is_based(self, based: 'Declaration') -> bool:
         return self == based
 
-    def replace_based(self, based: 'Declaration', replace: 'Declaration'):
-        pass
+    def replace_based(self, clone: 'Declaration', based: 'Declaration',
+                      replace: 'Declaration'):
+        raise Exception()
 
 
 class Namespace:
@@ -183,11 +184,13 @@ class Pointer(Declaration):
             return True
         return self.target.is_based(based)
 
-    def replace_based(self, based: Declaration, replace: Declaration):
-        if self.target == based:
-            self.target = replace
+    def replace_based(self, clone: Declaration, based: Declaration,
+                      replace: Declaration):
+        if clone.target == based:
+            clone.target = replace
         else:
-            self.target.replace_based(based, replace)
+            clone.target = copy.copy(clone.target)
+            self.target.replace_based(clone.target, based, replace)
 
 
 class Array(Declaration):
@@ -256,8 +259,8 @@ class Struct(Declaration, Namespace):
                     if f.type == based:
                         self.fields[i] = Field(replace, f.name, f.value)
                     else:
-                        clone = copy.deepcopy(f.type)
-                        clone.replace_based(based, replace)
+                        clone = copy.copy(f.type)
+                        f.type.replace_based(clone, based, replace)
                         self.fields[i] = Field(clone, f.name, f.value)
 
         decl.template_parameters.clear()
@@ -345,12 +348,7 @@ class Function(Declaration):
         return False
 
     def replace_based(self, based: Declaration, replace: Declaration):
-        for i in range(len(self.params)):
-            f = self.fields[i]
-            if f.type == based:
-                self.fields[i] = Field(replace, f.name, f.value)
-            else:
-                f.type.replace_based(based, replace)
+        raise NotImplementedError()
 
 
 class Typedef(Declaration):
