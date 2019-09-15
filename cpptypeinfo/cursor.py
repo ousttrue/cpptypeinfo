@@ -64,6 +64,8 @@ def parse_function(c: cindex.Cursor) -> cpptypeinfo.Function:
         elif child.kind == cindex.CursorKind.COMPOUND_STMT:
             # function body
             pass
+        elif child.kind == cindex.CursorKind.DLLEXPORT_ATTR:
+            pass
         else:
             raise NotImplementedError(f'{child.kind}')
 
@@ -120,7 +122,8 @@ def parse_struct(c: cindex.Cursor):
 def parse_cursor(c: cindex.Cursor):
     if c.kind == cindex.CursorKind.UNEXPOSED_DECL:
         # tokens = [t.spelling for t in c.get_tokens()]
-        pass
+        for child in c.get_children():
+            parse_cursor(child)
     elif c.kind == cindex.CursorKind.UNION_DECL:
         return parse_struct(c)
     elif c.kind == cindex.CursorKind.STRUCT_DECL:
