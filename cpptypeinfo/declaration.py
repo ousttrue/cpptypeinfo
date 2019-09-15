@@ -20,6 +20,12 @@ class Declaration:
     def clone(self):
         return copy.copy(self)
 
+    def is_based(self, based: 'Declaration') -> bool:
+        return self == based
+
+    def replace_based(self, based: 'Declaration', replace: 'Declaration'):
+        pass
+
 
 class Namespace:
     def __init__(self, name: str = ''):
@@ -172,6 +178,17 @@ class Pointer(Declaration):
     def __str__(self):
         return f'Ptr({self.target})'
 
+    def is_based(self, based: Declaration) -> bool:
+        if self.target == based:
+            return True
+        return self.target.is_based(based)
+
+    def replace_based(self, based: Declaration, replace: Declaration):
+        if self.target == based:
+            self.target = replace
+        else:
+            self.target.replace_based(based, replace)
+
 
 class Array(Declaration):
     def __init__(self, target: Declaration, length=None, is_const=False):
@@ -185,6 +202,17 @@ class Array(Declaration):
 
     def __eq__(self, value):
         return super().__eq__(value) and self.target == value.target
+
+    def is_based(self, based: 'Declaration') -> bool:
+        if self.target == based:
+            return True
+        return self.target.is_based(based)
+
+    def replace_based(self, based: Declaration, replace: Declaration):
+        if self.target == based:
+            self.target = replace
+        else:
+            self.target.replace_based(based, replace)
 
 
 class Field(NamedTuple):
@@ -213,6 +241,39 @@ class Struct(Declaration, Namespace):
     def add_template_parameter(self, t: str) -> None:
         self.template_parameters.append(t)
         self.user_type_map[t] = parse(f'struct {t}')
+
+    def instantiate(self, template_params: List[Declaration]) -> 'Struct':
+        decl = self.clone()
+
+        based_params = [
+            self.get(t, self.is_const) for t in self.template_parameters
+        ]
+
+        for based, replace in zip(based_params, template_params):
+            for i in range(len(self.fields)):
+                f = self.fields[i]
+                if f.type.is_based(based):
+                    if f.type == based:
+                        self.fields[i] = Field(replace, f.name, f.value)
+                    else:
+                        clone = copy.deepcopy(f.type)
+                        clone.replace_based(based, replace)
+                        self.fields[i] = Field(clone, f.name, f.value)
+
+        decl.template_parameters.clear()
+
+        return decl
+
+    def is_based(self, based: 'Declaration') -> bool:
+        for f in self.fields:
+            if f.type == based:
+                return True
+            if f.type.is_based(based):
+                return True
+        return False
+
+    def replace_based(self, based: Declaration, replace: Declaration):
+        raise NotImplementedError()
 
     def __hash__(self):
         return hash(self.type_name)
@@ -275,6 +336,22 @@ class Function(Declaration):
         params = ', '.join(str(p.type) for p in self.params)
         return f'{self.result}({params})'
 
+    def is_based(self, based: 'Declaration') -> bool:
+        for p in self.params:
+            if p.type == based:
+                return True
+            if p.type.is_based(based):
+                return True
+        return False
+
+    def replace_based(self, based: Declaration, replace: Declaration):
+        for i in range(len(self.params)):
+            f = self.fields[i]
+            if f.type == based:
+                self.fields[i] = Field(replace, f.name, f.value)
+            else:
+                f.type.replace_based(based, replace)
+
 
 class Typedef(Declaration):
     def __init__(self, type_name: str, src: Declaration):
@@ -294,6 +371,17 @@ class Typedef(Declaration):
         if self.src != value.src:
             return False
         return True
+
+    def is_based(self, based: 'Declaration') -> bool:
+        if self.src == based:
+            return True
+        return self.src.is_based(based)
+
+    def replace_based(self, based: Declaration, replace: Declaration):
+        if self.src == based:
+            self.src = replace
+        else:
+            self.src.replace_based(based, replace)
 
 
 class EnumValue(NamedTuple):
@@ -363,6 +451,18 @@ def parse(src: str, is_const=False) -> Declaration:
         result = m.group(1)
         params = m.group(2).split(',')
         return Function(parse(result), [Param(type=parse(x)) for x in params])
+
+    if src[-1] == '>':
+        # template
+        pos = src.rfind('<')
+        if pos == -1:
+            raise Exception('< not found')
+        template = get_from_ns(src[:pos], is_const)
+        if not isinstance(template, Struct):
+            raise Exception()
+        template_params = [parse(t) for t in src[pos + 1:-1].split(',')]
+        decl = template.instantiate(template_params)
+        return decl
 
     if src[-1] == ']':
         # array
