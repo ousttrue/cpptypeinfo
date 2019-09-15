@@ -425,15 +425,25 @@ class Enum(Declaration):
 
 type_map = {
     'void': Void,
+    #
+    'int64_t': Int64,
+    'uint64_t': UInt64,
+    #
     'char': Int8,
-    'signed char': Int8,
     'int': Int32,
     'short': Int16,
     'long long': Int64,
+    #
+    'signed char': Int8,
+    'signed short': Int16,
+    'signed int': Int32,
+    'signed long long': Int64,
+    #
     'unsigned char': UInt8,
     'unsigned int': UInt32,
     'unsigned short': UInt16,
     'unsigned long long': UInt64,
+    #
     'size_t': UInt64,
     'float': Float,
     'double': Double,
@@ -445,6 +455,10 @@ NS_PATTERN = re.compile(r'(\w+)::(\w+)$')
 
 
 def get_from_ns(src: str, is_const: bool) -> Optional[Declaration]:
+    t = type_map.get(src)
+    if t:
+        return t(is_const)
+
     for namespace in reversed(STACK):
         decl = namespace.get(src, is_const)
         if decl:
@@ -482,10 +496,12 @@ def parse(src: str, is_const=False) -> Declaration:
         pos = src.rfind('<')
         if pos == -1:
             raise Exception('< not found')
-        template = get_from_ns(src[:pos], is_const)
-        if not isinstance(template, Struct):
+        template = get_from_ns(src[:pos].strip(), is_const)
+        if not template:
             raise Exception()
-        template_params = [parse(t) for t in src[pos + 1:-1].split(',')]
+        template_params = [
+            parse(t) for t in src[pos + 1:-1].strip().split(',')
+        ]
         decl = template.instantiate(template_params)
         return decl
 

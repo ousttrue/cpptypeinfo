@@ -86,6 +86,8 @@ def parse_enum(c: cindex.Cursor):
 
 def parse_struct(c: cindex.Cursor):
     decl: cpptypeinfo.Struct = cpptypeinfo.parse(f'struct {c.spelling}')
+    if isinstance(decl, cpptypeinfo.Typedef):
+        decl = decl.src
     cpptypeinfo.push_namespace(decl)
     for child in c.get_children():
         if child.kind == cindex.CursorKind.FIELD_DECL:
@@ -130,7 +132,19 @@ def parse_cursor(c: cindex.Cursor):
         return parse_struct(c)
 
     elif c.kind == cindex.CursorKind.TYPEDEF_DECL:
-        decl = cpptypeinfo.parse(c.underlying_typedef_type.spelling)
+        # decl = cpptypeinfo.parse(c.underlying_typedef_type.spelling)
+        tokens = [t.spelling for t in c.get_tokens()]
+        if tokens[-1] == ')' or c.underlying_typedef_type.spelling != 'int':
+            decl = cpptypeinfo.parse(c.underlying_typedef_type.spelling)
+        else:
+            # int type may be wrong.
+            # workaround
+            end = -1
+            for i, t in enumerate(tokens):
+                if t == '{':
+                    end = i
+                    break
+            decl = cpptypeinfo.parse(' '.join(tokens[1:end]))
         return cpptypeinfo.Typedef(c.spelling, decl)
 
     elif c.kind == cindex.CursorKind.FUNCTION_DECL:
