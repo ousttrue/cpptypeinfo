@@ -12,33 +12,7 @@ def parse_param(c: cindex.Cursor) -> cpptypeinfo.Param:
             break
 
     decl = cpptypeinfo.parse(c.type.spelling)
-    name = c.spelling
-    # for child in c.get_children():
-    #     if child.kind == cindex.CursorKind.TYPE_REF:
-    #         pass
-    #     elif child.kind == cindex.CursorKind.UNEXPOSED_EXPR:
-    #         # default param assignment
-    #         children = [x for x in child.get_children()]
-    #         assert (len(children) == 1)
-    #         # decl = cpptypeinfo.parse(child.type.spelling)
-    #         # childchild = children[0]
-    #         # assert (childchild.kind == cindex.CursorKind.INTEGER_LITERAL)
-    #         # default_value = get_value()
-    #     elif child.kind == cindex.CursorKind.INTEGER_LITERAL:
-    #         pass
-    #         # default_value = get_value()
-    #     elif child.kind == cindex.CursorKind.FLOATING_LITERAL:
-    #         pass
-    #         # default_value = get_value()
-    #     elif child.kind == cindex.CursorKind.CXX_BOOL_LITERAL_EXPR:
-    #         pass
-    #         # default_value = get_value()
-    #     elif child.kind == cindex.CursorKind.UNARY_OPERATOR:
-    #         # negative value
-    #         pass
-    #     else:
-    #         raise NotImplementedError(f'{child.kind}')
-    return cpptypeinfo.Param(decl, name, default_value)
+    return cpptypeinfo.Param(decl, c.spelling, default_value)
 
 
 def traverse(c, level=''):
