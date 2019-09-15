@@ -9,7 +9,8 @@
         "cpptypeinfo",
         "dlang",
         "finditer",
-        "rfind"
+        "rfind",
+        "rmtree"
     ],
     "python.testing.unittestArgs": [
         "-v",
