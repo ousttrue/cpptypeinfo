@@ -795,6 +795,34 @@ EXPECTS = {
     #
     'ImVector':
     cpptypeinfo.parse('struct ImVector'),
+    #
+    'TreeAdvanceToLabelPos': [],
+    'SetNextTreeNodeOpen': [],
+    'GetContentRegionAvailWidth': [],
+    'GetOverlayDrawList': [],
+    'SetScrollHere': [],
+    'IsItemDeactivatedAfterChange': [],
+    'IsAnyWindowFocused': [],
+    'IsAnyWindowHovered': [],
+    'CalcItemRectClosestPoint': [],
+    'ShowTestWindow': [],
+    'IsRootWindowFocused': [],
+    'IsRootWindowOrAnyChildFocused': [],
+    'SetNextWindowContentWidth': [],
+    'GetItemsLineHeightWithSpacing': [],
+    'IsRootWindowOrAnyChildHovered': [],
+    'AlignFirstTextHeightToWidgets': [],
+    'SetNextWindowPosCenter': [],
+    #
+    'ImGuiTextEditCallback': [],
+    'ImGuiTextEditCallbackData': [],
+    'ImDrawCallback': [],
+    'ImDrawIdx':
+    cpptypeinfo.Typedef('ImDrawIdx', cpptypeinfo.UInt16()),
+    'ImDrawCornerFlags_': [],
+    'ImDrawListFlags_': [],
+    'ImFontAtlasCustomRect': [],
+    'ImFontAtlasFlags_': [],
 }
 
 
@@ -890,10 +918,21 @@ def parse_struct(c: cindex.Cursor):
             pass
         elif child.kind == cindex.CursorKind.CXX_METHOD:
             pass
+        elif child.kind == cindex.CursorKind.CONVERSION_FUNCTION:
+            pass
         elif child.kind == cindex.CursorKind.TEMPLATE_TYPE_PARAMETER:
             decl.add_template_parameter(child.spelling)
+        elif child.kind == cindex.CursorKind.VAR_DECL:
+            # static variable
+            pass
+        elif child.kind == cindex.CursorKind.UNION_DECL:
+            # ToDo
+            pass
+        elif child.kind == cindex.CursorKind.STRUCT_DECL:
+            parse_struct(child)
         elif child.kind == cindex.CursorKind.TYPEDEF_DECL:
-            typedef_decl = cpptypeinfo.parse(child.underlying_typedef_type.spelling)
+            typedef_decl = cpptypeinfo.parse(
+                child.underlying_typedef_type.spelling)
             cpptypeinfo.Typedef(child.spelling, typedef_decl)
         else:
             raise NotImplementedError(f'{child.kind}')
@@ -929,7 +968,9 @@ def parse(c: cindex.Cursor):
 
 class ImGuiTest(unittest.TestCase):
     def test_int(self) -> None:
-        tu = cpptypeinfo.get_tu(IMGUI_H)
+        tu = cpptypeinfo.get_tu(IMGUI_H, cpp_flags=[
+            '-DIMGUI_DISABLE_OBSOLETE_FUNCTIONS',
+        ])
         self.assertIsInstance(tu, cindex.TranslationUnit)
 
         # TRANSLATION_UNIT
@@ -950,7 +991,8 @@ class ImGuiTest(unittest.TestCase):
                     continue
                 with self.subTest(i=counter.count,
                                   kind=child.kind,
-                                  spelling=child.spelling):
+                                  spelling=child.spelling,
+                                  line=child.location.line):
                     if child.kind == cindex.CursorKind.NAMESPACE:
                         # nested
                         cpptypeinfo.push_namespace(child.spelling)

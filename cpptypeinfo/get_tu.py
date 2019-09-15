@@ -12,6 +12,7 @@ SET_DLL = False
 
 def get_tu(path: pathlib.Path,
            include_path_list: List[pathlib.Path] = None,
+           cpp_flags: List[str] = None,
            use_macro: bool = False,
            dll: Optional[pathlib.Path] = None) -> cindex.TranslationUnit:
     '''
@@ -40,6 +41,9 @@ def get_tu(path: pathlib.Path,
             value = f'-I{str(i)}'
             if value not in cpp_args:
                 cpp_args.append(value)
+    if cpp_flags:
+        for f in cpp_flags:
+            cpp_args.append(f)
 
     return index.parse(str(path), cpp_args, **kw)
 
