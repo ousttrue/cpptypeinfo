@@ -5,7 +5,6 @@ import os
 import contextlib
 from clang import cindex
 
-# helper {{{
 DEFAULT_CLANG_DLL = pathlib.Path("C:/Program Files/LLVM/bin/libclang.dll")
 SET_DLL = False
 
@@ -46,17 +45,6 @@ def get_tu(path: pathlib.Path,
             cpp_args.append(f)
 
     return index.parse(str(path), cpp_args, **kw)
-
-
-# def get_token(cursor: cindex.Cursor) -> int:
-#     if cursor.kind != cindex.CursorKind.INTEGER_LITERAL:
-#         raise Exception('not int')
-#     tokens = [x.spelling for x in cursor.get_tokens()]
-#     if len(tokens) != 1:
-#         raise Exception('not 1')
-#     return int(tokens[0])
-
-# }}}
 
 
 @contextlib.contextmanager
