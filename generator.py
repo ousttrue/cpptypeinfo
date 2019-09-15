@@ -19,7 +19,7 @@ namespace {{ namespace }}
     public enum {{ type_name }}
     {
 {%- for value in values %}
-        {{ value.name }} = {{ value.value }}
+        {{ value.name }} = {{ value.value }},
 {%- endfor %}
     }
 }
@@ -67,6 +67,43 @@ namespace {{ namespace }}
                      type=typedef_type))
 
 
+def generate_struct(decl: cpptypeinfo.Struct, root: pathlib.Path,
+                    namespace: str):
+
+    dst = root / f'{decl.type_name}.cs'
+    t = Template('''// python generate
+namespace {{ namespace }}
+{
+    {{ attribute }}
+    public struct {{ type_name }}
+    {
+{%- for value in values %}
+        public {{ value }};
+{%- endfor %}
+    }
+}
+''')
+
+    def field_str(f):
+        if isinstance(f.type, cpptypeinfo.Typedef):
+            if isinstance(f.type.src, cpptypeinfo.Pointer):
+                return f'IntPtr {f.name}'
+            elif f.type.type_name.endswith('Callback'):
+                return f'IntPtr {f.name}'
+            else:
+                return f'{f.type.type_name} {f.name}'
+        elif isinstance(f.type, cpptypeinfo.Pointer):
+            return f'IntPtr {f.name}'
+        else:
+            return f'{f.type} {f.name}'
+
+    with open(dst, 'w') as f:
+        f.write(
+            t.render(namespace=namespace,
+                     type_name=decl.type_name,
+                     values=[field_str(f) for f in decl.fields]))
+
+
 def generate(ns: cpptypeinfo.Namespace, root: pathlib.Path):
     root.mkdir(parents=True, exist_ok=True)
 
@@ -93,7 +130,7 @@ def generate(ns: cpptypeinfo.Namespace, root: pathlib.Path):
                           valuename_filter)
             removes.append(v.type_name[:-1])
 
-    # except enum 
+    # except enum
     for k, v in ns.user_type_map.items():
         if isinstance(v, cpptypeinfo.Enum):
             pass
@@ -103,8 +140,8 @@ def generate(ns: cpptypeinfo.Namespace, root: pathlib.Path):
             if v.type_name.endswith('Callback'):
                 continue
             generate_typedef(v, root, namespace_name)
-        # elif isinstance(v, cpptypeinfo.Struct):
-        #     generate_struct(v, root)
+        elif isinstance(v, cpptypeinfo.Struct):
+            generate_struct(v, root, namespace_name)
         else:
             raise Exception()
 
@@ -126,7 +163,6 @@ def main(dst: pathlib.Path):
     root.resolve('ImU16')
     root.resolve('ImU32')
     root.resolve('ImU64')
-
 
     for ns in root.traverse():
         if not isinstance(ns, cpptypeinfo.Struct):

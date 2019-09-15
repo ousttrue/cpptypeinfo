@@ -361,7 +361,7 @@ class Struct(Declaration, Namespace):
         return True
 
     def __str__(self) -> str:
-        return f'struct {self.type_name}'
+        return f'{self.type_name}'
 
 
 class Param(NamedTuple):
@@ -424,7 +424,9 @@ class Typedef(Declaration):
         super().__init__(is_const=False)
         self.type_name = type_name
         self.src = src
-        STACK[-1].user_type_map[self.type_name] = self
+
+        if self.type_name not in STACK[-1].user_type_map:
+            STACK[-1].user_type_map[self.type_name] = self
 
     def __str__(self) -> str:
         return f'typedef {self.type_name} = {self.src}'
