@@ -8,8 +8,11 @@ class Declaration:
         self.is_const = is_const
 
     def __eq__(self, value):
-        return isinstance(value,
-                          self.__class__) and self.is_const == value.is_const
+        if not isinstance(value, self.__class__):
+            return False
+        # if self.is_const != value.is_const:
+        #     return False
+        return True
 
     def __str__(self):
         if self.is_const:
@@ -29,7 +32,7 @@ class Declaration:
 
     def resolve(self, target: 'Typedef'):
         pass
- 
+
 
 class Namespace:
     def __init__(self, name: str):
@@ -61,7 +64,8 @@ class Namespace:
         yield self
         for child in self.children:
             for x in child.traverse(level + 1):
-                yield x
+                if not isinstance(x, Struct):
+                    yield x
 
     def resolve(self, name: str):
         while True:
@@ -413,10 +417,14 @@ class Function(Declaration):
         raise NotImplementedError()
 
     def resolve(self, target: 'Typedef'):
+        if target.type_name == 'ImU32':
+            a = 0
         for i in range(len(self.params)):
             f = self.params[i]
             if f.type == target:
                 self.params[i] = Param(target.src, f.name, f.value)
+        if self.result == target:
+            self.result = target.src
 
 
 class Typedef(Declaration):
@@ -437,8 +445,9 @@ class Typedef(Declaration):
     def __eq__(self, value):
         if not super().__eq__(value):
             return False
-        # if self.type_name!=value.type_name:
-        #     return False
+        if self.type_name == value.type_name:
+            if self.src != value.src:
+                raise Exception()
         if self.src != value.src:
             return False
         return True
@@ -457,6 +466,12 @@ class Typedef(Declaration):
     def resolve(self, target: 'Typedef'):
         if self.src == target:
             self.src = target.src
+
+    def get_concrete_type(self):
+        current = self.src
+        while isinstance(current, Typedef):
+            current = current.src
+        return current
 
 
 class EnumValue(NamedTuple):

@@ -1,19 +1,79 @@
 import pathlib
+import sys
 import shutil
+from typing import Tuple, Optional, Dict
 from jinja2 import Template
 import cpptypeinfo
 HERE = pathlib.Path(__file__).absolute().parent
 CIMGUI_H = HERE / 'libs/cimgui/cimgui.h'
 IMGUI_H = HERE / 'libs/imgui/imgui.h'
 
+HEADLINE = f'// generated cpptypeinfo-{cpptypeinfo.VERSION}'
+NAMESPACE_NAME = 'SharpImGui'
+USING = '''using System;
+using System.Runtime.InteropServices;'''
 
-def generate_enum(enum: cpptypeinfo.Enum, root: pathlib.Path, namespace: str,
-                  is_flags: bool, typename_filter, valuename_filter):
+cs_type_map: Dict[cpptypeinfo.Declaration, Tuple[Optional[str], str]] = {
+    cpptypeinfo.Int8: (None, 'sbyte'),
+    cpptypeinfo.Int16: (None, 'short'),
+    cpptypeinfo.Int32: (None, 'int'),
+    cpptypeinfo.Int64: (None, 'long'),
+    cpptypeinfo.UInt8: (None, 'byte'),
+    cpptypeinfo.UInt16: (None, 'ushort'),
+    cpptypeinfo.UInt32: (None, 'uint'),
+    cpptypeinfo.UInt64: (None, 'ulong'),
+    cpptypeinfo.Float: (None, 'float'),
+    cpptypeinfo.Double: (None, 'double'),
+    cpptypeinfo.Bool: ('MarshalAs(UnmanagedType.U1)', 'bool'),
+}
+
+
+def to_cs(decl: cpptypeinfo.Declaration) -> Tuple[Optional[str], str]:
+    if not decl:
+        # bug
+        return (None, 'IntPtr')
+
+    cs_type = cs_type_map.get(decl.__class__)
+    if cs_type:
+        return cs_type
+
+    if isinstance(decl, cpptypeinfo.Void):
+        return (None, 'void')
+    elif isinstance(decl, cpptypeinfo.Pointer):
+        return (None, 'IntPtr')
+    elif isinstance(decl, cpptypeinfo.Array):
+        return (None, 'IntPtr')
+    elif isinstance(decl, cpptypeinfo.Function):
+        return (None, 'IntPtr')
+    elif isinstance(decl, cpptypeinfo.Struct):
+        return (None, decl.type_name)
+    elif isinstance(decl, cpptypeinfo.Typedef):
+        if isinstance(decl.get_concrete_type(), cpptypeinfo.Function):
+            return (None, 'IntPtr')
+        else:
+            return (None, decl.type_name)
+    else:
+        raise NotImplementedError(str(decl))
+
+
+CS_SYMBOLS = ['ref', 'in', 'out']
+
+
+def cs_symbol(name: str):
+    if name in CS_SYMBOLS:
+        return '_' + name
+    return name
+
+
+def generate_enum(enum: cpptypeinfo.Enum, root: pathlib.Path, is_flags: bool,
+                  typename_filter, valuename_filter):
 
     type_name = typename_filter(enum.type_name)
 
     dst = root / f'{type_name}.cs'
-    t = Template('''// python generate
+    t = Template('''{{ headline }}
+{{ using }}
+
 namespace {{ namespace }}
 {
     {{ attribute }}
@@ -27,7 +87,9 @@ namespace {{ namespace }}
 ''')
     with open(dst, 'w') as f:
         f.write(
-            t.render(namespace=namespace,
+            t.render(headline=HEADLINE,
+                     using=USING,
+                     namespace=NAMESPACE_NAME,
                      attribute='[Flags]' if is_flags else '',
                      type_name=type_name,
                      values=[
@@ -36,8 +98,7 @@ namespace {{ namespace }}
                      ]))
 
 
-def generate_typedef(typedef: cpptypeinfo.Typedef, root: pathlib.Path,
-                     namespace: str):
+def generate_typedef(typedef: cpptypeinfo.Typedef, root: pathlib.Path):
 
     if isinstance(
             typedef.src,
@@ -47,65 +108,76 @@ def generate_typedef(typedef: cpptypeinfo.Typedef, root: pathlib.Path,
 
     dst = root / f'{typedef.type_name}.cs'
 
-    t = Template('''// python generate
+    t = Template('''{{ headline }}
+{{ using }}
+
 namespace {{ namespace }}
 {
     public struct {{ type_name }}
     {
-        public {{ type }} Value;
+        {{ type }};
     }
 }
 ''')
 
-    typedef_type = str(typedef.src)
-    if isinstance(typedef.src, cpptypeinfo.Pointer):
-        typedef_type = 'IntPtr'
+    typedef_attr, typedef_type = to_cs(typedef.src)
+    if typedef_attr:
+        typedef_attr = f'[typedef_attr]'
+    else:
+        typedef_attr = ''
+
+    typedef_type = f'{typedef_attr}public {typedef_type} Value'
 
     with open(dst, 'w') as f:
         f.write(
-            t.render(namespace=namespace,
+            t.render(headline=HEADLINE,
+                     using=USING,
+                     namespace=NAMESPACE_NAME,
                      type_name=typedef.type_name,
                      type=typedef_type))
 
 
-def generate_struct(decl: cpptypeinfo.Struct, root: pathlib.Path,
-                    namespace: str):
+def generate_struct(decl: cpptypeinfo.Struct, root: pathlib.Path):
 
     dst = root / f'{decl.type_name}.cs'
-    t = Template('''// python generate
+    t = Template('''// {{ headline }}
+{{ using }}
+
 namespace {{ namespace }}
 {
     {{ attribute }}
     public struct {{ type_name }}
     {
 {%- for value in values %}
-        public {{ value }};
+        {{ value }};
 {%- endfor %}
     }
 }
 ''')
 
-    def field_str(f):
-        if isinstance(f.type, cpptypeinfo.Typedef):
-            if isinstance(f.type.src, cpptypeinfo.Pointer):
-                return f'IntPtr {f.name}'
-            elif f.type.type_name.endswith('Callback'):
-                return f'IntPtr {f.name}'
-            else:
-                return f'{f.type.type_name} {f.name}'
-        elif isinstance(f.type, cpptypeinfo.Pointer):
-            return f'IntPtr {f.name}'
+    def field_str(f: cpptypeinfo.Field):
+        field_attr, field_type = to_cs(f.type)
+        if field_attr:
+            field_attr = f'[{field_attr}]'
         else:
-            return f'{f.type} {f.name}'
+            field_attr = ''
+        return f'{field_attr}public {field_type} {f.name}'
 
     with open(dst, 'w') as f:
         f.write(
-            t.render(namespace=namespace,
+            t.render(headline=HEADLINE,
+                     using=USING,
+                     namespace=NAMESPACE_NAME,
                      type_name=decl.type_name,
                      values=[field_str(f) for f in decl.fields]))
 
 
 def generate(ns: cpptypeinfo.Namespace, root: pathlib.Path):
+    '''
+    cimgui を出力する。
+    enum XXXFlags_ と typedef int XXXFlags
+    をまとめて enum XXXFlags にする。
+    '''
     root.mkdir(parents=True, exist_ok=True)
 
     def typename_filter(src):
@@ -120,18 +192,20 @@ def generate(ns: cpptypeinfo.Namespace, root: pathlib.Path):
         else:
             return src
 
-    namespace_name = 'SharpImGui'
-    # enum
+    #
+    # first enum
+    #
     removes = []
     for k, v in ns.user_type_map.items():
         if isinstance(v, cpptypeinfo.Enum):
 
-            generate_enum(v, root, namespace_name,
-                          v.type_name.endswith('Flags_'), typename_filter,
-                          valuename_filter)
+            generate_enum(v, root, v.type_name.endswith('Flags_'),
+                          typename_filter, valuename_filter)
             removes.append(v.type_name[:-1])
 
-    # except enum
+    #
+    # second, except enum
+    #
     for k, v in ns.user_type_map.items():
         if isinstance(v, cpptypeinfo.Enum):
             pass
@@ -140,44 +214,115 @@ def generate(ns: cpptypeinfo.Namespace, root: pathlib.Path):
                 continue
             if v.type_name.endswith('Callback'):
                 continue
-            generate_typedef(v, root, namespace_name)
+            generate_typedef(v, root)
         elif isinstance(v, cpptypeinfo.Struct):
-            generate_struct(v, root, namespace_name)
+            generate_struct(v, root)
         else:
             raise Exception()
 
 
-def main(dst: pathlib.Path):
-    root = cpptypeinfo.push_namespace()
+def generate_functions(root_ns: cpptypeinfo.Namespace, root: pathlib.Path):
+    dst = root / 'CImGui.cs'
+
+    def to_cs_param(p: cpptypeinfo.Param):
+        param_attr, param = to_cs(p.type)
+        if param_attr:
+            param_attr = f'[{param_attr}]'
+        else:
+            param_attr = ''
+        if param == 'ImU32':
+            a = 0
+        return f'{param_attr}{param} {cs_symbol(p.name)}'
+
+    def function_str(k, v: cpptypeinfo.Function):
+        params = [to_cs_param(p) for p in v.params]
+        ret_attr, ret = to_cs(v.result)
+        if ret_attr:
+            ret_attr = f'\n        [return: {ret_attr}]\n'
+        else:
+            ret_attr = ''
+        return f'''[DllImport(DLLNAME)]{ret_attr}
+        public static extern {ret} {k}({", ".join(params)});'''
+
+    values = []
+    for ns in root_ns.traverse():
+        if not isinstance(ns, cpptypeinfo.Struct):
+            for k, v in ns.function_map.items():
+                if k.startswith('operator '):
+                    continue
+                if any(
+                        isinstance(p.type, cpptypeinfo.VaList)
+                        for p in v.params):
+                    continue
+                values.append(function_str(k, v))
+
+    t = Template('''{{ headline }}
+{{ using }}
+
+namespace {{ namespace }}
+{
+    public static class CImGui
+    {
+        const string DLLNAME = "cimgui.dll";
+
+{%- for value in values %}
+
+        {{ value }}
+{%- endfor %}
+    }
+}
+''')
+    with open(dst, 'w') as f:
+        f.write(
+            t.render(headline=HEADLINE,
+                     using=USING,
+                     namespace=NAMESPACE_NAME,
+                     values=values))
+
+
+def main(imgui_h: pathlib.Path, cimgui_h: pathlib.Path, root: pathlib.Path):
+    root_ns = cpptypeinfo.push_namespace()
     with cpptypeinfo.tmp_from_source('''
 #include <imgui.h>
 #include <cimgui.h>
     ''') as path:
-        cpptypeinfo.parse_header(path,
-                                 cpp_flags=[
-                                     f'-I{IMGUI_H.parent}',
-                                     f'-I{CIMGUI_H.parent}',
-                                 ],
-                                 include_path_list=[str(IMGUI_H), str(CIMGUI_H)])
+        cpptypeinfo.parse_header(
+            path,
+            cpp_flags=[
+                f'-I{imgui_h.parent}',
+                f'-I{cimgui_h.parent}',
+            ],
+            include_path_list=[str(imgui_h), str(cimgui_h)])
     cpptypeinfo.pop_namespace()
 
-    if dst.exists():
-        shutil.rmtree(dst)
+    if root.exists():
+        shutil.rmtree(root)
 
-    root.resolve('ImS8')
-    root.resolve('ImS16')
-    root.resolve('ImS32')
-    root.resolve('ImS64')
-    root.resolve('ImU8')
-    root.resolve('ImU16')
-    root.resolve('ImU32')
-    root.resolve('ImU64')
+    root_ns.resolve('ImS8')
+    root_ns.resolve('ImS16')
+    root_ns.resolve('ImS32')
+    root_ns.resolve('ImS64')
+    root_ns.resolve('ImU8')
+    root_ns.resolve('ImU16')
+    root_ns.resolve('ImU32')
+    root_ns.resolve('ImU64')
 
-    for ns in root.traverse():
+    for ns in root_ns.traverse():
         if not isinstance(ns, cpptypeinfo.Struct):
-            generate(ns, dst)
+            generate(ns, root)
+
+    #
+    # functions
+    #
+    generate_functions(root_ns, root)
 
 
 if __name__ == '__main__':
-    dst = HERE / 'cimgui_cs'
-    main(dst)
+    if (len(sys.argv) > 3):
+        imgui_h = pathlib.Path(sys.argv[1])
+        cimgui_h = pathlib.Path(sys.argv[2])
+        dst = pathlib.Path(sys.argv[3])
+        main(imgui_h, cimgui_h, dst)
+    else:
+        dst = HERE / 'cimgui_cs'
+        main(IMGUI_H, CIMGUI_H, dst)
