@@ -27,6 +27,9 @@ class Declaration:
                       replace: 'Declaration'):
         raise Exception()
 
+    def resolve(self, target: 'Typedef'):
+        pass
+ 
 
 class Namespace:
     def __init__(self, name: str):
@@ -34,7 +37,7 @@ class Namespace:
         self.user_type_map: Dict[str, Declaration] = {}
         self.children: List[Namespace] = []
         self.parent: Namespace = None
-        self.functions: Dict[str, Function] = {}
+        self.function_map: Dict[str, Function] = {}
 
     def __str__(self) -> str:
         return '::'.join([ns.name for ns in self.ancestors()])
@@ -55,10 +58,34 @@ class Namespace:
                 yield x
 
     def traverse(self, level=0):
-        yield (level, self)
+        yield self
         for child in self.children:
-            for (x, y) in child.traverse(level + 1):
-                yield (x, y)
+            for x in child.traverse(level + 1):
+                yield x
+
+    def resolve(self, name: str):
+        while True:
+            found = None
+            for ns in self.traverse():
+                decl = ns.user_type_map.get(name)
+                if decl:
+                    if isinstance(decl, Typedef):
+                        found = decl
+                        break
+            if not found:
+                break
+
+            # remove
+            for ns in self.traverse():
+                for k, v in ns.user_type_map.items():
+                    v.resolve(found)
+                for k, v in ns.function_map.items():
+                    v.resolve(found)
+
+            for ns in self.traverse():
+                if found.type_name in ns.user_type_map:
+                    print(f'remove {found}')
+                    ns.user_type_map.pop(found.type_name)
 
 
 STACK = []
@@ -213,6 +240,10 @@ class Pointer(Declaration):
             clone.target = copy.copy(clone.target)
             self.target.replace_based(clone.target, based, replace)
 
+    def resolve(self, target: 'Typedef'):
+        if self.target == target:
+            self.target = target.src
+
 
 class Array(Declaration):
     def __init__(self, target: Declaration, length=None, is_const=False):
@@ -237,6 +268,10 @@ class Array(Declaration):
             self.target = replace
         else:
             self.target.replace_based(based, replace)
+
+    def resolve(self, target: 'Typedef'):
+        if self.target == target:
+            self.target = target.src
 
 
 class Field(NamedTuple):
@@ -298,6 +333,12 @@ class Struct(Declaration, Namespace):
 
     def replace_based(self, based: Declaration, replace: Declaration):
         raise NotImplementedError()
+
+    def resolve(self, target: 'Typedef'):
+        for i in range(len(self.fields)):
+            f = self.fields[i]
+            if f.type == target:
+                self.fields[i] = Field(target.src, f.name, f.value)
 
     def __hash__(self):
         return hash(self.type_name)
@@ -371,6 +412,12 @@ class Function(Declaration):
     def replace_based(self, based: Declaration, replace: Declaration):
         raise NotImplementedError()
 
+    def resolve(self, target: 'Typedef'):
+        for i in range(len(self.params)):
+            f = self.params[i]
+            if f.type == target:
+                self.params[i] = Param(target.src, f.name, f.value)
+
 
 class Typedef(Declaration):
     def __init__(self, type_name: str, src: Declaration):
@@ -404,6 +451,10 @@ class Typedef(Declaration):
             self.src = replace
         else:
             self.src.replace_based(based, replace)
+
+    def resolve(self, target: 'Typedef'):
+        if self.src == target:
+            self.src = target.src
 
 
 class EnumValue(NamedTuple):

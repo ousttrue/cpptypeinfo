@@ -72,7 +72,7 @@ def generate(ns: cpptypeinfo.Namespace, root: pathlib.Path):
 
     def typename_filter(src):
         if src.endswith('_'):
-            return src[:-6]
+            return src[:-1]
         else:
             return src
 
@@ -115,9 +115,20 @@ def main(dst: pathlib.Path):
                              cpp_flags=['-DCIMGUI_DEFINE_ENUMS_AND_STRUCTS'])
     cpptypeinfo.pop_namespace()
 
-    shutil.rmtree(dst)
+    if dst.exists():
+        shutil.rmtree(dst)
 
-    for level, ns in root.traverse():
+    root.resolve('ImS8')
+    root.resolve('ImS16')
+    root.resolve('ImS32')
+    root.resolve('ImS64')
+    root.resolve('ImU8')
+    root.resolve('ImU16')
+    root.resolve('ImU32')
+    root.resolve('ImU64')
+
+
+    for ns in root.traverse():
         if not isinstance(ns, cpptypeinfo.Struct):
             generate(ns, dst)
 

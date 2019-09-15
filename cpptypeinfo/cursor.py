@@ -123,7 +123,8 @@ def parse_cursor(c: cindex.Cursor):
 
     elif c.kind == cindex.CursorKind.FUNCTION_DECL:
         f = parse_function(c)
-        cpptypeinfo.STACK[-1].functions[c.spelling] = f
+        cpptypeinfo.STACK[-1].function_map[c.spelling] = f
+        
         return f
 
     elif c.kind == cindex.CursorKind.ENUM_DECL:

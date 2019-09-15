@@ -13,7 +13,7 @@ class CImguiTest(unittest.TestCase):
         cpptypeinfo.parse_header(CIMGUI_H, cpp_flags=[f'-DCIMGUI_DEFINE_ENUMS_AND_STRUCTS'])
         cpptypeinfo.pop_namespace()
 
-        for level, ns in ns.traverse():
+        for ns in ns.traverse():
             if isinstance(ns, cpptypeinfo.Struct):
                 continue
 
@@ -21,7 +21,7 @@ class CImguiTest(unittest.TestCase):
                 with self.subTest(name=k):
                     print(f'{ns}{v}')
 
-            for k, v in ns.functions.items():
+            for k, v in ns.function_map.items():
                 with self.subTest(name=k):
                     print(f'{ns}{v}')
 

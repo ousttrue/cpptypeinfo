@@ -837,7 +837,7 @@ class ImGuiTest(unittest.TestCase):
                                  ])
         cpptypeinfo.pop_namespace()
 
-        for (level, ns) in root.traverse():
+        for ns in root.traverse():
             if isinstance(ns, cpptypeinfo.Struct):
                 continue
 
@@ -853,7 +853,7 @@ class ImGuiTest(unittest.TestCase):
                         else:
                             self.assertEqual(expected, v)
 
-            for k, v in ns.functions.items():
+            for k, v in ns.function_map.items():
                 with self.subTest(name=k):
                     # print(f'{ns}{v}')
                     expected = EXPECTS.get(k)
