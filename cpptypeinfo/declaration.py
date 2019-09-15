@@ -29,9 +29,15 @@ class Declaration:
 
 
 class Namespace:
-    def __init__(self, name: str = ''):
+    def __init__(self, name: str):
         self.name = name
         self.user_type_map: Dict[str, Declaration] = {}
+        self.children: List[Namespace] = []
+        self.parent: Namespace = None
+        self.functions: Dict[str, Function] = {}
+
+    def __str__(self) -> str:
+        return '::'.join([ns.name for ns in self.ancestors()])
 
     def get(self, src: str, is_const: bool):
         user_type = self.user_type_map.get(src)
@@ -42,12 +48,27 @@ class Namespace:
             user_type.is_const = is_const
         return user_type
 
+    def ancestors(self):
+        yield self
+        if self.parent:
+            for x in self.parent.ancestors():
+                yield x
 
-STACK = [Namespace()]  # root namespace
+    def traverse(self, level=0):
+        yield (level, self)
+        for child in self.children:
+            for (x, y) in child.traverse(level + 1):
+                yield (x, y)
 
 
-def push_namespace(name: str):
-    namespace = Namespace(name)
+STACK = []
+
+
+def push_namespace(name=''):
+    namespace = name if isinstance(name, Namespace) else Namespace(name)
+    if STACK:
+        STACK[-1].children.append(namespace)
+        namespace.parent = STACK[-1]
     STACK.append(namespace)
     return namespace
 
@@ -227,7 +248,7 @@ class Field(NamedTuple):
 class Struct(Declaration, Namespace):
     def __init__(self, type_name, is_const=False, fields: List[Field] = None):
         super().__init__(is_const)
-        Namespace.__init__(self)
+        Namespace.__init__(self, type_name)
         global STACK
 
         self.type_name = type_name
@@ -398,6 +419,9 @@ class Enum(Declaration):
         self.values = values
         STACK[-1].user_type_map[self.type_name] = self
 
+    def __str__(self) -> str:
+        return f'enum {self.type_name}'
+
 
 type_map = {
     'void': Void,
@@ -489,7 +513,7 @@ def parse(src: str, is_const=False) -> Declaration:
             return parse(' '.join(splitted[1:]), True)
         elif splitted[-1] == 'const':
             return parse(' '.join(splitted[:-1]), True)
-        elif splitted[0] == 'struct':
+        elif splitted[0] == 'struct' or splitted[0] == 'union':
             if len(splitted) != 2:
                 raise Exception()
 
@@ -511,6 +535,7 @@ def parse(src: str, is_const=False) -> Declaration:
 
 
 if __name__ == '__main__':
+    push_namespace('')  # root
     assert (parse('int') == Int32())
     assert (parse('int') != UInt32())
     assert (parse('const int') == Int32(True))
@@ -554,3 +579,4 @@ if __name__ == '__main__':
 
     parsed = parse('const ImVec2 &')
     assert (parsed == Pointer(Struct('ImVec2', True)))
+    pop_namespace()

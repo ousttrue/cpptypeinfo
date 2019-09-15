@@ -6,6 +6,6 @@ from .cursor import parse_namespace
 VERSION = '0.0.1'
 
 
-def parse_header(path: pathlib.Path):
-    tu = get_tu(path)
-    return parse_namespace(tu.cursor, [str(path)])
+def parse_header(path: pathlib.Path, cpp_flags=None):
+    tu = get_tu(path, cpp_flags=cpp_flags)
+    parse_namespace(tu.cursor, [str(path)])

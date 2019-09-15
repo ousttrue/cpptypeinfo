@@ -6,6 +6,7 @@ import cpptypeinfo
 HERE = pathlib.Path(__file__).absolute().parent
 IMGUI_H = HERE.parent / 'libs/imgui/imgui.h'
 
+root = cpptypeinfo.push_namespace('')
 EXPECTS = {
     'ImDrawChannel':
     cpptypeinfo.Struct('ImDrawChannel'),
@@ -824,43 +825,45 @@ EXPECTS = {
     'ImFontAtlasCustomRect': [],
     'ImFontAtlasFlags_': [],
 }
+cpptypeinfo.pop_namespace()
 
 
 class ImGuiTest(unittest.TestCase):
     def test_imgui_h(self) -> None:
-        tu = cpptypeinfo.get_tu(IMGUI_H,
-                                cpp_flags=[
-                                    '-DIMGUI_DISABLE_OBSOLETE_FUNCTIONS',
-                                ])
-        self.assertIsInstance(tu, cindex.TranslationUnit)
+        cpptypeinfo.push_namespace(root)
+        cpptypeinfo.parse_header(IMGUI_H,
+                                 cpp_flags=[
+                                     '-DIMGUI_DISABLE_OBSOLETE_FUNCTIONS',
+                                 ])
+        cpptypeinfo.pop_namespace()
 
-        # TRANSLATION_UNIT
-        c: cindex.Cursor = tu.cursor
-        self.assertIsInstance(c, cindex.Cursor)
-        self.assertEqual(cindex.CursorKind.TRANSLATION_UNIT, c.kind)
-        self.assertIsNone(c.location.file)
+        for (level, ns) in root.traverse():
+            if isinstance(ns, cpptypeinfo.Struct):
+                continue
 
-        counter = 0
-        for child, parsed in cpptypeinfo.parse_namespace(c, [str(IMGUI_H)]):
-            counter += 1
-            with self.subTest(i=counter,
-                              kind=child.kind,
-                              spelling=child.spelling,
-                              line=child.location.line):
-                expected = EXPECTS.get(child.spelling)
-                if expected is None:
-                    raise Exception('not found :' +
-                                    ' '.join(t.spelling
-                                             for t in child.get_tokens()))
-                else:
-                    if isinstance(expected, list):
-                        # print(parsed)
-                        pass
+            for k, v in ns.user_type_map.items():
+                with self.subTest(name=k):
+                    # print(f'{ns}{v}')
+                    expected = EXPECTS.get(k)
+                    if expected is None:
+                        raise Exception('not found :' + k)
                     else:
-                        self.assertEqual(expected, parsed)
-            if counter > len(EXPECTS):
-                # break
-                pass
+                        if isinstance(expected, list):
+                            pass
+                        else:
+                            self.assertEqual(expected, v)
+
+            for k, v in ns.functions.items():
+                with self.subTest(name=k):
+                    # print(f'{ns}{v}')
+                    expected = EXPECTS.get(k)
+                    if expected is None:
+                        raise Exception('not found :' + k)
+                    else:
+                        if isinstance(expected, list):
+                            pass
+                        else:
+                            self.assertEqual(expected, v)
 
 
 if __name__ == '__main__':

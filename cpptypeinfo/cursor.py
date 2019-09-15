@@ -121,6 +121,8 @@ def parse_cursor(c: cindex.Cursor):
     if c.kind == cindex.CursorKind.UNEXPOSED_DECL:
         # tokens = [t.spelling for t in c.get_tokens()]
         pass
+    elif c.kind == cindex.CursorKind.UNION_DECL:
+        return parse_struct(c)
     elif c.kind == cindex.CursorKind.STRUCT_DECL:
         return parse_struct(c)
 
@@ -129,7 +131,9 @@ def parse_cursor(c: cindex.Cursor):
         return cpptypeinfo.Typedef(c.spelling, decl)
 
     elif c.kind == cindex.CursorKind.FUNCTION_DECL:
-        return parse_function(c)
+        f = parse_function(c)
+        cpptypeinfo.STACK[-1].functions[c.spelling] = f
+        return f
 
     elif c.kind == cindex.CursorKind.ENUM_DECL:
         return parse_enum(c)
@@ -146,17 +150,14 @@ def parse_cursor(c: cindex.Cursor):
 
 def parse_namespace(c: cindex.Cursor, files: List[str]):
     for i, child in enumerate(c.get_children()):
-        if child.location.file.name in files:
+        if child.location.file.name not in files:
             continue
 
         if child.kind == cindex.CursorKind.NAMESPACE:
             # nested
             cpptypeinfo.push_namespace(child.spelling)
-            for x, y in parse_namespace(child, files):
-                yield (x, y)
+            parse_namespace(child, files)
             cpptypeinfo.pop_namespace()
         else:
 
-            parsed = parse_cursor(child)
-            if parsed:
-                yield (child, parsed)
+            parse_cursor(child)
