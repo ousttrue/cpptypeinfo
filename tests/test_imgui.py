@@ -967,7 +967,7 @@ def parse(c: cindex.Cursor):
 
 
 class ImGuiTest(unittest.TestCase):
-    def test_int(self) -> None:
+    def test_imgui_h(self) -> None:
         tu = cpptypeinfo.get_tu(IMGUI_H, cpp_flags=[
             '-DIMGUI_DISABLE_OBSOLETE_FUNCTIONS',
         ])
