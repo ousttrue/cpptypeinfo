@@ -7,8 +7,6 @@ HERE = pathlib.Path(__file__).absolute().parent
 IMGUI_H = HERE.parent / 'libs/imgui/imgui.h'
 
 EXPECTS = {
-    'ImNewDummy':
-    cpptypeinfo.Struct('ImNewDummy'),
     'ImDrawChannel':
     cpptypeinfo.Struct('ImDrawChannel'),
     'ImDrawCmd':
@@ -788,7 +786,15 @@ EXPECTS = {
     'ImGuiCond_': [],
     'ImGuiHoveredFlags_': [],
     'ImGuiTabItemFlags_': [],
-    # struct
+    # allocator
+    'ImNewDummy':
+    cpptypeinfo.Struct('ImNewDummy'),
+    'operator new': [],
+    'operator delete': [],
+    'IM_DELETE': [],
+    #
+    'ImVector':
+    cpptypeinfo.parse('struct ImVector'),
 }
 
 
@@ -871,22 +877,35 @@ def parse_enum(c: cindex.Cursor):
     return cpptypeinfo.Enum(name, values)
 
 
+def parse_struct(c: cindex.Cursor):
+    decl: cpptypeinfo.Struct = cpptypeinfo.parse(f'struct {c.spelling}')
+    cpptypeinfo.push_namespace(decl)
+    for child in c.get_children():
+        if child.kind == cindex.CursorKind.FIELD_DECL:
+            field = cpptypeinfo.parse(child.type.spelling)
+            decl.add_field(cpptypeinfo.Field(field, child.spelling))
+        elif child.kind == cindex.CursorKind.CONSTRUCTOR:
+            pass
+        elif child.kind == cindex.CursorKind.DESTRUCTOR:
+            pass
+        elif child.kind == cindex.CursorKind.CXX_METHOD:
+            pass
+        elif child.kind == cindex.CursorKind.TEMPLATE_TYPE_PARAMETER:
+            decl.add_template_parameter(child.spelling)
+        elif child.kind == cindex.CursorKind.TYPEDEF_DECL:
+            typedef_decl = cpptypeinfo.parse(child.underlying_typedef_type.spelling)
+            cpptypeinfo.Typedef(child.spelling, typedef_decl)
+        else:
+            raise NotImplementedError(f'{child.kind}')
+    cpptypeinfo.pop_namespace()
+    return decl
+
+
 def parse(c: cindex.Cursor):
     if c.kind == cindex.CursorKind.UNEXPOSED_DECL:
         tokens = [t.spelling for t in c.get_tokens()]
     elif c.kind == cindex.CursorKind.STRUCT_DECL:
-        decl = cpptypeinfo.parse(f'struct {c.spelling}')
-        for child in c.get_children():
-            if child.kind == cindex.CursorKind.FIELD_DECL:
-                field = cpptypeinfo.parse(child.type.spelling)
-                decl.add_field(cpptypeinfo.Field(field, child.spelling))
-            elif child.kind == cindex.CursorKind.CONSTRUCTOR:
-                pass
-            elif child.kind == cindex.CursorKind.CXX_METHOD:
-                pass
-            else:
-                raise NotImplementedError()
-        return decl
+        return parse_struct(c)
 
     elif c.kind == cindex.CursorKind.TYPEDEF_DECL:
         decl = cpptypeinfo.parse(c.underlying_typedef_type.spelling)
@@ -897,6 +916,12 @@ def parse(c: cindex.Cursor):
 
     elif c.kind == cindex.CursorKind.ENUM_DECL:
         return parse_enum(c)
+
+    elif c.kind == cindex.CursorKind.FUNCTION_TEMPLATE:
+        return None
+
+    elif c.kind == cindex.CursorKind.CLASS_TEMPLATE:
+        return parse_struct(c)
 
     else:
         raise NotImplementedError(str(c.kind))
@@ -945,8 +970,8 @@ class ImGuiTest(unittest.TestCase):
                             else:
                                 self.assertEqual(expected, parsed)
                 if counter.count > len(EXPECTS):
-                    break
-                    # pass
+                    # break
+                    pass
 
         parse_namespace(c)
 

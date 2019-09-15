@@ -1,6 +1,6 @@
 import re
 import copy
-from typing import List, NamedTuple, Dict
+from typing import List, NamedTuple, Dict, Optional
 
 
 class Declaration:
@@ -19,6 +19,34 @@ class Declaration:
 
     def clone(self):
         return copy.copy(self)
+
+
+class Namespace:
+    def __init__(self, name: str = ''):
+        self.name = name
+        self.user_type_map: Dict[str, Declaration] = {}
+
+    def get(self, src: str, is_const: bool):
+        user_type = self.user_type_map.get(src)
+        if not user_type:
+            return None
+        if user_type.is_const != is_const:
+            user_type = user_type.clone()
+            user_type.is_const = is_const
+        return user_type
+
+
+STACK = [Namespace()]  # root namespace
+
+
+def push_namespace(name: str):
+    namespace = Namespace(name)
+    STACK.append(namespace)
+    return namespace
+
+
+def pop_namespace():
+    STACK.pop()
 
 
 class Void(Declaration):
@@ -165,18 +193,26 @@ class Field(NamedTuple):
     value: str = ''
 
 
-class Struct(Declaration):
+class Struct(Declaration, Namespace):
     def __init__(self, type_name, is_const=False, fields: List[Field] = None):
         super().__init__(is_const)
+        Namespace.__init__(self)
+        global STACK
+
         self.type_name = type_name
         self.fields: List[Field] = []
         if fields:
             for f in fields:
                 self.add_field(f)
         STACK[-1].user_type_map[self.type_name] = self
+        self.template_parameters: List[str] = []
 
     def add_field(self, f: Field) -> None:
         self.fields.append(f)
+
+    def add_template_parameter(self, t: str) -> None:
+        self.template_parameters.append(t)
+        self.user_type_map[t] = parse(f'struct {t}')
 
     def __hash__(self):
         return hash(self.type_name)
@@ -186,9 +222,16 @@ class Struct(Declaration):
             return False
         if self.type_name != value.type_name:
             return False
-        for l, r in zip(self.fields, value.fields):
-            if l != r:
-                return False
+        # if len(self.fields) != len(value.fields):
+        #     return False
+        # for l, r in zip(self.fields, value.fields):
+        #     if l != r:
+        #         return False
+        # if len(self.template_parameters) != len(value.template_parameters):
+        #     return False
+        # for l, r in zip(self.template_parameters, value.template_parameters):
+        #     if l != r:
+        #         return False
         return True
 
     def __str__(self) -> str:
@@ -285,33 +328,16 @@ type_map = {
     'va_list': VaList,
 }
 
-
-class Namespace:
-    def __init__(self, name: str = ''):
-        self.name = name
-        self.user_type_map: Dict[str, Declaration] = {}
-
-    def get(self, src: str, is_const: bool):
-        user_type = self.user_type_map.get(src)
-        if not user_type:
-            return None
-        if user_type.is_const != is_const:
-            user_type = user_type.clone()
-            user_type.is_const = is_const
-        return user_type
+NS_PATTERN = re.compile(r'(\w+)::(\w+)$')
 
 
-STACK = [Namespace()]  # root namespace
+def get_from_ns(src: str, is_const: bool) -> Optional[Declaration]:
+    for namespace in reversed(STACK):
+        decl = namespace.get(src, is_const)
+        if decl:
+            return decl
 
-
-def push_namespace(name: str):
-    namespace = Namespace(name)
-    STACK.append(namespace)
-    return namespace
-
-
-def pop_namespace():
-    STACK.pop()
+    return None
 
 
 SPLIT_PATTERN = re.compile(r'[*&]')
@@ -320,6 +346,17 @@ FUNC_PATTERN = re.compile(r'^(.*)\(.*\)\((.*)\)$')
 
 def parse(src: str, is_const=False) -> Declaration:
     src = src.strip()
+
+    ns_list = src.split('::')
+    if len(ns_list) > 1:
+        same = True
+        for l, r in zip(ns_list, STACK):
+            if l != r:
+                same = False
+                break
+        if not same:
+            Exception('not found')
+        return STACK[-1].get(src, is_const)
 
     m = FUNC_PATTERN.match(src)
     if m:
@@ -354,16 +391,20 @@ def parse(src: str, is_const=False) -> Declaration:
         elif splitted[0] == 'struct':
             if len(splitted) != 2:
                 raise Exception()
+
+            decl = get_from_ns(splitted[1], is_const)
+            if decl:
+                return decl
+
             return Struct(splitted[1])
         else:
             t = type_map.get(src)
             if t:
                 return t(is_const)
 
-            for namespace in reversed(STACK):
-                decl = namespace.get(src, is_const)
-                if decl:
-                    return decl
+            decl = get_from_ns(src, is_const)
+            if decl:
+                return decl
 
             raise Exception(f'not found: {src}')
 
