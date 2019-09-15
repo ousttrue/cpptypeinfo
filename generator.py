@@ -83,6 +83,7 @@ def generate(ns: cpptypeinfo.Namespace, root: pathlib.Path):
             return src
 
     namespace_name = 'SharpImGui'
+    # enum
     removes = []
     for k, v in ns.user_type_map.items():
         if isinstance(v, cpptypeinfo.Enum):
@@ -92,11 +93,14 @@ def generate(ns: cpptypeinfo.Namespace, root: pathlib.Path):
                           valuename_filter)
             removes.append(v.type_name[:-1])
 
+    # except enum 
     for k, v in ns.user_type_map.items():
         if isinstance(v, cpptypeinfo.Enum):
             pass
         elif isinstance(v, cpptypeinfo.Typedef):
             if v.type_name in removes:
+                continue
+            if v.type_name.endswith('Callback'):
                 continue
             generate_typedef(v, root, namespace_name)
         # elif isinstance(v, cpptypeinfo.Struct):
