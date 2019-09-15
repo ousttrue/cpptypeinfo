@@ -4,6 +4,7 @@ from jinja2 import Template
 import cpptypeinfo
 HERE = pathlib.Path(__file__).absolute().parent
 CIMGUI_H = HERE / 'libs/cimgui/cimgui.h'
+IMGUI_H = HERE / 'libs/imgui/imgui.h'
 
 
 def generate_enum(enum: cpptypeinfo.Enum, root: pathlib.Path, namespace: str,
@@ -148,8 +149,16 @@ def generate(ns: cpptypeinfo.Namespace, root: pathlib.Path):
 
 def main(dst: pathlib.Path):
     root = cpptypeinfo.push_namespace()
-    cpptypeinfo.parse_header(CIMGUI_H,
-                             cpp_flags=['-DCIMGUI_DEFINE_ENUMS_AND_STRUCTS'])
+    with cpptypeinfo.tmp_from_source('''
+#include <imgui.h>
+#include <cimgui.h>
+    ''') as path:
+        cpptypeinfo.parse_header(path,
+                                 cpp_flags=[
+                                     f'-I{IMGUI_H.parent}',
+                                     f'-I{CIMGUI_H.parent}',
+                                 ],
+                                 include_path_list=[str(IMGUI_H), str(CIMGUI_H)])
     cpptypeinfo.pop_namespace()
 
     if dst.exists():

@@ -48,7 +48,7 @@ def get_tu(path: pathlib.Path,
 
 
 @contextlib.contextmanager
-def tmp(src):
+def tmp_from_source(src):
     fd, tmp_name = tempfile.mkstemp(prefix='tmpheader_', suffix='.h')
     os.close(fd)
     with open(tmp_name, 'w', encoding='utf-8') as f:
@@ -60,5 +60,5 @@ def tmp(src):
 
 
 def get_tu_from_source(src: str):
-    with tmp(src) as path:
+    with tmp_from_source(src) as path:
         return get_tu(path)
