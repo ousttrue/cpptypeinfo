@@ -358,6 +358,9 @@ class Typedef(Declaration):
         self.src = src
         STACK[-1].user_type_map[self.type_name] = self
 
+    def __str__(self) -> str:
+        return f'typedef {self.type_name} = {self.src}'
+
     def __hash__(self):
         return hash(self.src)
 

@@ -4,6 +4,7 @@
         "IMGUI",
         "Struct",
         "Wchar",
+        "cimgui",
         "cindex",
         "cpptypeinfo",
         "dlang",
