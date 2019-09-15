@@ -1,2 +1,4 @@
 /cpptypeinfo.egg-info
 *.pyc
+# generated
+*.cs
