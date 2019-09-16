@@ -11,8 +11,8 @@ def parse_param(c: cindex.Cursor) -> cpptypeinfo.Param:
             default_value = ''.join(tokens[i + 1:])
             break
 
-    decl = cpptypeinfo.parse(c.type.spelling)
-    return cpptypeinfo.Param(decl, c.spelling, default_value)
+    parsed = cpptypeinfo.parse(c.type.spelling)
+    return cpptypeinfo.Param(parsed, c.spelling, default_value)
 
 
 def traverse(c, level=''):
@@ -43,7 +43,10 @@ def parse_function(c: cindex.Cursor) -> cpptypeinfo.Function:
         else:
             raise NotImplementedError(f'{child.kind}')
 
-    return cpptypeinfo.Function(result, params)
+    decl = cpptypeinfo.Function(result, params)
+    decl.file = c.location.file.name
+    decl.line = c.location.line
+    return decl
 
 
 def parse_enum(c: cindex.Cursor):
@@ -55,11 +58,16 @@ def parse_enum(c: cindex.Cursor):
                 cpptypeinfo.EnumValue(child.spelling, child.enum_value))
         else:
             raise Exception(f'{child.kind}')
-    return cpptypeinfo.Enum(name, values)
+    decl= cpptypeinfo.Enum(name, values)
+    decl.file = c.location.file.name
+    decl.line = c.location.line
+    return decl
 
 
 def parse_struct(c: cindex.Cursor):
     decl: cpptypeinfo.Struct = cpptypeinfo.parse(f'struct {c.spelling}')
+    decl.file = c.location.file.name
+    decl.line = c.location.line
     if isinstance(decl, cpptypeinfo.Typedef):
         decl = decl.src
     cpptypeinfo.push_namespace(decl)
@@ -101,15 +109,14 @@ def parse_cursor(c: cindex.Cursor):
         for child in c.get_children():
             parse_cursor(child)
     elif c.kind == cindex.CursorKind.UNION_DECL:
-        return parse_struct(c)
+        parse_struct(c)
     elif c.kind == cindex.CursorKind.STRUCT_DECL:
-        return parse_struct(c)
+        parse_struct(c)
 
     elif c.kind == cindex.CursorKind.TYPEDEF_DECL:
-        # decl = cpptypeinfo.parse(c.underlying_typedef_type.spelling)
         tokens = [t.spelling for t in c.get_tokens()]
         if tokens[-1] == ')' or c.underlying_typedef_type.spelling != 'int':
-            decl = cpptypeinfo.parse(c.underlying_typedef_type.spelling)
+            parsed = cpptypeinfo.parse(c.underlying_typedef_type.spelling)
         else:
             # int type may be wrong.
             # workaround
@@ -118,23 +125,23 @@ def parse_cursor(c: cindex.Cursor):
                 if t == '{':
                     end = i
                     break
-            decl = cpptypeinfo.parse(' '.join(tokens[1:end]))
-        return cpptypeinfo.Typedef(c.spelling, decl)
+            parsed = cpptypeinfo.parse(' '.join(tokens[1:end]))
+        decl =  cpptypeinfo.Typedef(c.spelling, parsed)
+        decl.file = c.location.file.name
+        decl.line = c.location.line
 
     elif c.kind == cindex.CursorKind.FUNCTION_DECL:
         f = parse_function(c)
         cpptypeinfo.STACK[-1].function_map[c.spelling] = f
-        
-        return f
 
     elif c.kind == cindex.CursorKind.ENUM_DECL:
-        return parse_enum(c)
+        parse_enum(c)
 
     elif c.kind == cindex.CursorKind.FUNCTION_TEMPLATE:
-        return None
+        pass
 
     elif c.kind == cindex.CursorKind.CLASS_TEMPLATE:
-        return parse_struct(c)
+        parse_struct(c)
 
     else:
         raise NotImplementedError(str(c.kind))

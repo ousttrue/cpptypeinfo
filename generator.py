@@ -1,5 +1,6 @@
 import pathlib
 import sys
+import os
 import shutil
 from typing import Tuple, Optional, Dict
 from jinja2 import Template
@@ -76,6 +77,7 @@ def generate_enum(enum: cpptypeinfo.Enum, root: pathlib.Path, is_flags: bool,
 
 namespace {{ namespace }}
 {
+    // {{ file }}:{{ line }}
     {{ attribute }}
     public enum {{ type_name }}
     {
@@ -95,7 +97,9 @@ namespace {{ namespace }}
                      values=[
                          valuename_filter(enum.type_name, v)
                          for v in enum.values
-                     ]))
+                     ],
+                     file=os.path.basename(enum.file),
+                     line=enum.line))
 
 
 def generate_typedef(typedef: cpptypeinfo.Typedef, root: pathlib.Path):
@@ -113,6 +117,7 @@ def generate_typedef(typedef: cpptypeinfo.Typedef, root: pathlib.Path):
 
 namespace {{ namespace }}
 {
+    // {{ file}}:{{ line }}
     public struct {{ type_name }}
     {
         {{ type }};
@@ -134,7 +139,9 @@ namespace {{ namespace }}
                      using=USING,
                      namespace=NAMESPACE_NAME,
                      type_name=typedef.type_name,
-                     type=typedef_type))
+                     type=typedef_type,
+                     file=os.path.basename(typedef.file),
+                     line=typedef.line))
 
 
 def generate_struct(decl: cpptypeinfo.Struct, root: pathlib.Path):
@@ -145,6 +152,7 @@ def generate_struct(decl: cpptypeinfo.Struct, root: pathlib.Path):
 
 namespace {{ namespace }}
 {
+    // {{ file }}:{{ line }}
     {{ attribute }}
     public struct {{ type_name }}
     {
@@ -169,7 +177,9 @@ namespace {{ namespace }}
                      using=USING,
                      namespace=NAMESPACE_NAME,
                      type_name=decl.type_name,
-                     values=[field_str(f) for f in decl.fields]))
+                     values=[field_str(f) for f in decl.fields],
+                     file=os.path.basename(decl.file),
+                     line=decl.line))
 
 
 def generate(ns: cpptypeinfo.Namespace, root: pathlib.Path):
@@ -241,7 +251,8 @@ def generate_functions(root_ns: cpptypeinfo.Namespace, root: pathlib.Path):
             ret_attr = f'\n        [return: {ret_attr}]\n'
         else:
             ret_attr = ''
-        return f'''[DllImport(DLLNAME)]{ret_attr}
+        return f'''// {os.path.basename(v.file)}:{v.line}
+        [DllImport(DLLNAME)]{ret_attr}
         public static extern {ret} {k}({", ".join(params)});'''
 
     values = []

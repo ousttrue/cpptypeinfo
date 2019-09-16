@@ -6,6 +6,8 @@ from typing import List, NamedTuple, Dict, Optional
 class Declaration:
     def __init__(self, is_const=False):
         self.is_const = is_const
+        self.file = ''
+        self.line = -1
 
     def __eq__(self, value):
         if not isinstance(value, self.__class__):
