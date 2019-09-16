@@ -35,7 +35,7 @@ Param: for Function
     + ref: TypeRef
     + name
 '''
-
+import pathlib
 import re
 import copy
 from typing import List, NamedTuple, Dict, Optional, Union
@@ -237,7 +237,7 @@ class NamedType(UserType):
         if not type_name:
             raise Exception('no name')
         self.type_name = type_name
-        self.file = ''
+        self.file: Optional[pathlib.Path] = None
         self.line = -1
         # 型をNameSpaceに登録する
         if self.type_name and self.type_name not in STACK[-1].user_type_map:

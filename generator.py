@@ -1,6 +1,5 @@
 import pathlib
 import sys
-import os
 import shutil
 from typing import Tuple, Optional, Dict
 from jinja2 import Template
@@ -98,7 +97,7 @@ namespace {{ namespace }}
                          valuename_filter(enum.type_name, v)
                          for v in enum.values
                      ],
-                     file=os.path.basename(enum.file),
+                     file=enum.file.name,
                      line=enum.line))
 
 
@@ -140,7 +139,7 @@ namespace {{ namespace }}
                      namespace=NAMESPACE_NAME,
                      type_name=typedef.type_name,
                      type=typedef_type,
-                     file=os.path.basename(typedef.file),
+                     file=typedef.file.name,
                      line=typedef.line))
 
 
@@ -178,7 +177,7 @@ namespace {{ namespace }}
                      namespace=NAMESPACE_NAME,
                      type_name=decl.type_name,
                      values=[field_str(f) for f in decl.fields],
-                     file=os.path.basename(decl.file),
+                     file=decl.file.name,
                      line=decl.line))
 
 
@@ -240,32 +239,34 @@ def generate_functions(root_ns: cpptypeinfo.Namespace, root: pathlib.Path):
             param_attr = f'[{param_attr}]'
         else:
             param_attr = ''
-        if param == 'ImU32':
-            a = 0
         return f'{param_attr}{param} {cs_symbol(p.name)}'
 
-    def function_str(k, v: cpptypeinfo.Function):
+    def function_str(v: cpptypeinfo.Function):
         params = [to_cs_param(p) for p in v.params]
         ret_attr, ret = to_cs(v.result.ref)
         if ret_attr:
             ret_attr = f'\n        [return: {ret_attr}]\n'
         else:
             ret_attr = ''
-        return f'''// {os.path.basename(v.file)}:{v.line}
+        return f'''// {v.file.name}:{v.line}
         [DllImport(DLLNAME)]{ret_attr}
-        public static extern {ret} {k}({", ".join(params)});'''
+        public static extern {ret} {v.name}({", ".join(params)});'''
 
     values = []
     for ns in root_ns.traverse():
         if not isinstance(ns, cpptypeinfo.Struct):
-            for k, v in ns.function_map.items():
-                if k.startswith('operator '):
+            for v in ns.functions:
+                if not v.name:
+                    continue
+                if v.file.name == 'imgui.h':
+                    continue
+                if v.name.startswith('operator '):
                     continue
                 if any(
                         isinstance(p.typeref.ref, cpptypeinfo.VaList)
                         for p in v.params):
                     continue
-                values.append(function_str(k, v))
+                values.append(function_str(v))
 
     t = Template('''{{ headline }}
 {{ using }}
