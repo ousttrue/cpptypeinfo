@@ -201,12 +201,12 @@ class TypeRef(NamedTuple):
     def resolve(self, typedef: 'Typedef') -> 'TypeRef':
         if self.ref != typedef:
             return self
-        return TypeRef(typedef.ref.ref, self.is_const)
+        return TypeRef(typedef.typeref.ref, self.is_const)
 
     def get_concrete_type(self) -> Type:
         current = self.ref
         while isinstance(current, Typedef):
-            current = current.ref.ref
+            current = current.typeref.ref
         return current
 
 
@@ -260,7 +260,7 @@ class Namespace:
         self.user_type_map: Dict[str, UserType] = {}
         self.children: List[Namespace] = []
         self.parent: Optional[Namespace] = None
-        self.function_map: Dict[str, Function] = {}
+        self.functions: List[Function] = []
 
     def __str__(self) -> str:
         return '::'.join([ns.name for ns in self.ancestors()])
@@ -304,7 +304,7 @@ class Namespace:
             for ns in self.traverse():
                 for k, v in ns.user_type_map.items():
                     v.resolve(found)
-                for k, v in ns.function_map.items():
+                for v in ns.functions:
                     v.resolve(found)
 
             for ns in self.traverse():
@@ -316,7 +316,7 @@ class Namespace:
 STACK: List[Namespace] = []
 
 
-def push_namespace(name=''):
+def push_namespace(name='') -> Namespace:
     namespace = name if isinstance(name, Namespace) else Namespace(name)
     if STACK:
         STACK[-1].children.append(namespace)
@@ -382,7 +382,7 @@ class Pointer(UserType):
     def __init__(self, ref: Union[TypeRef, Type]):
         if isinstance(ref, Type):
             ref = TypeRef(ref)
-        self.ref = ref
+        self.typeref = ref
         self._hash = ref.__hash__() * 13 + 1
 
     def __hash__(self):
@@ -391,21 +391,21 @@ class Pointer(UserType):
     def __eq__(self, value):
         if not super().__eq__(value):
             return False
-        if self.ref != value.ref:
+        if self.typeref != value.typeref:
             return False
         return True
 
     def __str__(self):
-        return f'Ptr({self.ref})'
+        return f'Ptr({self.typeref})'
 
     def is_based(self, based: Type) -> bool:
-        return self.ref.is_based(based)
+        return self.typeref.is_based(based)
 
     def replace_based(self, based: Type, replace: Type):
-        self.ref.replace_based(based, replace)
+        self.typeref.replace_based(based, replace)
 
     def resolve(self, target: Typedef):
-        self.ref.resolve(target)
+        self.typeref = self.typeref.resolve(target)
 
 
 class Array(Pointer):
@@ -421,8 +421,6 @@ class Array(Pointer):
     def __eq__(self, value):
         if not super().__eq__(value):
             return False
-        if self.ref != value.ref:
-            return False
         if self.length != value.length:
             return False
         return True
@@ -432,6 +430,12 @@ class Field(NamedTuple):
     typeref: TypeRef
     name: str
     value: str = ''
+
+    def resolve(self, typedef: Typedef) -> 'Field':
+        if self.typeref == typedef:
+            return Field(typedef.typeref, self.name, self.value)
+        else:
+            return self
 
 
 class Struct(NamedType, Namespace):
@@ -488,8 +492,7 @@ class Struct(NamedType, Namespace):
 
     def resolve(self, target: Typedef):
         for i in range(len(self.fields)):
-            f = self.fields[i]
-            # f.type = f.type.resolve(target)
+            self.fields[i] = self.fields[i].resolve(target)
 
     def __hash__(self):
         return hash(self.type_name)
@@ -521,10 +524,17 @@ class Param(NamedTuple):
     name: str = ''
     value: str = ''
 
+    def resolve(self, typedef: Typedef) -> 'Param':
+        if self.typeref == typedef:
+            return Param(typedef.typeref, self.name, self.value)
+        else:
+            return self
+
 
 class Function(UserType):
     def __init__(self, result: Union[TypeRef, Type], params: List[Param]):
         super().__init__()
+        self.name = ''
         if isinstance(result, Type):
             result = result.to_ref()
         self.result = result
@@ -537,6 +547,8 @@ class Function(UserType):
         self._hash = hash(result)
         for p in self.params:
             self._hash += hash(p)
+
+        STACK[-1].functions.append(self)
 
     def __hash__(self):
         return self._hash
@@ -555,13 +567,21 @@ class Function(UserType):
 
     def __str__(self) -> str:
         params = ', '.join(str(p.typeref) for p in self.params)
-        return f'{self.result}({params})'
+        if self.name:
+            return f'{self.name} = {self.result}({params})'
+        else:
+            return f'{self.result}({params})'
 
     def is_based(self, based: Type) -> bool:
         for p in self.params:
             if p.typeref.is_based(based):
                 return True
         return False
+
+    def resolve(self, typedef: Typedef):
+        self.result = self.result.resolve(typedef)
+        for i in range(len(self.params)):
+            self.params[i] = self.params[i].resolve(typedef)
 
 
 class EnumValue(NamedTuple):

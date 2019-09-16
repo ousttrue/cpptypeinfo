@@ -44,6 +44,7 @@ def parse_function(c: cindex.Cursor) -> cpptypeinfo.Function:
             raise NotImplementedError(f'{child.kind}')
 
     decl = cpptypeinfo.Function(result, params)
+    decl.name = c.spelling
     decl.file = c.location.file.name
     decl.line = c.location.line
     return decl
@@ -132,7 +133,6 @@ def parse_cursor(c: cindex.Cursor):
 
     elif c.kind == cindex.CursorKind.FUNCTION_DECL:
         f = parse_function(c)
-        cpptypeinfo.STACK[-1].function_map[c.spelling] = f
 
     elif c.kind == cindex.CursorKind.ENUM_DECL:
         parse_enum(c)

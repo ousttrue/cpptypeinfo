@@ -8,7 +8,7 @@ CIMGUI_H = HERE.parent / 'libs/cimgui/cimgui.h'
 
 
 class CImguiTest(unittest.TestCase):
-    def test_cindex(self) -> None:
+    def test_cimgui(self) -> None:
         ns = cpptypeinfo.push_namespace()
         cpptypeinfo.parse_header(CIMGUI_H, cpp_flags=[f'-DCIMGUI_DEFINE_ENUMS_AND_STRUCTS'])
         cpptypeinfo.pop_namespace()
@@ -21,9 +21,10 @@ class CImguiTest(unittest.TestCase):
                 with self.subTest(name=k):
                     print(f'{ns}{v}')
 
-            for k, v in ns.function_map.items():
-                with self.subTest(name=k):
-                    print(f'{ns}{v}')
+            for v in ns.functions:
+                if v.name:
+                    with self.subTest(name=v.name):
+                        print(f'{ns}{v}')
 
 
 if __name__ == '__main__':
