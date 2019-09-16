@@ -295,19 +295,7 @@ namespace {{ namespace }}
 
 
 def main(imgui_h: pathlib.Path, cimgui_h: pathlib.Path, root: pathlib.Path):
-    root_ns = cpptypeinfo.push_namespace()
-    with cpptypeinfo.tmp_from_source('''
-#include <imgui.h>
-#include <cimgui.h>
-    ''') as path:
-        cpptypeinfo.parse_header(
-            path,
-            cpp_flags=[
-                f'-I{imgui_h.parent}',
-                f'-I{cimgui_h.parent}',
-            ],
-            include_path_list=[str(imgui_h), str(cimgui_h)])
-    cpptypeinfo.pop_namespace()
+    root_ns = cpptypeinfo.parse_headers(imgui_h, cimgui_h)
 
     if root.exists():
         shutil.rmtree(root)
