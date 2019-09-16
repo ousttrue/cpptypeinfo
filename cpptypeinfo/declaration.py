@@ -284,6 +284,18 @@ class Namespace:
                 if not isinstance(x, Struct):
                     yield x
 
+    def _resolve(self, found: 'Typedef'):
+        for ns in self.traverse():
+            for k, v in ns.user_type_map.items():
+                v.resolve(found)
+            for v in ns.functions:
+                v.resolve(found)
+
+        for ns in self.traverse():
+            if found.type_name in ns.user_type_map:
+                print(f'remove {found}')
+                ns.user_type_map.pop(found.type_name)
+
     def resolve_typedef(self, name: str):
         '''
         typedefを削除する。
@@ -301,16 +313,24 @@ class Namespace:
                 break
 
             # remove
-            for ns in self.traverse():
-                for k, v in ns.user_type_map.items():
-                    v.resolve(found)
-                for v in ns.functions:
-                    v.resolve(found)
+            self._resolve(found)
 
-            for ns in self.traverse():
-                if found.type_name in ns.user_type_map:
-                    print(f'remove {found}')
-                    ns.user_type_map.pop(found.type_name)
+    def resolve_struct_tag(self):
+        '''
+        remove
+        typedef struct Some Some;
+        '''
+        targets = []
+        for ns in self.traverse():
+            for k, v in ns.user_type_map.items():
+                if isinstance(v, Typedef):
+                    if isinstance(v.typeref.ref, Struct):
+                        if k == v.typeref.ref.type_name:
+                            targets.append(v)
+
+        for target in targets:
+            # remove
+            self._resolve(target)
 
 
 STACK: List[Namespace] = []

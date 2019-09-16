@@ -318,6 +318,7 @@ def main(imgui_h: pathlib.Path, cimgui_h: pathlib.Path, root: pathlib.Path):
     root_ns.resolve_typedef('ImU16')
     root_ns.resolve_typedef('ImU32')
     root_ns.resolve_typedef('ImU64')
+    root_ns.resolve_struct_tag()
 
     for ns in root_ns.traverse():
         if not isinstance(ns, cpptypeinfo.Struct):
