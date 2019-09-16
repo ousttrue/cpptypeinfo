@@ -12,8 +12,8 @@ class Declaration:
     def __eq__(self, value):
         if not isinstance(value, self.__class__):
             return False
-        # if self.is_const != value.is_const:
-        #     return False
+        if self.is_const != value.is_const:
+            return False
         return True
 
     def __str__(self):
@@ -108,6 +108,53 @@ def push_namespace(name=''):
 
 def pop_namespace():
     STACK.pop()
+
+
+class Typedef(Declaration):
+    def __init__(self, type_name: str, src: Declaration):
+        super().__init__(is_const=False)
+        self.type_name = type_name
+        self.src = src
+
+        if self.type_name not in STACK[-1].user_type_map:
+            STACK[-1].user_type_map[self.type_name] = self
+
+    def __str__(self) -> str:
+        return f'typedef {self.type_name} = {self.src}'
+
+    def __hash__(self):
+        return hash(self.src)
+
+    def __eq__(self, value):
+        if not super().__eq__(value):
+            return False
+        if self.type_name == value.type_name:
+            if self.src != value.src:
+                raise Exception()
+        if self.src != value.src:
+            return False
+        return True
+
+    def is_based(self, based: Declaration) -> bool:
+        if self.src == based:
+            return True
+        return self.src.is_based(based)
+
+    def replace_based(self, based: Declaration, replace: Declaration):
+        if self.src == based:
+            self.src = replace
+        else:
+            self.src.replace_based(based, replace)
+
+    def resolve(self, target: 'Typedef'):
+        if self.src == target:
+            self.src = target.src
+
+    def get_concrete_type(self):
+        current = self.src
+        while isinstance(current, Typedef):
+            current = current.src
+        return current
 
 
 class Void(Declaration):
@@ -427,53 +474,6 @@ class Function(Declaration):
                 self.params[i] = Param(target.src, f.name, f.value)
         if self.result == target:
             self.result = target.src
-
-
-class Typedef(Declaration):
-    def __init__(self, type_name: str, src: Declaration):
-        super().__init__(is_const=False)
-        self.type_name = type_name
-        self.src = src
-
-        if self.type_name not in STACK[-1].user_type_map:
-            STACK[-1].user_type_map[self.type_name] = self
-
-    def __str__(self) -> str:
-        return f'typedef {self.type_name} = {self.src}'
-
-    def __hash__(self):
-        return hash(self.src)
-
-    def __eq__(self, value):
-        if not super().__eq__(value):
-            return False
-        if self.type_name == value.type_name:
-            if self.src != value.src:
-                raise Exception()
-        if self.src != value.src:
-            return False
-        return True
-
-    def is_based(self, based: 'Declaration') -> bool:
-        if self.src == based:
-            return True
-        return self.src.is_based(based)
-
-    def replace_based(self, based: Declaration, replace: Declaration):
-        if self.src == based:
-            self.src = replace
-        else:
-            self.src.replace_based(based, replace)
-
-    def resolve(self, target: 'Typedef'):
-        if self.src == target:
-            self.src = target.src
-
-    def get_concrete_type(self):
-        current = self.src
-        while isinstance(current, Typedef):
-            current = current.src
-        return current
 
 
 class EnumValue(NamedTuple):
