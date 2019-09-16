@@ -1,7 +1,7 @@
 import pathlib
 import sys
 import shutil
-from typing import Tuple, Optional, Dict
+from typing import Tuple, Optional, Dict, List
 from jinja2 import Template
 import cpptypeinfo
 HERE = pathlib.Path(__file__).absolute().parent
@@ -262,8 +262,8 @@ def generate_functions(root_ns: cpptypeinfo.Namespace, root: pathlib.Path):
                     continue
                 if v.name.startswith('operator '):
                     continue
-                if not v.extern_c:
-                    continue
+                # if not v.extern_c:
+                #     continue
                 if any(
                         isinstance(p.typeref.ref, cpptypeinfo.VaList)
                         for p in v.params):
@@ -294,8 +294,10 @@ namespace {{ namespace }}
                      values=values))
 
 
-def main(imgui_h: pathlib.Path, cimgui_h: pathlib.Path, root: pathlib.Path):
-    root_ns = cpptypeinfo.parse_headers(imgui_h, cimgui_h)
+def main(root: pathlib.Path, *paths: pathlib.Path):
+    print(f'{[x.name for x in paths]} => {root}')
+
+    root_ns = cpptypeinfo.parse_headers(*paths)
 
     if root.exists():
         shutil.rmtree(root)
@@ -322,10 +324,8 @@ def main(imgui_h: pathlib.Path, cimgui_h: pathlib.Path, root: pathlib.Path):
 
 if __name__ == '__main__':
     if (len(sys.argv) > 3):
-        imgui_h = pathlib.Path(sys.argv[1])
-        cimgui_h = pathlib.Path(sys.argv[2])
-        dst = pathlib.Path(sys.argv[3])
-        main(imgui_h, cimgui_h, dst)
+        dst = pathlib.Path(sys.argv[1])
+        main(dst, *[pathlib.Path(x) for x in sys.argv[2:]])
     else:
         dst = HERE / 'cimgui_cs'
-        main(IMGUI_H, CIMGUI_H, dst)
+        main(dst, IMGUI_H, CIMGUI_H)

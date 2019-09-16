@@ -124,13 +124,16 @@ def parse_typedef(c: cindex.Cursor):
     decl.line = c.location.line
 
 
-def parse_cursor(c: cindex.Cursor, extern_c=False):
+def parse_cursor(c: cindex.Cursor, files: List[pathlib.Path], extern_c=False):
+    if pathlib.Path(c.location.file.name) not in files:
+        return
+
     if c.kind == cindex.CursorKind.UNEXPOSED_DECL:
         try:
             it = c.get_tokens()
             t0 = next(it)
             t1 = next(it)
-            if t0.spelling == 'extern' and t1.spelling== '"C"':
+            if t0.spelling == 'extern' and t1.spelling == '"C"':
                 extern_c = True
         except StopIteration:
             pass
@@ -139,7 +142,7 @@ def parse_cursor(c: cindex.Cursor, extern_c=False):
         # if 'dllexport' in tokens:
         #     a = 0
         for child in c.get_children():
-            parse_cursor(child, extern_c)
+            parse_cursor(child, files, extern_c)
 
     elif c.kind == cindex.CursorKind.UNION_DECL:
         parse_struct(c)
@@ -156,6 +159,10 @@ def parse_cursor(c: cindex.Cursor, extern_c=False):
     elif c.kind == cindex.CursorKind.ENUM_DECL:
         parse_enum(c)
 
+    elif c.kind == cindex.CursorKind.VAR_DECL:
+        # static variable
+        pass
+
     elif c.kind == cindex.CursorKind.FUNCTION_TEMPLATE:
         pass
 
@@ -166,11 +173,8 @@ def parse_cursor(c: cindex.Cursor, extern_c=False):
         raise NotImplementedError(str(c.kind))
 
 
-def parse_namespace(c: cindex.Cursor, files: List[str]):
+def parse_namespace(c: cindex.Cursor, files: List[pathlib.Path]):
     for i, child in enumerate(c.get_children()):
-        if child.location.file.name not in files:
-            continue
-
         if child.kind == cindex.CursorKind.NAMESPACE:
             # nested
             cpptypeinfo.push_namespace(child.spelling)
@@ -178,4 +182,4 @@ def parse_namespace(c: cindex.Cursor, files: List[str]):
             cpptypeinfo.pop_namespace()
         else:
 
-            parse_cursor(child)
+            parse_cursor(child, files)
