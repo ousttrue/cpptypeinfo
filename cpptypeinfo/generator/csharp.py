@@ -35,10 +35,13 @@ def to_cs(decl: cpptypeinfo.Type) -> Tuple[Optional[str], str]:
 
     if isinstance(decl, cpptypeinfo.Void):
         return (None, 'void')
-    elif isinstance(decl, cpptypeinfo.Pointer):
-        return (None, 'IntPtr')
     elif isinstance(decl, cpptypeinfo.Array):
         return (None, 'IntPtr')
+    elif isinstance(decl, cpptypeinfo.Pointer):
+        if isinstance(decl.typeref.ref, cpptypeinfo.Bool):
+            return ('MarshalAs(UnmanagedType.U1)', 'ref bool')
+        else:
+            return (None, 'IntPtr')
     elif isinstance(decl, cpptypeinfo.Function):
         return (None, 'IntPtr')
     elif isinstance(decl, cpptypeinfo.Enum):
