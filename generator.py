@@ -45,6 +45,8 @@ def to_cs(decl: cpptypeinfo.Type) -> Tuple[Optional[str], str]:
         return (None, 'IntPtr')
     elif isinstance(decl, cpptypeinfo.Function):
         return (None, 'IntPtr')
+    elif isinstance(decl, cpptypeinfo.Enum):
+        return (None, decl.type_name)
     elif isinstance(decl, cpptypeinfo.Struct):
         return (None, decl.type_name)
     elif isinstance(decl, cpptypeinfo.Typedef):
@@ -65,12 +67,11 @@ def cs_symbol(name: str):
     return name
 
 
-def generate_enum(enum: cpptypeinfo.Enum, root: pathlib.Path, is_flags: bool,
-                  typename_filter, valuename_filter):
+def generate_enum(enum: cpptypeinfo.Enum, root: pathlib.Path):
 
-    type_name = typename_filter(enum.type_name)
+    # type_name = typename_filter(enum.type_name)
 
-    dst = root / f'{type_name}.cs'
+    dst = root / f'{enum.type_name}.cs'
     t = Template('''{{ headline }}
 {{ using }}
 
@@ -91,12 +92,9 @@ namespace {{ namespace }}
             t.render(headline=HEADLINE,
                      using=USING,
                      namespace=NAMESPACE_NAME,
-                     attribute='[Flags]' if is_flags else '',
-                     type_name=type_name,
-                     values=[
-                         valuename_filter(enum.type_name, v)
-                         for v in enum.values
-                     ],
+                     attribute='[Flags]' if enum.is_flag else '',
+                     type_name=enum.type_name,
+                     values=enum.values,
                      file=enum.file.name,
                      line=enum.line))
 
@@ -183,55 +181,6 @@ namespace {{ namespace }}
                      line=decl.line))
 
 
-def generate(ns: cpptypeinfo.Namespace, root: pathlib.Path):
-    '''
-    cimgui を出力する。
-    enum XXXFlags_ と typedef int XXXFlags
-    をまとめて enum XXXFlags にする。
-    '''
-    root.mkdir(parents=True, exist_ok=True)
-
-    def typename_filter(src):
-        if src.endswith('_'):
-            return src[:-1]
-        else:
-            return src
-
-    def valuename_filter(type_name, src):
-        if src.name.startswith(type_name):
-            return cpptypeinfo.EnumValue(src.name[len(type_name):], src.value)
-        else:
-            return src
-
-    #
-    # first enum
-    #
-    removes = []
-    for k, v in ns.user_type_map.items():
-        if isinstance(v, cpptypeinfo.Enum):
-
-            generate_enum(v, root, v.type_name.endswith('Flags_'),
-                          typename_filter, valuename_filter)
-            removes.append(v.type_name[:-1])
-
-    #
-    # second, except enum
-    #
-    for k, v in ns.user_type_map.items():
-        if isinstance(v, cpptypeinfo.Enum):
-            pass
-        elif isinstance(v, cpptypeinfo.Typedef):
-            if v.type_name in removes:
-                continue
-            if v.type_name.endswith('Callback'):
-                continue
-            generate_typedef(v, root)
-        elif isinstance(v, cpptypeinfo.Struct):
-            generate_struct(v, root)
-        else:
-            raise Exception()
-
-
 def generate_functions(root_ns: cpptypeinfo.Namespace, root: pathlib.Path):
     dst = root / 'CImGui.cs'
 
@@ -259,6 +208,8 @@ def generate_functions(root_ns: cpptypeinfo.Namespace, root: pathlib.Path):
         if not isinstance(ns, cpptypeinfo.Struct):
             for v in ns.functions:
                 if not v.name:
+                    continue
+                if v.name.startswith('ImVector_'):
                     continue
                 if v.file.name == 'imgui.h':
                     continue
@@ -296,32 +247,152 @@ namespace {{ namespace }}
                      values=values))
 
 
+def generate_imguiio(root_ns: cpptypeinfo.Namespace, root: pathlib.Path):
+    def find_struct() -> cpptypeinfo.Struct:
+        for ns in root_ns.traverse():
+            for k, v in ns.user_type_map.items():
+                if k == 'ImGuiIO' and isinstance(v, cpptypeinfo.Struct):
+                    return v
+        raise Exception()
+
+    imguiio = find_struct()
+    values = []
+    for f in imguiio.fields:
+        if f.typeref.ref == cpptypeinfo.Int32:
+            value = f'''public int {f.name}
+        {{
+            get => (int)Marshal.ReadInt32(IntPtr.Add(m_p, {f.offset}));
+            set => Marshal.WriteInt32(IntPtr.Add(m_p, {f.offset}), (int)value);
+        }}'''
+            values.append(value)
+        elif isinstance(f.typeref.ref, cpptypeinfo.Enum):
+            type_name = f.typeref.ref.type_name
+            value = f'''public {type_name} {f.name}
+        {{
+            get => ({type_name})Marshal.ReadInt32(IntPtr.Add(m_p, {f.offset}));
+            set => Marshal.WriteInt32(IntPtr.Add(m_p, {f.offset}), (int)value);
+        }}'''
+            values.append(value)
+
+    t = Template('''{{ headline }}
+{{ using }}
+
+namespace {{ namespace }}
+{
+    public struct ImGuiIO
+    {
+        public static implicit operator ImGuiIO(IntPtr p)
+        {
+            return new ImGuiIO(p);
+        }
+
+        readonly IntPtr m_p;
+
+        public ImGuiIO(IntPtr ptr)
+        {
+            m_p = ptr;
+        }
+
+{%- for value in values %}
+        {{ value }}
+{%- endfor %}
+    }
+}
+''')
+    with open(root / 'ImGuiIO.cs', 'w') as f:
+        f.write(
+            t.render(headline=HEADLINE,
+                     using=USING,
+                     namespace=NAMESPACE_NAME,
+                     values=values))
+
+
+def process_enum(root_ns: cpptypeinfo.Namespace):
+    '''
+    enum XXXFlags_ と typedef int XXXFlags
+    をまとめて enum XXXFlags にする。
+    '''
+    for ns in root_ns.traverse():
+        while True:
+            found = None
+            for k, v in ns.user_type_map.items():
+                if not k:
+                    continue
+                if isinstance(v, cpptypeinfo.Enum) and k.endswith('_'):
+                    found = v
+                    break
+            if not found:
+                return
+
+            if k.endswith('Flags_'):
+                v.is_flag = True
+
+            # 値をrename
+            def valuename_filter(type_name: str, src: cpptypeinfo.EnumValue):
+                if src.name.startswith(type_name):
+                    return cpptypeinfo.EnumValue(src.name[len(type_name):],
+                                                 src.value)
+                else:
+                    return src
+
+            v.values = [valuename_filter(v.type_name, x) for x in v.values]
+
+            # renameして再登録
+            ns.user_type_map.pop(v.type_name)
+            v.type_name = v.type_name[:-1]
+
+            old = ns.user_type_map.get(v.type_name)
+            if old:
+                # remove typdef
+                root_ns.resolve(old, v)
+            ns.user_type_map[v.type_name] = v
+
+
 def main(root: pathlib.Path, *paths: pathlib.Path):
     print(f'{[x.name for x in paths]} => {root}')
 
     root_ns = cpptypeinfo.parse_headers(*paths)
 
+    #
+    # preprocess
+    #
     if root.exists():
         shutil.rmtree(root)
 
-    root_ns.resolve_typedef('ImS8')
-    root_ns.resolve_typedef('ImS16')
-    root_ns.resolve_typedef('ImS32')
-    root_ns.resolve_typedef('ImS64')
-    root_ns.resolve_typedef('ImU8')
-    root_ns.resolve_typedef('ImU16')
-    root_ns.resolve_typedef('ImU32')
-    root_ns.resolve_typedef('ImU64')
-    root_ns.resolve_struct_tag()
+    root_ns.resolve_typedef_by_name('ImS8')
+    root_ns.resolve_typedef_by_name('ImS16')
+    root_ns.resolve_typedef_by_name('ImS32')
+    root_ns.resolve_typedef_by_name('ImS64')
+    root_ns.resolve_typedef_by_name('ImU8')
+    root_ns.resolve_typedef_by_name('ImU16')
+    root_ns.resolve_typedef_by_name('ImU32')
+    root_ns.resolve_typedef_by_name('ImU64')
+    root_ns.resolve_typedef_struct_tag()
+    process_enum(root_ns)
 
+
+
+    #
+    # process each namespace from root
+    #
+    root.mkdir(parents=True, exist_ok=True)
     for ns in root_ns.traverse():
-        if not isinstance(ns, cpptypeinfo.Struct):
-            generate(ns, root)
 
-    #
-    # functions
-    #
+        for k, v in ns.user_type_map.items():
+            if isinstance(v, cpptypeinfo.Enum):
+                generate_enum(v, root)
+            elif isinstance(v, cpptypeinfo.Typedef):
+                if v.type_name.endswith('Callback'):
+                    continue
+                generate_typedef(v, root)
+            elif isinstance(v, cpptypeinfo.Struct):
+                generate_struct(v, root)
+            else:
+                raise Exception()
+
     generate_functions(root_ns, root)
+
+    generate_imguiio(root_ns, root)
 
 
 if __name__ == '__main__':

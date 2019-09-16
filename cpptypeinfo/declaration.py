@@ -198,10 +198,12 @@ class TypeRef(NamedTuple):
             return None
         return TypeRef(replace, self.is_const)
 
-    def resolve(self, typedef: 'Typedef') -> 'TypeRef':
-        if self.ref != typedef:
-            return self
-        return TypeRef(typedef.typeref.ref, self.is_const)
+    def resolve(self, typedef: 'Typedef', replace: Type) -> 'TypeRef':
+        if self.ref == typedef:
+            if not replace:
+                raise Exception()
+            return TypeRef(replace, self.is_const)
+        return self
 
     def get_concrete_type(self) -> Type:
         current = self.ref
@@ -228,7 +230,7 @@ class UserType(Type):
     def replace_based(self, based: Type, replace: Type) -> 'UserType':
         raise Exception()
 
-    def resolve(self, target: 'Typedef'):
+    def resolve(self, target: 'Typedef', replace: Type):
         pass
 
 
@@ -240,7 +242,12 @@ class NamedType(UserType):
         self.file: Optional[pathlib.Path] = None
         self.line = -1
         # 型をNameSpaceに登録する
-        if self.type_name and self.type_name not in STACK[-1].user_type_map:
+        if self.type_name and self.type_name:
+            if self.type_name in STACK[-1].user_type_map:
+                print(
+                    f'duplicate: {self.type_name} => {STACK[-1].user_type_map[self.type_name]}'
+                )
+                return
             STACK[-1].user_type_map[self.type_name] = self
 
     def __eq__(self, value):
@@ -284,19 +291,21 @@ class Namespace:
                 if not isinstance(x, Struct):
                     yield x
 
-    def _resolve(self, found: 'Typedef'):
+    def resolve(self, found: 'Typedef', replace: Type):
+        if not replace:
+            replace = found.typeref.ref
         for ns in self.traverse():
             for k, v in ns.user_type_map.items():
-                v.resolve(found)
+                v.resolve(found, replace)
             for v in ns.functions:
-                v.resolve(found)
+                v.resolve(found, replace)
 
         for ns in self.traverse():
             if found.type_name in ns.user_type_map:
                 print(f'remove {found}')
                 ns.user_type_map.pop(found.type_name)
 
-    def resolve_typedef(self, name: str):
+    def resolve_typedef_by_name(self, name: str, replace: Type = None):
         '''
         typedefを削除する。
         型を破壊的に変更する
@@ -313,9 +322,9 @@ class Namespace:
                 break
 
             # remove
-            self._resolve(found)
+            self.resolve(found, replace)
 
-    def resolve_struct_tag(self):
+    def resolve_typedef_struct_tag(self):
         '''
         remove
         typedef struct Some Some;
@@ -330,7 +339,7 @@ class Namespace:
 
         for target in targets:
             # remove
-            self._resolve(target)
+            self.resolve(target, target.typeref.ref)
 
 
 STACK: List[Namespace] = []
@@ -370,6 +379,8 @@ class Typedef(NamedType):
         super().__init__(type_name)
         if isinstance(ref, Type):
             ref = ref.to_ref()
+        if not ref:
+            raise Exception()
         self.typeref = ref
 
     def __str__(self) -> str:
@@ -391,8 +402,8 @@ class Typedef(NamedType):
     def is_based(self, based: Type) -> bool:
         return self.typeref.is_based(based)
 
-    def resolve(self, target: 'Typedef'):
-        self.typeref = self.typeref.resolve(target)
+    def resolve(self, target: 'Typedef', replace: Type):
+        self.typeref = self.typeref.resolve(target, replace)
 
     def get_concrete_type(self) -> Type:
         return self.typeref.get_concrete_type()
@@ -424,8 +435,8 @@ class Pointer(UserType):
     def replace_based(self, based: Type, replace: Type):
         self.typeref.replace_based(based, replace)
 
-    def resolve(self, target: Typedef):
-        self.typeref = self.typeref.resolve(target)
+    def resolve(self, target: Typedef, replace: Type):
+        self.typeref = self.typeref.resolve(target, replace)
 
 
 class Array(Pointer):
@@ -452,11 +463,9 @@ class Field(NamedTuple):
     offset: int = -1
     value: str = ''
 
-    def resolve(self, typedef: Typedef) -> 'Field':
-        if self.typeref == typedef:
-            return Field(typedef.typeref, self.name, self.value)
-        else:
-            return self
+    def resolve(self, typedef: Typedef, replace: Type) -> 'Field':
+        return Field(self.typeref.resolve(typedef, replace), self.name,
+                     self.offset, self.value)
 
 
 class Struct(NamedType, Namespace):
@@ -511,9 +520,9 @@ class Struct(NamedType, Namespace):
                 return True
         return False
 
-    def resolve(self, target: Typedef):
+    def resolve(self, target: Typedef, replace: Type):
         for i in range(len(self.fields)):
-            self.fields[i] = self.fields[i].resolve(target)
+            self.fields[i] = self.fields[i].resolve(target, replace)
 
     def __hash__(self):
         return hash(self.type_name)
@@ -545,11 +554,9 @@ class Param(NamedTuple):
     name: str = ''
     value: str = ''
 
-    def resolve(self, typedef: Typedef) -> 'Param':
-        if self.typeref == typedef:
-            return Param(typedef.typeref, self.name, self.value)
-        else:
-            return self
+    def resolve(self, typedef: Typedef, replace: Type) -> 'Param':
+        return Param(self.typeref.resolve(typedef, replace), self.name,
+                     self.value)
 
 
 class Function(UserType):
@@ -599,10 +606,10 @@ class Function(UserType):
                 return True
         return False
 
-    def resolve(self, typedef: Typedef):
-        self.result = self.result.resolve(typedef)
+    def resolve(self, typedef: Typedef, replace: Type):
+        self.result = self.result.resolve(typedef, replace)
         for i in range(len(self.params)):
-            self.params[i] = self.params[i].resolve(typedef)
+            self.params[i] = self.params[i].resolve(typedef, replace)
 
 
 class EnumValue(NamedTuple):
@@ -614,6 +621,7 @@ class Enum(NamedType):
     def __init__(self, type_name: str, values: List[EnumValue]):
         super().__init__(type_name)
         self.values = values
+        self.is_flag = False
 
     def __str__(self) -> str:
         return f'enum {self.type_name}'
