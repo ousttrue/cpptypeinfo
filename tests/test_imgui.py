@@ -144,12 +144,12 @@ EXPECTS = {
     'ImU64':
     cpptypeinfo.Typedef('ImU64', cpptypeinfo.UInt64()),
     'ImVec2':
-    cpptypeinfo.Struct('ImVec2', False, [
+    cpptypeinfo.Struct('ImVec2', [
         cpptypeinfo.Field(cpptypeinfo.Float(), 'x'),
         cpptypeinfo.Field(cpptypeinfo.Float(), 'y')
     ]),
     'ImVec4':
-    cpptypeinfo.Struct('ImVec4', False, [
+    cpptypeinfo.Struct('ImVec4', [
         cpptypeinfo.Field(cpptypeinfo.Float(), 'x'),
         cpptypeinfo.Field(cpptypeinfo.Float(), 'y'),
         cpptypeinfo.Field(cpptypeinfo.Float(), 'z'),
@@ -853,17 +853,18 @@ class ImGuiTest(unittest.TestCase):
                         else:
                             self.assertEqual(expected, v)
 
-            for k, v in ns.function_map.items():
-                with self.subTest(name=k):
-                    # print(f'{ns}{v}')
-                    expected = EXPECTS.get(k)
-                    if expected is None:
-                        raise Exception('not found :' + k)
-                    else:
-                        if isinstance(expected, list):
-                            pass
+            for v in ns.functions:
+                if v.name:
+                    with self.subTest(name=v.name):
+                        # print(f'{ns}{v}')
+                        expected = EXPECTS.get(v.name)
+                        if expected is None:
+                            raise Exception('not found :' + v.name)
                         else:
-                            self.assertEqual(expected, v)
+                            if isinstance(expected, list):
+                                pass
+                            else:
+                                self.assertEqual(expected, v)
 
 
 if __name__ == '__main__':

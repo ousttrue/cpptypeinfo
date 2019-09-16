@@ -1,59 +1,274 @@
+'''
+Type
+    + PrimitiveType
+        + Int8
+        + Int16
+        + Int32
+        + Int64
+        + UInt8
+        + UInt16
+        + UInt32
+        + UInt64
+        + Float
+        + Double
+        + Bool(Int8)
+        + Void
+        + VaList
+    + UserType
+        + Pointer
+            + Array
+        + Function(extern "C", __declspec(dllexport))
+        + NamedType(export)
+            + Enum(Int32)
+            + Typedef
+            + Struct
+
+TypeRef
+    + is_const
+    + type: Type
+
+Field: for Struct
+    + ref: TypeRef
+    + name
+
+Param: for Function
+    + ref: TypeRef
+    + name
+'''
+import pathlib
 import re
 import copy
-from typing import List, NamedTuple, Dict, Optional
+from typing import List, NamedTuple, Dict, Optional, Union
 
 
-class Declaration:
-    def __init__(self, is_const=False):
-        self.is_const = is_const
+class Type:
+    def __init__(self):
         self.file = ''
         self.line = -1
+
+    def to_ref(self) -> 'TypeRef':
+        return TypeRef(self)
+
+    def to_const(self) -> 'TypeRef':
+        return TypeRef(self, True)
+
+
+class PrimitiveType(Type):
+    '''
+    Type that has not TypeRef
+    '''
+    def __str__(self):
+        return self.__class__.__name__
 
     def __eq__(self, value):
         if not isinstance(value, self.__class__):
             return False
-        if self.is_const != value.is_const:
+        return True
+
+
+class Int8(PrimitiveType):
+    def __hash__(self):
+        return 2
+
+
+class Int16(PrimitiveType):
+    def __hash__(self):
+        return 3
+
+
+class Int32(PrimitiveType):
+    def __hash__(self):
+        return 4
+
+
+class Int64(PrimitiveType):
+    def __hash__(self):
+        return 5
+
+
+class UInt8(PrimitiveType):
+    def __hash__(self):
+        return 6
+
+
+class UInt16(PrimitiveType):
+    def __hash__(self):
+        return 7
+
+
+class UInt32(PrimitiveType):
+    def __hash__(self):
+        return 8
+
+
+class UInt64(PrimitiveType):
+    def __hash__(self):
+        return 9
+
+
+class Float(PrimitiveType):
+    def __hash__(self):
+        return 10
+
+
+class Double(PrimitiveType):
+    def __hash__(self):
+        return 11
+
+
+class Bool(PrimitiveType):
+    '''
+    may Int8
+    '''
+    def __hash__(self):
+        return 12
+
+
+class Void(PrimitiveType):
+    def __hash__(self):
+        return 1
+
+
+class VaList(PrimitiveType):
+    def __hash__(self):
+        return 13
+
+
+primitive_type_map: Dict[str, PrimitiveType] = {
+    'void': Void(),
+    #
+    'int64_t': Int64(),
+    'uint64_t': UInt64(),
+    #
+    'char': Int8(),
+    'int': Int32(),
+    'short': Int16(),
+    'long long': Int64(),
+    #
+    'signed char': Int8(),
+    'signed short': Int16(),
+    'signed int': Int32(),
+    'signed long long': Int64(),
+    #
+    'unsigned char': UInt8(),
+    'unsigned int': UInt32(),
+    'unsigned short': UInt16(),
+    'unsigned long long': UInt64(),
+    #
+    'size_t': UInt64(),
+    'float': Float(),
+    'double': Double(),
+    'bool': Bool(),
+    'va_list': VaList(),
+}
+
+
+# class TypeRef:
+#     def __init__(self, ref: Type, is_const=False):
+#         self.ref = ref
+#         self.is_const = is_const
+class TypeRef(NamedTuple):
+    ref: Type
+    is_const: bool = False
+
+    def __eq__(self, value):
+        if isinstance(value, Type):
+            return self.ref == value
+        elif isinstance(value, TypeRef):
+            if self.is_const != value.is_const:
+                return False
+            return self.ref == value.ref
+
+    def __str__(self) -> str:
+        if self.is_const:
+            return f'const {self.ref}'
+        else:
+            return str(self.ref)
+
+    def is_based(self, based: Type) -> bool:
+        if self.ref == based:
+            return True
+        if isinstance(self.ref, UserType):
+            return self.ref.is_based(based)
+        else:
+            return False
+
+    def replace_based(self, based: Type, replace: Type) -> Optional['TypeRef']:
+        if self.ref != based:
+            return None
+        return TypeRef(replace, self.is_const)
+
+    def resolve(self, typedef: 'Typedef') -> 'TypeRef':
+        if self.ref != typedef:
+            return self
+        return TypeRef(typedef.typeref.ref, self.is_const)
+
+    def get_concrete_type(self) -> Type:
+        current = self.ref
+        while isinstance(current, Typedef):
+            current = current.typeref.ref
+        return current
+
+
+class UserType(Type):
+    def __eq__(self, value):
+        if not isinstance(value, self.__class__):
             return False
         return True
 
     def __str__(self):
-        if self.is_const:
-            return f'const {self.__class__.__name__}'
-        else:
-            return self.__class__.__name__
+        return self.type_name
 
     def clone(self):
         return copy.copy(self)
 
-    def is_based(self, based: 'Declaration') -> bool:
-        return self == based
+    def is_based(self, based: Type) -> bool:
+        raise NotImplementedError()
 
-    def replace_based(self, clone: 'Declaration', based: 'Declaration',
-                      replace: 'Declaration'):
+    def replace_based(self, based: Type, replace: Type) -> 'UserType':
         raise Exception()
 
     def resolve(self, target: 'Typedef'):
         pass
 
 
+class NamedType(UserType):
+    def __init__(self, type_name: str):
+        if not type_name:
+            raise Exception('no name')
+        self.type_name = type_name
+        self.file: Optional[pathlib.Path] = None
+        self.line = -1
+        # 型をNameSpaceに登録する
+        if self.type_name and self.type_name not in STACK[-1].user_type_map:
+            STACK[-1].user_type_map[self.type_name] = self
+
+    def __eq__(self, value):
+        if not isinstance(value, self.__class__):
+            return False
+        if self.type_name != value.type_name:
+            return False
+        return True
+
+
 class Namespace:
+    '''
+    ユーザー定義型を管理する
+    '''
     def __init__(self, name: str):
         self.name = name
-        self.user_type_map: Dict[str, Declaration] = {}
+        self.user_type_map: Dict[str, UserType] = {}
         self.children: List[Namespace] = []
         self.parent: Optional[Namespace] = None
-        self.function_map: Dict[str, Function] = {}
+        self.functions: List[Function] = []
 
     def __str__(self) -> str:
         return '::'.join([ns.name for ns in self.ancestors()])
 
-    def get(self, src: str, is_const: bool):
+    def get(self, src: str) -> Optional[Type]:
         user_type = self.user_type_map.get(src)
         if not user_type:
             return None
-        if user_type.is_const != is_const:
-            user_type = user_type.clone()
-            user_type.is_const = is_const
         return user_type
 
     def ancestors(self):
@@ -69,7 +284,23 @@ class Namespace:
                 if not isinstance(x, Struct):
                     yield x
 
-    def resolve(self, name: str):
+    def _resolve(self, found: 'Typedef'):
+        for ns in self.traverse():
+            for k, v in ns.user_type_map.items():
+                v.resolve(found)
+            for v in ns.functions:
+                v.resolve(found)
+
+        for ns in self.traverse():
+            if found.type_name in ns.user_type_map:
+                print(f'remove {found}')
+                ns.user_type_map.pop(found.type_name)
+
+    def resolve_typedef(self, name: str):
+        '''
+        typedefを削除する。
+        型を破壊的に変更する
+        '''
         while True:
             found = None
             for ns in self.traverse():
@@ -82,22 +313,30 @@ class Namespace:
                 break
 
             # remove
-            for ns in self.traverse():
-                for k, v in ns.user_type_map.items():
-                    v.resolve(found)
-                for k, v in ns.function_map.items():
-                    v.resolve(found)
+            self._resolve(found)
 
-            for ns in self.traverse():
-                if found.type_name in ns.user_type_map:
-                    print(f'remove {found}')
-                    ns.user_type_map.pop(found.type_name)
+    def resolve_struct_tag(self):
+        '''
+        remove
+        typedef struct Some Some;
+        '''
+        targets = []
+        for ns in self.traverse():
+            for k, v in ns.user_type_map.items():
+                if isinstance(v, Typedef):
+                    if isinstance(v.typeref.ref, Struct):
+                        if k == v.typeref.ref.type_name:
+                            targets.append(v)
+
+        for target in targets:
+            # remove
+            self._resolve(target)
 
 
-STACK = []
+STACK: List[Namespace] = []
 
 
-def push_namespace(name=''):
+def push_namespace(name='') -> Namespace:
     namespace = name if isinstance(name, Namespace) else Namespace(name)
     if STACK:
         STACK[-1].children.append(namespace)
@@ -110,164 +349,61 @@ def pop_namespace():
     STACK.pop()
 
 
-class Typedef(Declaration):
-    def __init__(self, type_name: str, src: Declaration):
-        super().__init__(is_const=False)
-        self.type_name = type_name
-        self.src = src
+NS_PATTERN = re.compile(r'(\w+)::(\w+)$')
 
-        if self.type_name not in STACK[-1].user_type_map:
-            STACK[-1].user_type_map[self.type_name] = self
+
+def get_from_ns(src: str) -> Optional[Type]:
+    primitive = primitive_type_map.get(src)
+    if primitive:
+        return primitive
+
+    for namespace in reversed(STACK):
+        decl = namespace.get(src)
+        if decl:
+            return decl
+
+    return None
+
+
+class Typedef(NamedType):
+    def __init__(self, type_name: str, ref: Union[TypeRef, Type]):
+        super().__init__(type_name)
+        if isinstance(ref, Type):
+            ref = ref.to_ref()
+        self.typeref = ref
 
     def __str__(self) -> str:
-        return f'typedef {self.type_name} = {self.src}'
+        return f'typedef {self.type_name} = {self.typeref}'
 
     def __hash__(self):
-        return hash(self.src)
+        return hash(self.typeref)
 
     def __eq__(self, value):
         if not super().__eq__(value):
             return False
         if self.type_name == value.type_name:
-            if self.src != value.src:
+            if self.typeref != value.typeref:
                 raise Exception()
-        if self.src != value.src:
+        if self.typeref != value.typeref:
             return False
         return True
 
-    def is_based(self, based: Declaration) -> bool:
-        if self.src == based:
-            return True
-        return self.src.is_based(based)
-
-    def replace_based(self, clone: 'Typedef', based: Declaration,
-                      replace: Declaration):
-        clone.src = copy.copy(self.src)
-        if self.src == based:
-            self.src = replace
-        else:
-            self.src.replace_based(clone.src, based, replace)
+    def is_based(self, based: Type) -> bool:
+        return self.typeref.is_based(based)
 
     def resolve(self, target: 'Typedef'):
-        if self.src == target:
-            self.src = target.src
+        self.typeref = self.typeref.resolve(target)
 
-    def get_concrete_type(self):
-        current = self.src
-        while isinstance(current, Typedef):
-            current = current.src
-        return current
+    def get_concrete_type(self) -> Type:
+        return self.typeref.get_concrete_type()
 
 
-class Void(Declaration):
-    def __init__(self, is_const=False):
-        super().__init__(is_const)
-
-    def __hash__(self):
-        return 1
-
-
-class Int8(Declaration):
-    def __init__(self, is_const=False):
-        super().__init__(is_const)
-
-    def __hash__(self):
-        return 2
-
-
-class Int16(Declaration):
-    def __init__(self, is_const=False):
-        super().__init__(is_const)
-
-    def __hash__(self):
-        return 3
-
-
-class Int32(Declaration):
-    def __init__(self, is_const=False):
-        super().__init__(is_const)
-
-    def __hash__(self):
-        return 4
-
-
-class Int64(Declaration):
-    def __init__(self, is_const=False):
-        super().__init__(is_const)
-
-    def __hash__(self):
-        return 5
-
-
-class UInt8(Declaration):
-    def __init__(self, is_const=False):
-        super().__init__(is_const)
-
-    def __hash__(self):
-        return 6
-
-
-class UInt16(Declaration):
-    def __init__(self, is_const=False):
-        super().__init__(is_const)
-
-    def __hash__(self):
-        return 7
-
-
-class UInt32(Declaration):
-    def __init__(self, is_const=False):
-        super().__init__(is_const)
-
-    def __hash__(self):
-        return 8
-
-
-class UInt64(Declaration):
-    def __init__(self, is_const=False):
-        super().__init__(is_const)
-
-    def __hash__(self):
-        return 9
-
-
-class Float(Declaration):
-    def __init__(self, is_const=False):
-        super().__init__(is_const)
-
-    def __hash__(self):
-        return 10
-
-
-class Double(Declaration):
-    def __init__(self, is_const=False):
-        super().__init__(is_const)
-
-    def __hash__(self):
-        return 11
-
-
-class Bool(Declaration):
-    def __init__(self, is_const=False):
-        super().__init__(is_const)
-
-    def __hash__(self):
-        return 12
-
-
-class VaList(Declaration):
-    def __init__(self, is_const=False):
-        super().__init__(is_const)
-
-    def __hash__(self):
-        return 13
-
-
-class Pointer(Declaration):
-    def __init__(self, target: Declaration, is_const=False):
-        super().__init__(is_const)
-        self.target = target
-        self._hash = target.__hash__() * 13 + 1
+class Pointer(UserType):
+    def __init__(self, ref: Union[TypeRef, Type]):
+        if isinstance(ref, Type):
+            ref = TypeRef(ref)
+        self.typeref = ref
+        self._hash = ref.__hash__() * 13 + 1
 
     def __hash__(self):
         return self._hash
@@ -275,129 +411,108 @@ class Pointer(Declaration):
     def __eq__(self, value):
         if not super().__eq__(value):
             return False
-        if self.target != value.target:
+        if self.typeref != value.typeref:
             return False
         return True
 
     def __str__(self):
-        return f'Ptr({self.target})'
+        return f'Ptr({self.typeref})'
 
-    def is_based(self, based: Declaration) -> bool:
-        if self.target == based:
-            return True
-        return self.target.is_based(based)
+    def is_based(self, based: Type) -> bool:
+        return self.typeref.is_based(based)
 
-    def replace_based(self, clone: 'Pointer', based: Declaration,
-                      replace: Declaration):
-        clone.target = copy.copy(self.target)
-        if clone.target == based:
-            clone.target = replace
-        else:
-            clone.target = copy.copy(clone.target)
-            self.target.replace_based(clone.target, based, replace)
+    def replace_based(self, based: Type, replace: Type):
+        self.typeref.replace_based(based, replace)
 
-    def resolve(self, target: 'Typedef'):
-        if self.target == target:
-            self.target = target.src
+    def resolve(self, target: Typedef):
+        self.typeref = self.typeref.resolve(target)
 
 
-class Array(Declaration):
-    def __init__(self, target: Declaration, length=None, is_const=False):
-        super().__init__(is_const)
-        self.target = target
+class Array(Pointer):
+    def __init__(self, ref: Union[Type, TypeRef],
+                 length: Optional[int] = None):
+        super().__init__(ref)
         self.length = length
-        self._hash = target.__hash__() * 12 + 1
+        self._hash = ref.__hash__() * 13 + 2
 
     def __hash__(self):
         return self._hash
 
     def __eq__(self, value):
-        return super().__eq__(value) and self.target == value.target
-
-    def is_based(self, based: 'Declaration') -> bool:
-        if self.target == based:
-            return True
-        return self.target.is_based(based)
-
-    def replace_based(self, clone: 'Array', based: Declaration,
-                      replace: Declaration):
-        clone.target = copy.copy(self.target)
-        if clone.target == based:
-            clone.target = replace
-        else:
-            self.target.replace_based(clone.target, based, replace)
-
-    def resolve(self, target: 'Typedef'):
-        if self.target == target:
-            self.target = target.src
+        if not super().__eq__(value):
+            return False
+        if self.length != value.length:
+            return False
+        return True
 
 
 class Field(NamedTuple):
-    type: Declaration
+    typeref: TypeRef
     name: str
     value: str = ''
 
+    def resolve(self, typedef: Typedef) -> 'Field':
+        if self.typeref == typedef:
+            return Field(typedef.typeref, self.name, self.value)
+        else:
+            return self
 
-class Struct(Declaration, Namespace):
-    def __init__(self, type_name, is_const=False, fields: List[Field] = None):
-        super().__init__(is_const)
+
+class Struct(NamedType, Namespace):
+    def __init__(self, type_name, fields: List[Field] = None):
+        super().__init__(type_name)
         Namespace.__init__(self, type_name)
         global STACK
 
-        self.type_name = type_name
         self.fields: List[Field] = []
         if fields:
             for f in fields:
+                if isinstance(f.typeref, Type):
+                    f = Field(f.typeref.to_ref(), f.name, f.value)
                 self.add_field(f)
-        STACK[-1].user_type_map[self.type_name] = self
         self.template_parameters: List[str] = []
 
+    def is_forward_decl(self) -> bool:
+        return len(self.fields) == 0
+
     def add_field(self, f: Field) -> None:
+        if isinstance(f.typeref, Type):
+            f = Field(f.typeref.to_ref(), f.name, f.value)
         self.fields.append(f)
 
     def add_template_parameter(self, t: str) -> None:
         self.template_parameters.append(t)
-        self.user_type_map[t] = parse(f'struct {t}')
+        self.user_type_map[t] = parse(f'struct {t}').ref
 
-    def instantiate(self, template_params: List[Declaration]) -> 'Struct':
+    def instantiate(self, template_params: List[Type]) -> 'Struct':
         decl = self.clone()
 
-        based_params = [
-            self.get(t, self.is_const) for t in self.template_parameters
-        ]
+        based_params = [self.get(t) for t in self.template_parameters]
 
         for based, replace in zip(based_params, template_params):
             for i in range(len(self.fields)):
                 f = self.fields[i]
-                if f.type.is_based(based):
-                    if f.type == based:
-                        self.fields[i] = Field(replace, f.name, f.value)
-                    else:
-                        clone = copy.copy(f.type)
-                        f.type.replace_based(clone, based, replace)
-                        self.fields[i] = Field(clone, f.name, f.value)
+                # if f.typeref.is_based(based):
+                #     if f.type == based:
+                #         self.fields[i] = Field(replace, f.name, f.value)
+                #     else:
+                #         clone = copy.copy(f.type)
+                #         f.type.replace_based(clone, based, replace)
+                #         self.fields[i] = Field(clone, f.name, f.value)
 
         decl.template_parameters.clear()
 
         return decl
 
-    def is_based(self, based: 'Declaration') -> bool:
+    def is_based(self, based: Type) -> bool:
         for f in self.fields:
-            if f.type == based:
-                return True
-            if f.type.is_based(based):
+            if f.typeref.is_based(based):
                 return True
         return False
 
-    def replace_based(self, clone: 'Struct', based: Declaration,
-                      replace: Declaration):
-        raise NotImplementedError()
-
-    def resolve(self, target: 'Typedef'):
+    def resolve(self, target: Typedef):
         for i in range(len(self.fields)):
-            f = self.fields[i]
-            if f.type == target:
-                self.fields[i] = Field(target.src, f.name, f.value)
+            self.fields[i] = self.fields[i].resolve(target)
 
     def __hash__(self):
         return hash(self.type_name)
@@ -407,16 +522,17 @@ class Struct(Declaration, Namespace):
             return False
         if self.type_name != value.type_name:
             return False
-        # if len(self.fields) != len(value.fields):
-        #     return False
-        # for l, r in zip(self.fields, value.fields):
-        #     if l != r:
-        #         return False
-        # if len(self.template_parameters) != len(value.template_parameters):
-        #     return False
-        # for l, r in zip(self.template_parameters, value.template_parameters):
-        #     if l != r:
-        #         return False
+        if not self.is_forward_decl() and not value.is_forward_decl():
+            if len(self.fields) != len(value.fields):
+                return False
+            for l, r in zip(self.fields, value.fields):
+                if l != r:
+                    return False
+        if len(self.template_parameters) != len(value.template_parameters):
+            return False
+        for l, r in zip(self.template_parameters, value.template_parameters):
+            if l != r:
+                return False
         return True
 
     def __str__(self) -> str:
@@ -424,22 +540,35 @@ class Struct(Declaration, Namespace):
 
 
 class Param(NamedTuple):
-    type: Declaration
+    typeref: TypeRef
     name: str = ''
     value: str = ''
 
+    def resolve(self, typedef: Typedef) -> 'Param':
+        if self.typeref == typedef:
+            return Param(typedef.typeref, self.name, self.value)
+        else:
+            return self
 
-class Function(Declaration):
-    def __init__(self,
-                 result: Declaration,
-                 params: List[Param],
-                 is_const=False):
-        super().__init__(is_const=is_const)
+
+class Function(UserType):
+    def __init__(self, result: Union[TypeRef, Type], params: List[Param]):
+        super().__init__()
+        self.name = ''
+        if isinstance(result, Type):
+            result = result.to_ref()
         self.result = result
-        self.params = params
+        self.params: List[Param] = []
+        for p in params:
+            if isinstance(p.typeref, Type):
+                p = Param(p.typeref.to_ref(), p.name, p.value)
+            self.params.append(p)
+
         self._hash = hash(result)
         for p in self.params:
             self._hash += hash(p)
+
+        STACK[-1].functions.append(self)
 
     def __hash__(self):
         return self._hash
@@ -457,30 +586,22 @@ class Function(Declaration):
         return True
 
     def __str__(self) -> str:
-        params = ', '.join(str(p.type) for p in self.params)
-        return f'{self.result}({params})'
+        params = ', '.join(str(p.typeref) for p in self.params)
+        if self.name:
+            return f'{self.name} = {self.result}({params})'
+        else:
+            return f'{self.result}({params})'
 
-    def is_based(self, based: 'Declaration') -> bool:
+    def is_based(self, based: Type) -> bool:
         for p in self.params:
-            if p.type == based:
-                return True
-            if p.type.is_based(based):
+            if p.typeref.is_based(based):
                 return True
         return False
 
-    def replace_based(self, clone: 'Function', based: Declaration,
-                      replace: Declaration):
-        raise NotImplementedError()
-
-    def resolve(self, target: 'Typedef'):
-        if target.type_name == 'ImU32':
-            a = 0
+    def resolve(self, typedef: Typedef):
+        self.result = self.result.resolve(typedef)
         for i in range(len(self.params)):
-            f = self.params[i]
-            if f.type == target:
-                self.params[i] = Param(target.src, f.name, f.value)
-        if self.result == target:
-            self.result = target.src
+            self.params[i] = self.params[i].resolve(typedef)
 
 
 class EnumValue(NamedTuple):
@@ -488,117 +609,60 @@ class EnumValue(NamedTuple):
     value: int
 
 
-class Enum(Declaration):
-    def __init__(self, type_name: str, values: List[EnumValue],
-                 is_const=False):
-        super().__init__(is_const=is_const)
-        self.type_name = type_name
+class Enum(NamedType):
+    def __init__(self, type_name: str, values: List[EnumValue]):
+        super().__init__(type_name)
         self.values = values
-        STACK[-1].user_type_map[self.type_name] = self
 
     def __str__(self) -> str:
         return f'enum {self.type_name}'
-
-
-type_map = {
-    'void': Void,
-    #
-    'int64_t': Int64,
-    'uint64_t': UInt64,
-    #
-    'char': Int8,
-    'int': Int32,
-    'short': Int16,
-    'long long': Int64,
-    #
-    'signed char': Int8,
-    'signed short': Int16,
-    'signed int': Int32,
-    'signed long long': Int64,
-    #
-    'unsigned char': UInt8,
-    'unsigned int': UInt32,
-    'unsigned short': UInt16,
-    'unsigned long long': UInt64,
-    #
-    'size_t': UInt64,
-    'float': Float,
-    'double': Double,
-    'bool': Bool,
-    'va_list': VaList,
-}
-
-NS_PATTERN = re.compile(r'(\w+)::(\w+)$')
-
-
-def get_from_ns(src: str, is_const: bool) -> Optional[Declaration]:
-    t = type_map.get(src)
-    if t:
-        return t(is_const)
-
-    for namespace in reversed(STACK):
-        decl = namespace.get(src, is_const)
-        if decl:
-            return decl
-
-    return None
 
 
 SPLIT_PATTERN = re.compile(r'[*&]')
 FUNC_PATTERN = re.compile(r'^(.*)\(.*\)\((.*)\)$')
 
 
-def parse(src: str, is_const=False) -> Declaration:
+def parse(src: str, is_const=False) -> TypeRef:
     src = src.strip()
-
-    ns_list = src.split('::')
-    if len(ns_list) > 1:
-        same = True
-        for l, r in zip(ns_list, STACK):
-            if l != r:
-                same = False
-                break
-        if not same:
-            Exception('not found')
-        return STACK[-1].get(src, is_const)
 
     m = FUNC_PATTERN.match(src)
     if m:
         result = m.group(1)
         params = m.group(2).split(',')
-        return Function(parse(result), [Param(type=parse(x)) for x in params])
+        return TypeRef(
+            Function(parse(result), [Param(typeref=parse(x)) for x in params]))
 
     if src[-1] == '>':
         # template
         pos = src.rfind('<')
         if pos == -1:
             raise Exception('< not found')
-        template = get_from_ns(src[:pos].strip(), is_const)
+        template = get_from_ns(src[:pos].strip())
         if not template:
             raise Exception()
         template_params = [
             parse(t) for t in src[pos + 1:-1].strip().split(',')
         ]
         decl = template.instantiate(template_params)
-        return decl
+        return TypeRef(decl, is_const)
 
     if src[-1] == ']':
         # array
         pos = src.rfind('[')
         if pos == -1:
             raise Exception('"[" not found')
-        length_str = src[pos + 1:-2].strip()
+        length_str = src[pos + 1:-1].strip()
         length = None
         if length_str:
             length = int(length_str)
-        return Array(parse(src[0:pos]), length, is_const)
+        return TypeRef(Array(parse(src[0:pos]), length), is_const)
 
     found = [x for x in SPLIT_PATTERN.finditer(src)]
     if found:
         # pointer or reference
         last = found[-1].start()
         head, tail = src[0:last].strip(), src[last + 1:].strip()
-        return Pointer(parse(head), tail == 'const')
+        return TypeRef(Pointer(parse(head)), tail == 'const')
 
     else:
         splitted = src.split()
@@ -610,19 +674,36 @@ def parse(src: str, is_const=False) -> Declaration:
             if len(splitted) != 2:
                 raise Exception()
 
-            decl = get_from_ns(splitted[1], is_const)
+            decl = get_from_ns(splitted[1])
             if decl:
-                return decl
+                return TypeRef(decl, is_const)
 
-            return Struct(splitted[1])
+            return TypeRef(Struct(splitted[1]), is_const)
         else:
-            t = type_map.get(src)
-            if t:
-                return t(is_const)
+            # get struct local type
+            ns_list = src.split('::')
+            if len(ns_list) > 1:
+                if len(ns_list) != 2:
+                    raise NotImplementedError()
+                current = STACK[-1]
+                if isinstance(current, Struct):
+                    if current.type_name != ns_list[0]:
+                        raise Exception(f'is not {ns_list[0]}')
+                    return parse(ns_list[1], is_const)
+                else:
+                    ns = get_from_ns(ns_list[0])
+                    if not ns:
+                        raise Exception(f'not found {ns_list[0]}')
+                    if not isinstance(ns, Struct):
+                        raise Exception(f'{ns} is not Struct')
+                    decl = ns.get(ns_list[1])
+                    if not decl:
+                        raise Exception(f'{ns_list[1]} is not found in {ns}')
+                    return TypeRef(decl, is_const)
 
-            decl = get_from_ns(src, is_const)
+            decl = get_from_ns(src)
             if decl:
-                return decl
+                return TypeRef(decl, is_const)
 
             raise Exception(f'not found: {src}')
 
@@ -631,45 +712,46 @@ if __name__ == '__main__':
     push_namespace('')  # root
     assert (parse('int') == Int32())
     assert (parse('int') != UInt32())
-    assert (parse('const int') == Int32(True))
-    assert (parse('int') != Int32(True))
+    assert (parse('const int') == Int32().to_const())
+    assert (parse('int') != Int32().to_const())
     assert (parse('char') == Int8())
     assert (parse('short') == Int16())
     assert (parse('long long') == Int64())
     assert (parse('unsigned int') == UInt32())
-    assert (parse('const unsigned int') == UInt32(True))
-    assert (parse('unsigned int') != UInt32(True))
+    assert (parse('const unsigned int') == UInt32().to_const())
+    assert (parse('unsigned int') != TypeRef(UInt32(), True))
     assert (parse('unsigned char') == UInt8())
     assert (parse('unsigned short') == UInt16())
     assert (parse('unsigned long long') == UInt64())
 
     assert (parse('void*') == Pointer(Void()))
-    assert (parse('const int*') == Pointer(Int32(True)))
-    assert (parse('int const*') == Pointer(Int32(True)))
-    assert (parse('int * const') == Pointer(Int32(), True))
-    assert (parse('const int * const') == Pointer(Int32(True), True))
+    assert (parse('const int*') == Pointer(Int32().to_const()))
+    assert (parse('int const*') == Pointer(Int32().to_const()))
+    assert (parse('int * const') == Pointer(Int32()).to_const())
+    assert (parse('const int * const') == Pointer(
+        Int32().to_const()).to_const())
 
     assert (parse('void**') == Pointer(Pointer(Void())))
-    assert (parse('const void**') == Pointer(Pointer(Void(True))))
-    assert (parse('const int&') == Pointer(Int32(True)))
+    assert (parse('const void**') == Pointer(Pointer(Void().to_const())))
+    assert (parse('const int&') == Pointer(Int32().to_const()))
 
     assert (parse('int[ ]') == Array(Int32()))
     assert (parse('int[5]') == Array(Int32(), 5))
-    assert (parse('const int[5]') == Array(Int32(True), 5))
-    assert (parse('const int*[5]') == Array(Pointer(Int32(True)), 5))
+    assert (parse('const int[5]') == Array(Int32().to_const(), 5))
+    assert (parse('const int*[5]') == Array(Pointer(Int32().to_const()), 5))
 
     assert (parse('struct ImGuiInputTextCallbackData') == Struct(
         'ImGuiInputTextCallbackData'))
     assert (parse('int (*)(ImGuiInputTextCallbackData *)') == Function(
         Int32(), [Param(Pointer(Struct('ImGuiInputTextCallbackData')))]))
 
-    vec2 = parse('struct ImVec2')
+    vec2 = parse('struct ImVec2').ref
     vec2.add_field(Field(Float(), 'x'))
     vec2.add_field(Field(Float(), 'y'))
     assert (vec2 == Struct(
-        'ImVec2', False,
+        'ImVec2',
         [Field(Float(), 'x'), Field(Float(), 'y')]))
 
     parsed = parse('const ImVec2 &')
-    assert (parsed == Pointer(Struct('ImVec2', True)))
+    assert (parsed == Pointer(Struct('ImVec2').to_const()))
     pop_namespace()

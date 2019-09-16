@@ -1,6 +1,5 @@
 import pathlib
 import sys
-import os
 import shutil
 from typing import Tuple, Optional, Dict
 from jinja2 import Template
@@ -14,7 +13,7 @@ NAMESPACE_NAME = 'SharpImGui'
 USING = '''using System;
 using System.Runtime.InteropServices;'''
 
-cs_type_map: Dict[cpptypeinfo.Declaration, Tuple[Optional[str], str]] = {
+cs_type_map: Dict[cpptypeinfo.PrimitiveType, Tuple[Optional[str], str]] = {
     cpptypeinfo.Int8: (None, 'sbyte'),
     cpptypeinfo.Int16: (None, 'short'),
     cpptypeinfo.Int32: (None, 'int'),
@@ -29,7 +28,7 @@ cs_type_map: Dict[cpptypeinfo.Declaration, Tuple[Optional[str], str]] = {
 }
 
 
-def to_cs(decl: cpptypeinfo.Declaration) -> Tuple[Optional[str], str]:
+def to_cs(decl: cpptypeinfo.Type) -> Tuple[Optional[str], str]:
     if not decl:
         # bug
         return (None, 'IntPtr')
@@ -98,14 +97,14 @@ namespace {{ namespace }}
                          valuename_filter(enum.type_name, v)
                          for v in enum.values
                      ],
-                     file=os.path.basename(enum.file),
+                     file=enum.file.name,
                      line=enum.line))
 
 
 def generate_typedef(typedef: cpptypeinfo.Typedef, root: pathlib.Path):
 
     if isinstance(
-            typedef.src,
+            typedef.typeref,
             cpptypeinfo.Struct) and typedef.type_name == typedef.src.type_name:
         # skip typedef struct same name
         return
@@ -125,7 +124,7 @@ namespace {{ namespace }}
 }
 ''')
 
-    typedef_attr, typedef_type = to_cs(typedef.src)
+    typedef_attr, typedef_type = to_cs(typedef.typeref.ref)
     if typedef_attr:
         typedef_attr = f'[typedef_attr]'
     else:
@@ -140,7 +139,7 @@ namespace {{ namespace }}
                      namespace=NAMESPACE_NAME,
                      type_name=typedef.type_name,
                      type=typedef_type,
-                     file=os.path.basename(typedef.file),
+                     file=typedef.file.name,
                      line=typedef.line))
 
 
@@ -164,7 +163,7 @@ namespace {{ namespace }}
 ''')
 
     def field_str(f: cpptypeinfo.Field):
-        field_attr, field_type = to_cs(f.type)
+        field_attr, field_type = to_cs(f.typeref.ref)
         if field_attr:
             field_attr = f'[{field_attr}]'
         else:
@@ -178,7 +177,7 @@ namespace {{ namespace }}
                      namespace=NAMESPACE_NAME,
                      type_name=decl.type_name,
                      values=[field_str(f) for f in decl.fields],
-                     file=os.path.basename(decl.file),
+                     file=decl.file.name,
                      line=decl.line))
 
 
@@ -235,37 +234,39 @@ def generate_functions(root_ns: cpptypeinfo.Namespace, root: pathlib.Path):
     dst = root / 'CImGui.cs'
 
     def to_cs_param(p: cpptypeinfo.Param):
-        param_attr, param = to_cs(p.type)
+        param_attr, param = to_cs(p.typeref.ref)
         if param_attr:
             param_attr = f'[{param_attr}]'
         else:
             param_attr = ''
-        if param == 'ImU32':
-            a = 0
         return f'{param_attr}{param} {cs_symbol(p.name)}'
 
-    def function_str(k, v: cpptypeinfo.Function):
+    def function_str(v: cpptypeinfo.Function):
         params = [to_cs_param(p) for p in v.params]
-        ret_attr, ret = to_cs(v.result)
+        ret_attr, ret = to_cs(v.result.ref)
         if ret_attr:
             ret_attr = f'\n        [return: {ret_attr}]\n'
         else:
             ret_attr = ''
-        return f'''// {os.path.basename(v.file)}:{v.line}
+        return f'''// {v.file.name}:{v.line}
         [DllImport(DLLNAME)]{ret_attr}
-        public static extern {ret} {k}({", ".join(params)});'''
+        public static extern {ret} {v.name}({", ".join(params)});'''
 
     values = []
     for ns in root_ns.traverse():
         if not isinstance(ns, cpptypeinfo.Struct):
-            for k, v in ns.function_map.items():
-                if k.startswith('operator '):
+            for v in ns.functions:
+                if not v.name:
+                    continue
+                if v.file.name == 'imgui.h':
+                    continue
+                if v.name.startswith('operator '):
                     continue
                 if any(
-                        isinstance(p.type, cpptypeinfo.VaList)
+                        isinstance(p.typeref.ref, cpptypeinfo.VaList)
                         for p in v.params):
                     continue
-                values.append(function_str(k, v))
+                values.append(function_str(v))
 
     t = Template('''{{ headline }}
 {{ using }}
@@ -309,14 +310,15 @@ def main(imgui_h: pathlib.Path, cimgui_h: pathlib.Path, root: pathlib.Path):
     if root.exists():
         shutil.rmtree(root)
 
-    root_ns.resolve('ImS8')
-    root_ns.resolve('ImS16')
-    root_ns.resolve('ImS32')
-    root_ns.resolve('ImS64')
-    root_ns.resolve('ImU8')
-    root_ns.resolve('ImU16')
-    root_ns.resolve('ImU32')
-    root_ns.resolve('ImU64')
+    root_ns.resolve_typedef('ImS8')
+    root_ns.resolve_typedef('ImS16')
+    root_ns.resolve_typedef('ImS32')
+    root_ns.resolve_typedef('ImS64')
+    root_ns.resolve_typedef('ImU8')
+    root_ns.resolve_typedef('ImU16')
+    root_ns.resolve_typedef('ImU32')
+    root_ns.resolve_typedef('ImU64')
+    root_ns.resolve_struct_tag()
 
     for ns in root_ns.traverse():
         if not isinstance(ns, cpptypeinfo.Struct):

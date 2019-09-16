@@ -1,6 +1,7 @@
-import cpptypeinfo
+import pathlib
 from typing import List
 from clang import cindex
+import cpptypeinfo
 
 
 def parse_param(c: cindex.Cursor) -> cpptypeinfo.Param:
@@ -44,7 +45,8 @@ def parse_function(c: cindex.Cursor) -> cpptypeinfo.Function:
             raise NotImplementedError(f'{child.kind}')
 
     decl = cpptypeinfo.Function(result, params)
-    decl.file = c.location.file.name
+    decl.name = c.spelling
+    decl.file = pathlib.Path(c.location.file.name)
     decl.line = c.location.line
     return decl
 
@@ -58,15 +60,15 @@ def parse_enum(c: cindex.Cursor):
                 cpptypeinfo.EnumValue(child.spelling, child.enum_value))
         else:
             raise Exception(f'{child.kind}')
-    decl= cpptypeinfo.Enum(name, values)
-    decl.file = c.location.file.name
+    decl = cpptypeinfo.Enum(name, values)
+    decl.file = pathlib.Path(c.location.file.name)
     decl.line = c.location.line
     return decl
 
 
 def parse_struct(c: cindex.Cursor):
-    decl: cpptypeinfo.Struct = cpptypeinfo.parse(f'struct {c.spelling}')
-    decl.file = c.location.file.name
+    decl: cpptypeinfo.Struct = cpptypeinfo.parse(f'struct {c.spelling}').ref
+    decl.file = pathlib.Path(c.location.file.name)
     decl.line = c.location.line
     if isinstance(decl, cpptypeinfo.Typedef):
         decl = decl.src
@@ -126,13 +128,12 @@ def parse_cursor(c: cindex.Cursor):
                     end = i
                     break
             parsed = cpptypeinfo.parse(' '.join(tokens[1:end]))
-        decl =  cpptypeinfo.Typedef(c.spelling, parsed)
-        decl.file = c.location.file.name
+        decl = cpptypeinfo.Typedef(c.spelling, parsed)
+        decl.file = pathlib.Path(c.location.file.name)
         decl.line = c.location.line
 
     elif c.kind == cindex.CursorKind.FUNCTION_DECL:
-        f = parse_function(c)
-        cpptypeinfo.STACK[-1].function_map[c.spelling] = f
+        parse_function(c)
 
     elif c.kind == cindex.CursorKind.ENUM_DECL:
         parse_enum(c)
