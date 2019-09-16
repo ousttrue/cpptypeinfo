@@ -14,7 +14,7 @@ NAMESPACE_NAME = 'SharpImGui'
 USING = '''using System;
 using System.Runtime.InteropServices;'''
 
-cs_type_map: Dict[cpptypeinfo.Primitive, Tuple[Optional[str], str]] = {
+cs_type_map: Dict[cpptypeinfo.PrimitiveType, Tuple[Optional[str], str]] = {
     cpptypeinfo.Int8: (None, 'sbyte'),
     cpptypeinfo.Int16: (None, 'short'),
     cpptypeinfo.Int32: (None, 'int'),
@@ -29,7 +29,7 @@ cs_type_map: Dict[cpptypeinfo.Primitive, Tuple[Optional[str], str]] = {
 }
 
 
-def to_cs(decl: cpptypeinfo.Declaration) -> Tuple[Optional[str], str]:
+def to_cs(decl: cpptypeinfo.Type) -> Tuple[Optional[str], str]:
     if not decl:
         # bug
         return (None, 'IntPtr')
@@ -105,7 +105,7 @@ namespace {{ namespace }}
 def generate_typedef(typedef: cpptypeinfo.Typedef, root: pathlib.Path):
 
     if isinstance(
-            typedef.src,
+            typedef.typeref,
             cpptypeinfo.Struct) and typedef.type_name == typedef.src.type_name:
         # skip typedef struct same name
         return
@@ -125,7 +125,7 @@ namespace {{ namespace }}
 }
 ''')
 
-    typedef_attr, typedef_type = to_cs(typedef.src)
+    typedef_attr, typedef_type = to_cs(typedef.typeref.ref)
     if typedef_attr:
         typedef_attr = f'[typedef_attr]'
     else:
@@ -164,7 +164,7 @@ namespace {{ namespace }}
 ''')
 
     def field_str(f: cpptypeinfo.Field):
-        field_attr, field_type = to_cs(f.type)
+        field_attr, field_type = to_cs(f.typeref.ref)
         if field_attr:
             field_attr = f'[{field_attr}]'
         else:
@@ -235,7 +235,7 @@ def generate_functions(root_ns: cpptypeinfo.Namespace, root: pathlib.Path):
     dst = root / 'CImGui.cs'
 
     def to_cs_param(p: cpptypeinfo.Param):
-        param_attr, param = to_cs(p.type)
+        param_attr, param = to_cs(p.typeref.ref)
         if param_attr:
             param_attr = f'[{param_attr}]'
         else:
@@ -246,7 +246,7 @@ def generate_functions(root_ns: cpptypeinfo.Namespace, root: pathlib.Path):
 
     def function_str(k, v: cpptypeinfo.Function):
         params = [to_cs_param(p) for p in v.params]
-        ret_attr, ret = to_cs(v.result)
+        ret_attr, ret = to_cs(v.result.ref)
         if ret_attr:
             ret_attr = f'\n        [return: {ret_attr}]\n'
         else:
@@ -262,7 +262,7 @@ def generate_functions(root_ns: cpptypeinfo.Namespace, root: pathlib.Path):
                 if k.startswith('operator '):
                     continue
                 if any(
-                        isinstance(p.type, cpptypeinfo.VaList)
+                        isinstance(p.typeref.ref, cpptypeinfo.VaList)
                         for p in v.params):
                     continue
                 values.append(function_str(k, v))
@@ -309,14 +309,14 @@ def main(imgui_h: pathlib.Path, cimgui_h: pathlib.Path, root: pathlib.Path):
     if root.exists():
         shutil.rmtree(root)
 
-    root_ns.resolve('ImS8')
-    root_ns.resolve('ImS16')
-    root_ns.resolve('ImS32')
-    root_ns.resolve('ImS64')
-    root_ns.resolve('ImU8')
-    root_ns.resolve('ImU16')
-    root_ns.resolve('ImU32')
-    root_ns.resolve('ImU64')
+    root_ns.resolve_typedef('ImS8')
+    root_ns.resolve_typedef('ImS16')
+    root_ns.resolve_typedef('ImS32')
+    root_ns.resolve_typedef('ImS64')
+    root_ns.resolve_typedef('ImU8')
+    root_ns.resolve_typedef('ImU16')
+    root_ns.resolve_typedef('ImU32')
+    root_ns.resolve_typedef('ImU64')
 
     for ns in root_ns.traverse():
         if not isinstance(ns, cpptypeinfo.Struct):

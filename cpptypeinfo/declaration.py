@@ -286,7 +286,8 @@ class Namespace:
 
     def resolve_typedef(self, name: str):
         '''
-        typedefを削除する
+        typedefを削除する。
+        型を破壊的に変更する
         '''
         while True:
             found = None
@@ -349,32 +350,32 @@ class Typedef(NamedType):
         super().__init__(type_name)
         if isinstance(ref, Type):
             ref = ref.to_ref()
-        self.ref = ref
+        self.typeref = ref
 
     def __str__(self) -> str:
-        return f'typedef {self.type_name} = {self.ref}'
+        return f'typedef {self.type_name} = {self.typeref}'
 
     def __hash__(self):
-        return hash(self.ref)
+        return hash(self.typeref)
 
     def __eq__(self, value):
         if not super().__eq__(value):
             return False
         if self.type_name == value.type_name:
-            if self.ref != value.ref:
+            if self.typeref != value.typeref:
                 raise Exception()
-        if self.ref != value.ref:
+        if self.typeref != value.typeref:
             return False
         return True
 
     def is_based(self, based: Type) -> bool:
-        return self.ref.is_based(based)
+        return self.typeref.is_based(based)
 
     def resolve(self, target: 'Typedef'):
-        self.ref = self.ref.resolve(target)
+        self.typeref = self.typeref.resolve(target)
 
     def get_concrete_type(self) -> Type:
-        return self.ref.get_concrete_type()
+        return self.typeref.get_concrete_type()
 
 
 class Pointer(UserType):
@@ -451,6 +452,8 @@ class Struct(NamedType, Namespace):
         return len(self.fields) == 0
 
     def add_field(self, f: Field) -> None:
+        if isinstance(f.typeref, Type):
+            f = Field(f.typeref.to_ref(), f.name, f.value)
         self.fields.append(f)
 
     def add_template_parameter(self, t: str) -> None:
@@ -643,12 +646,20 @@ def parse(src: str, is_const=False) -> TypeRef:
                 if len(ns_list) != 2:
                     raise NotImplementedError()
                 current = STACK[-1]
-                if not isinstance(current, Struct):
-                    raise Exception("not struct")
-                if current.type_name != ns_list[0]:
-                    raise Exception(f'is not {ns_list[0]}')
-
-                return parse(ns_list[1], is_const)
+                if isinstance(current, Struct):
+                    if current.type_name != ns_list[0]:
+                        raise Exception(f'is not {ns_list[0]}')
+                    return parse(ns_list[1], is_const)
+                else:
+                    ns = get_from_ns(ns_list[0])
+                    if not ns:
+                        raise Exception(f'not found {ns_list[0]}')
+                    if not isinstance(ns, Struct):
+                        raise Exception(f'{ns} is not Struct')
+                    decl = ns.get(ns_list[1])
+                    if not decl:
+                        raise Exception(f'{ns_list[1]} is not found in {ns}')
+                    return TypeRef(decl, is_const)
 
             decl = get_from_ns(src)
             if decl:
