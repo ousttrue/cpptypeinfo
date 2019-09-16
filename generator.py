@@ -262,6 +262,8 @@ def generate_functions(root_ns: cpptypeinfo.Namespace, root: pathlib.Path):
                     continue
                 if v.name.startswith('operator '):
                     continue
+                if not v.extern_c:
+                    continue
                 if any(
                         isinstance(p.typeref.ref, cpptypeinfo.VaList)
                         for p in v.params):
