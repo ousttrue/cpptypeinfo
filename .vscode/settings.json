@@ -10,7 +10,8 @@
         "dlang",
         "finditer",
         "rfind",
-        "rmtree"
+        "rmtree",
+        "uint"
     ],
     "python.testing.unittestArgs": [
         "-v",

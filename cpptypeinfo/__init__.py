@@ -3,7 +3,7 @@ from .declaration import *
 from .get_tu import get_tu, get_tu_from_source, tmp_from_source
 from .cursor import parse_namespace
 
-VERSION = '0.0.1'
+VERSION = '0.1.0'
 
 
 def parse_header(path: pathlib.Path, cpp_flags=None, include_path_list=None):
