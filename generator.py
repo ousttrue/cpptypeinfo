@@ -157,6 +157,7 @@ namespace {{ namespace }}
     {
 {%- for value in values %}
         {{ value }};
+
 {%- endfor %}
     }
 }
@@ -168,7 +169,8 @@ namespace {{ namespace }}
             field_attr = f'[{field_attr}]'
         else:
             field_attr = ''
-        return f'{field_attr}public {field_type} {f.name}'
+        return f'''// offsetof: {f.offset}
+        {field_attr}public {field_type} {f.name}'''
 
     with open(dst, 'w') as f:
         f.write(

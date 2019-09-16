@@ -77,7 +77,8 @@ def parse_struct(c: cindex.Cursor):
     for child in c.get_children():
         if child.kind == cindex.CursorKind.FIELD_DECL:
             field = cpptypeinfo.parse(child.type.spelling)
-            decl.add_field(cpptypeinfo.Field(field, child.spelling))
+            offset = child.get_field_offsetof() // 8
+            decl.add_field(cpptypeinfo.Field(field, child.spelling, offset))
         elif child.kind == cindex.CursorKind.CONSTRUCTOR:
             pass
         elif child.kind == cindex.CursorKind.DESTRUCTOR:
@@ -129,14 +130,14 @@ def parse_cursor(c: cindex.Cursor, files: List[pathlib.Path], extern_c=False):
         return
 
     if c.kind == cindex.CursorKind.UNEXPOSED_DECL:
-        try:
-            it = c.get_tokens()
-            t0 = next(it)
-            t1 = next(it)
-            if t0.spelling == 'extern' and t1.spelling == '"C"':
-                extern_c = True
-        except StopIteration:
-            pass
+        # try:
+        #     it = c.get_tokens()
+        #     t0 = next(it)
+        #     t1 = next(it)
+        #     if t0.spelling == 'extern' and t1.spelling == '"C"':
+        #         extern_c = True
+        # except StopIteration:
+        #     pass
         # tokens = [t.spelling for t in ]
         # if len(tokens) >= 2 and tokens[0] == 'extern' and tokens[1] == '"C"':
         # if 'dllexport' in tokens:

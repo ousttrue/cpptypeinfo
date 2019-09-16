@@ -449,6 +449,7 @@ class Array(Pointer):
 class Field(NamedTuple):
     typeref: TypeRef
     name: str
+    offset: int = -1
     value: str = ''
 
     def resolve(self, typedef: Typedef) -> 'Field':
