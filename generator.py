@@ -14,7 +14,7 @@ NAMESPACE_NAME = 'SharpImGui'
 USING = '''using System;
 using System.Runtime.InteropServices;'''
 
-cs_type_map: Dict[cpptypeinfo.Declaration, Tuple[Optional[str], str]] = {
+cs_type_map: Dict[cpptypeinfo.Primitive, Tuple[Optional[str], str]] = {
     cpptypeinfo.Int8: (None, 'sbyte'),
     cpptypeinfo.Int16: (None, 'short'),
     cpptypeinfo.Int32: (None, 'int'),

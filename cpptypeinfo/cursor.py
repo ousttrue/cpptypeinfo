@@ -65,7 +65,7 @@ def parse_enum(c: cindex.Cursor):
 
 
 def parse_struct(c: cindex.Cursor):
-    decl: cpptypeinfo.Struct = cpptypeinfo.parse(f'struct {c.spelling}')
+    decl: cpptypeinfo.Struct = cpptypeinfo.parse(f'struct {c.spelling}').ref
     decl.file = c.location.file.name
     decl.line = c.location.line
     if isinstance(decl, cpptypeinfo.Typedef):

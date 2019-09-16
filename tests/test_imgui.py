@@ -144,12 +144,12 @@ EXPECTS = {
     'ImU64':
     cpptypeinfo.Typedef('ImU64', cpptypeinfo.UInt64()),
     'ImVec2':
-    cpptypeinfo.Struct('ImVec2', False, [
+    cpptypeinfo.Struct('ImVec2', [
         cpptypeinfo.Field(cpptypeinfo.Float(), 'x'),
         cpptypeinfo.Field(cpptypeinfo.Float(), 'y')
     ]),
     'ImVec4':
-    cpptypeinfo.Struct('ImVec4', False, [
+    cpptypeinfo.Struct('ImVec4', [
         cpptypeinfo.Field(cpptypeinfo.Float(), 'x'),
         cpptypeinfo.Field(cpptypeinfo.Float(), 'y'),
         cpptypeinfo.Field(cpptypeinfo.Float(), 'z'),

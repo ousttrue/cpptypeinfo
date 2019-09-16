@@ -22,16 +22,17 @@ Type
             + Enum(Int32)
             + Typedef
             + Struct
-            + ToDo: macro constant
 
 TypeRef
     + is_const
     + type: Type
 
-Field: TypeRef
+Field: for Struct
+    + ref: TypeRef
     + name
 
-Param: TypeRef
+Param: for Function
+    + ref: TypeRef
     + name
 '''
 
@@ -44,6 +45,9 @@ class Type:
     def __init__(self):
         self.file = ''
         self.line = -1
+
+    def to_ref(self) -> 'TypeRef':
+        return TypeRef(self)
 
     def to_const(self) -> 'TypeRef':
         return TypeRef(self, True)
@@ -159,10 +163,13 @@ primitive_type_map: Dict[str, PrimitiveType] = {
 }
 
 
-class TypeRef:
-    def __init__(self, ref: Type, is_const=False):
-        self.ref = ref
-        self.is_const = is_const
+# class TypeRef:
+#     def __init__(self, ref: Type, is_const=False):
+#         self.ref = ref
+#         self.is_const = is_const
+class TypeRef(NamedTuple):
+    ref: Type
+    is_const: bool = False
 
     def __eq__(self, value):
         if isinstance(value, Type):
@@ -172,8 +179,11 @@ class TypeRef:
                 return False
             return self.ref == value.ref
 
-    def __hash__(self):
-        return self.ref.__hash__()
+    def __str__(self) -> str:
+        if self.is_const:
+            return f'const {self.ref}'
+        else:
+            return str(self.ref)
 
     def is_based(self, based: Type) -> bool:
         if self.ref == based:
@@ -335,23 +345,25 @@ def get_from_ns(src: str) -> Optional[Type]:
 
 
 class Typedef(NamedType):
-    def __init__(self, type_name: str, ref: TypeRef):
+    def __init__(self, type_name: str, ref: Union[TypeRef, Type]):
         super().__init__(type_name)
+        if isinstance(ref, Type):
+            ref = ref.to_ref()
         self.ref = ref
 
     def __str__(self) -> str:
         return f'typedef {self.type_name} = {self.ref}'
 
     def __hash__(self):
-        return hash(self.src)
+        return hash(self.ref)
 
     def __eq__(self, value):
         if not super().__eq__(value):
             return False
         if self.type_name == value.type_name:
-            if self.src != value.src:
+            if self.ref != value.ref:
                 raise Exception()
-        if self.src != value.src:
+        if self.ref != value.ref:
             return False
         return True
 
@@ -430,6 +442,8 @@ class Struct(NamedType, Namespace):
         self.fields: List[Field] = []
         if fields:
             for f in fields:
+                if isinstance(f.typeref, Type):
+                    f = Field(f.typeref.to_ref(), f.name, f.value)
                 self.add_field(f)
         self.template_parameters: List[str] = []
 
@@ -506,10 +520,17 @@ class Param(NamedTuple):
 
 
 class Function(UserType):
-    def __init__(self, result: TypeRef, params: List[Param]):
+    def __init__(self, result: Union[TypeRef, Type], params: List[Param]):
         super().__init__()
+        if isinstance(result, Type):
+            result = result.to_ref()
         self.result = result
-        self.params = params
+        self.params: List[Param] = []
+        for p in params:
+            if isinstance(p.typeref, Type):
+                p = Param(p.typeref.to_ref(), p.name, p.value)
+            self.params.append(p)
+
         self._hash = hash(result)
         for p in self.params:
             self._hash += hash(p)
@@ -530,7 +551,7 @@ class Function(UserType):
         return True
 
     def __str__(self) -> str:
-        params = ', '.join(str(p.type) for p in self.params)
+        params = ', '.join(str(p.typeref) for p in self.params)
         return f'{self.result}({params})'
 
     def is_based(self, based: Type) -> bool:
@@ -560,21 +581,6 @@ FUNC_PATTERN = re.compile(r'^(.*)\(.*\)\((.*)\)$')
 
 def parse(src: str, is_const=False) -> TypeRef:
     src = src.strip()
-
-    ns_list = src.split('::')
-    if len(ns_list) > 1:
-        same = True
-        for l, r in zip(ns_list, STACK):
-            if l != r:
-                same = False
-                break
-        if not same:
-            Exception('not same')
-        decl = STACK[-1].get(src)
-        if decl:
-            return TypeRef(decl, is_const)
-        else:
-            Exception('no type')
 
     m = FUNC_PATTERN.match(src)
     if m:
@@ -631,6 +637,19 @@ def parse(src: str, is_const=False) -> TypeRef:
 
             return TypeRef(Struct(splitted[1]), is_const)
         else:
+            # get struct local type
+            ns_list = src.split('::')
+            if len(ns_list) > 1:
+                if len(ns_list) != 2:
+                    raise NotImplementedError()
+                current = STACK[-1]
+                if not isinstance(current, Struct):
+                    raise Exception("not struct")
+                if current.type_name != ns_list[0]:
+                    raise Exception(f'is not {ns_list[0]}')
+
+                return parse(ns_list[1], is_const)
+
             decl = get_from_ns(src)
             if decl:
                 return TypeRef(decl, is_const)
