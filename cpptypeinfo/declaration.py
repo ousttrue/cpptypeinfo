@@ -41,7 +41,7 @@ class Namespace:
         self.name = name
         self.user_type_map: Dict[str, Declaration] = {}
         self.children: List[Namespace] = []
-        self.parent: Namespace = None
+        self.parent: Optional[Namespace] = None
         self.function_map: Dict[str, Function] = {}
 
     def __str__(self) -> str:
@@ -140,11 +140,13 @@ class Typedef(Declaration):
             return True
         return self.src.is_based(based)
 
-    def replace_based(self, based: Declaration, replace: Declaration):
+    def replace_based(self, clone: 'Typedef', based: Declaration,
+                      replace: Declaration):
+        clone.src = copy.copy(self.src)
         if self.src == based:
             self.src = replace
         else:
-            self.src.replace_based(based, replace)
+            self.src.replace_based(clone.src, based, replace)
 
     def resolve(self, target: 'Typedef'):
         if self.src == target:
@@ -285,8 +287,9 @@ class Pointer(Declaration):
             return True
         return self.target.is_based(based)
 
-    def replace_based(self, clone: Declaration, based: Declaration,
+    def replace_based(self, clone: 'Pointer', based: Declaration,
                       replace: Declaration):
+        clone.target = copy.copy(self.target)
         if clone.target == based:
             clone.target = replace
         else:
@@ -316,11 +319,13 @@ class Array(Declaration):
             return True
         return self.target.is_based(based)
 
-    def replace_based(self, based: Declaration, replace: Declaration):
-        if self.target == based:
-            self.target = replace
+    def replace_based(self, clone: 'Array', based: Declaration,
+                      replace: Declaration):
+        clone.target = copy.copy(self.target)
+        if clone.target == based:
+            clone.target = replace
         else:
-            self.target.replace_based(based, replace)
+            self.target.replace_based(clone.target, based, replace)
 
     def resolve(self, target: 'Typedef'):
         if self.target == target:
@@ -384,7 +389,8 @@ class Struct(Declaration, Namespace):
                 return True
         return False
 
-    def replace_based(self, based: Declaration, replace: Declaration):
+    def replace_based(self, clone: 'Struct', based: Declaration,
+                      replace: Declaration):
         raise NotImplementedError()
 
     def resolve(self, target: 'Typedef'):
@@ -462,7 +468,8 @@ class Function(Declaration):
                 return True
         return False
 
-    def replace_based(self, based: Declaration, replace: Declaration):
+    def replace_based(self, clone: 'Function', based: Declaration,
+                      replace: Declaration):
         raise NotImplementedError()
 
     def resolve(self, target: 'Typedef'):
