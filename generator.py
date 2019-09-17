@@ -24,7 +24,7 @@ def generate_imguiio(root_ns: cpptypeinfo.Namespace,
     imguiio = find_struct()
     values = []
     for f in imguiio.fields:
-        if f.typeref.ref == cpptypeinfo.Int32:
+        if isinstance(f.typeref.ref, cpptypeinfo.Int32):
             value = f'''public int {f.name}
         {{
             get => (int)Marshal.ReadInt32(IntPtr.Add(m_p, {f.offset}));
@@ -39,6 +39,15 @@ def generate_imguiio(root_ns: cpptypeinfo.Namespace,
             set => Marshal.WriteInt32(IntPtr.Add(m_p, {f.offset}), (int)value);
         }}'''
             values.append(value)
+        elif isinstance(f.typeref.ref, cpptypeinfo.Float):
+            value = f'''public float {f.name}
+        {{
+            get => BitConverter.Int32BitsToSingle(Marshal.ReadInt32(IntPtr.Add(m_p, {f.offset})));
+            set => Marshal.WriteInt32(IntPtr.Add(m_p, {f.offset}), BitConverter.SingleToInt32Bits(value));
+        }}'''
+            values.append(value)
+        else:
+            print(f.typeref.ref)
 
     t = Template('''{{ headline }}
 {{ using }}

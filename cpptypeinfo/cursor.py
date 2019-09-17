@@ -79,6 +79,8 @@ def parse_struct(c: cindex.Cursor):
         if child.kind == cindex.CursorKind.FIELD_DECL:
             field = cpptypeinfo.parse(child.type.spelling)
             offset = child.get_field_offsetof() // 8
+            if offset < 0:
+                a = 0
             decl.add_field(cpptypeinfo.Field(field, child.spelling, offset))
         elif child.kind == cindex.CursorKind.CONSTRUCTOR:
             pass
