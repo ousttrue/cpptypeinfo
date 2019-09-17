@@ -150,6 +150,7 @@ def main(root: pathlib.Path, *paths: pathlib.Path):
     root_ns.resolve_typedef_by_name('ImU32')
     root_ns.resolve_typedef_by_name('ImU64')
     root_ns.resolve_typedef_struct_tag()
+    root_ns.resolve_typedef_void_p()
     process_enum(root_ns)
 
     #

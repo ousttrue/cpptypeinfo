@@ -134,35 +134,6 @@ class VaList(PrimitiveType):
         return 13
 
 
-primitive_type_map: Dict[str, PrimitiveType] = {
-    'void': Void(),
-    #
-    'int64_t': Int64(),
-    'uint64_t': UInt64(),
-    #
-    'char': Int8(),
-    'int': Int32(),
-    'short': Int16(),
-    'long long': Int64(),
-    #
-    'signed char': Int8(),
-    'signed short': Int16(),
-    'signed int': Int32(),
-    'signed long long': Int64(),
-    #
-    'unsigned char': UInt8(),
-    'unsigned int': UInt32(),
-    'unsigned short': UInt16(),
-    'unsigned long long': UInt64(),
-    #
-    'size_t': UInt64(),
-    'float': Float(),
-    'double': Double(),
-    'bool': Bool(),
-    'va_list': VaList(),
-}
-
-
 # class TypeRef:
 #     def __init__(self, ref: Type, is_const=False):
 #         self.ref = ref
@@ -327,6 +298,21 @@ class Namespace:
             # remove
             self.resolve(found, replace)
 
+    def resolve_typedef_void_p(self):
+        while True:
+            targets = []
+            for ns in self.traverse():
+                for k, v in ns.user_type_map.items():
+                    if isinstance(v, Typedef):
+                        if v.typeref.ref == Pointer(Void()):
+                            targets.append(v)
+            if not targets:
+                return
+
+            for target in targets:
+                # remove
+                self.resolve(target, target.typeref.ref)
+
     def resolve_typedef_struct_tag(self):
         '''
         remove
@@ -362,19 +348,6 @@ def pop_namespace():
 
 
 NS_PATTERN = re.compile(r'(\w+)::(\w+)$')
-
-
-def get_from_ns(src: str) -> Optional[Type]:
-    primitive = primitive_type_map.get(src)
-    if primitive:
-        return primitive
-
-    for namespace in reversed(STACK):
-        decl = namespace.get(src)
-        if decl:
-            return decl
-
-    return None
 
 
 class Typedef(NamedType):
@@ -629,6 +602,54 @@ class Enum(NamedType):
 
     def __str__(self) -> str:
         return f'enum {self.type_name}'
+
+
+primitive_type_map: Dict[str, PrimitiveType] = {
+    'void': Void(),
+    #
+    'int64_t': Int64(),
+    'uint64_t': UInt64(),
+    #
+    'char': Int8(),
+    'int': Int32(),
+    'short': Int16(),
+    'long long': Int64(),
+    #
+    'signed char': Int8(),
+    'signed short': Int16(),
+    'signed int': Int32(),
+    'signed long long': Int64(),
+    #
+    'unsigned char': UInt8(),
+    'unsigned int': UInt32(),
+    'unsigned short': UInt16(),
+    'unsigned long long': UInt64(),
+    #
+    'size_t': UInt64(),
+    'float': Float(),
+    'double': Double(),
+    'bool': Bool(),
+    'va_list': VaList(),
+    # win32API
+    'LRESULT': Pointer(Void()),
+    'HWND': Pointer(Void()),
+    'UINT': UInt32(),
+    'WPARAM': Pointer(Void()),
+    'LPARAM': Pointer(Void()),
+}
+
+
+def get_from_ns(src: str) -> Optional[Type]:
+    primitive = primitive_type_map.get(src)
+    if primitive:
+        return primitive
+
+    for namespace in reversed(STACK):
+        decl = namespace.get(src)
+        if decl:
+            return decl
+
+    return None
 
 
 SPLIT_PATTERN = re.compile(r'[*&]')

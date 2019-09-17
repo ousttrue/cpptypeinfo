@@ -34,7 +34,12 @@ def get_tu(path: pathlib.Path,
     if use_macro:
         kw['options'] = cindex.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD
 
-    cpp_args = ['-x', 'c++', '-DUNICODE=1', '-DNOMINMAX=1', '-fms-compatibility']
+    cpp_args = [
+        '-x',
+        'c++',
+        '-DUNICODE=1',
+        '-DNOMINMAX=1',
+    ]
     if include_path_list is not None:
         for i in include_path_list:
             value = f'-I{str(i)}'
