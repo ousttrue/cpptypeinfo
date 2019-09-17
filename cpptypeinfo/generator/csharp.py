@@ -1,5 +1,7 @@
 import pathlib
-from typing import Dict, NamedTuple
+import re
+from typing import Dict, NamedTuple, List
+import enum
 import cpptypeinfo
 from jinja2 import Template
 
@@ -13,7 +15,7 @@ class CSMarshalType(NamedTuple):
     marshal_as: str = ''
 
 
-cstype_map: Dict[cpptypeinfo.PrimitiveType, CSMarshalType] = {
+cstype_map: Dict[cpptypeinfo.Type, CSMarshalType] = {
     cpptypeinfo.Int8(): CSMarshalType('sbyte'),
     cpptypeinfo.Int16(): CSMarshalType('short'),
     cpptypeinfo.Int32(): CSMarshalType('int'),
@@ -27,18 +29,36 @@ cstype_map: Dict[cpptypeinfo.PrimitiveType, CSMarshalType] = {
     cpptypeinfo.Bool(): CSMarshalType('bool', 'MarshalAs(UnmanagedType.U1)'),
 }
 
+# for function pram
+cstype_pointer_map: Dict[cpptypeinfo.Type, CSMarshalType] = {
+    cpptypeinfo.Pointer(cpptypeinfo.Int8().to_const()):
+    CSMarshalType('string', 'MarshalAs(UnmanagedType.LPUTF8Str)'),
+    cpptypeinfo.Pointer(cpptypeinfo.Bool()):
+    CSMarshalType('ref bool', 'MarshalAs(UnmanagedType.U1)'),
+    cpptypeinfo.Pointer(cpptypeinfo.Float()):
+    CSMarshalType('ref float'),
+}
 
-def to_cs(decl: cpptypeinfo.Type) -> CSMarshalType:
-    '''
-    ToDo: context: struct field, function return, function param
-    '''
+
+class ExportFlag(enum.Flag):
+    StructField = enum.auto()
+    FunctionReturn = enum.auto()
+    FunctionParam = enum.auto()
+    All = StructField | FunctionReturn | FunctionParam
+
+
+def to_cs(decl: cpptypeinfo.Type, context: ExportFlag) -> CSMarshalType:
     if not decl:
         # bug
         print('### bug ###')
         return CSMarshalType('IntPtr')
 
-    if isinstance(decl, cpptypeinfo.PrimitiveType):
-        cs_type = cstype_map.get(decl)
+    cs_type = cstype_map.get(decl)
+    if cs_type:
+        return cs_type
+
+    if context & ExportFlag.FunctionParam:
+        cs_type = cstype_pointer_map.get(decl)
         if cs_type:
             return cs_type
 
@@ -47,10 +67,7 @@ def to_cs(decl: cpptypeinfo.Type) -> CSMarshalType:
     elif isinstance(decl, cpptypeinfo.Array):
         return CSMarshalType('IntPtr')
     elif isinstance(decl, cpptypeinfo.Pointer):
-        if isinstance(decl.typeref.ref, cpptypeinfo.Bool):
-            return CSMarshalType('ref bool', 'MarshalAs(UnmanagedType.U1)')
-        else:
-            return CSMarshalType('IntPtr')
+        return CSMarshalType('IntPtr')
     elif isinstance(decl, cpptypeinfo.Function):
         return CSMarshalType('IntPtr')
     elif isinstance(decl, cpptypeinfo.Enum):
@@ -134,7 +151,7 @@ namespace {{ namespace }}
 }
 ''')
 
-    cstype = to_cs(typedef.typeref.ref)
+    cstype = to_cs(typedef.typeref.ref, ExportFlag.StructField)
     if cstype.marshal_as:
         typedef_attr = f'[{cstype.marshal_as}]'
     else:
@@ -173,7 +190,7 @@ namespace {{ namespace }}
 ''')
 
     def field_str(f: cpptypeinfo.Field):
-        cstype = to_cs(f.typeref.ref)
+        cstype = to_cs(f.typeref.ref, ExportFlag.StructField)
         if cstype.marshal_as:
             field_attr = f'[{cstype.marshal_as}]'
         else:
@@ -192,18 +209,33 @@ namespace {{ namespace }}
                      line=decl.line))
 
 
+REF = re.compile(r'\bref\b')
+REF_BOOL = re.compile(r'\bref bool (\w+)')
+
+
 def generate_functions(root_ns: cpptypeinfo.Namespace, context: CSContext):
     def to_cs_param(p: cpptypeinfo.Param):
-        cstype = to_cs(p.typeref.ref)
+        cstype = to_cs(p.typeref.ref, ExportFlag.FunctionParam)
         if cstype.marshal_as:
             param_attr = f'[{cstype.marshal_as}]'
         else:
             param_attr = ''
         return f'{param_attr}{cstype.type} {escape_symbol(p.name)}'
 
-    def function_str(v: cpptypeinfo.Function):
+    def to_cs_params(v: cpptypeinfo.Function) -> List[str]:
         params = [to_cs_param(p) for p in v.params]
-        cstype = to_cs(v.result.ref)
+        pos = -1
+        for i in range(len(params) - 1, -1, -1):
+            if REF.search(params[i]):
+                break
+            pos = i
+        if pos >= 0:
+            for i in range(pos, len(params), 1):
+                params[i] = params[i] + ' = default'
+        return params
+
+    def function_str(v: cpptypeinfo.Function, params: List[str]):
+        cstype = to_cs(v.result.ref, ExportFlag.FunctionReturn)
         if cstype.marshal_as:
             ret_attr = f'\n        [return: {cstype.marshal_as}]\n'
         else:
@@ -230,7 +262,20 @@ def generate_functions(root_ns: cpptypeinfo.Namespace, context: CSContext):
                         isinstance(p.typeref.ref, cpptypeinfo.VaList)
                         for p in v.params):
                     continue
-                values.append(function_str(v))
+
+                params = to_cs_params(v)
+                values.append(function_str(v, params))
+
+                pos = -1
+                for i in range(len(params)):
+                    if REF_BOOL.search(params[i]):
+                        pos = i
+                        break
+                if pos >= 0:
+                    params[i] = REF_BOOL.sub(
+                        lambda m: f'IntPtr {m.group(1)} = default',
+                        params[i])
+                    values.append(function_str(v, params))
 
     t = Template('''{{ headline }}
 {{ using }}

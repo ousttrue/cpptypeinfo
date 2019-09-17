@@ -257,6 +257,9 @@ class NamedType(UserType):
             return False
         return True
 
+    def __hash__(self):
+        return hash(self.type_name)
+
 
 class Namespace:
     '''
