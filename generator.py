@@ -117,7 +117,10 @@ def process_enum(root_ns: cpptypeinfo.Namespace):
 def main(root: pathlib.Path, *paths: pathlib.Path):
     print(f'{[x.name for x in paths]} => {root}')
 
-    root_ns = cpptypeinfo.parse_headers(*paths)
+    root_ns = cpptypeinfo.parse_headers(*paths,
+                                        cpp_flags=[
+                                            '-target', 'x86_64-pc-windows-msvc'
+                                        ])
 
     #
     # preprocess
