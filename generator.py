@@ -163,6 +163,10 @@ def main(root: pathlib.Path, *paths: pathlib.Path):
             else:
                 raise Exception()
 
+    # if v.name.startswith('ImVector_'):
+    #     continue
+    # if v.file.name == 'imgui.h':
+    #     continue
     csharp.generate_functions(
         root_ns, csharp.CSContext(root / 'CImGui.cs', NAMESPACE_NAME))
 

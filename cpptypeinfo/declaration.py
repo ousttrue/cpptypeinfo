@@ -566,6 +566,7 @@ class Function(UserType):
     def __init__(self, result: Union[TypeRef, Type], params: List[Param]):
         super().__init__()
         self.name = ''
+        self.mangled_name = ''
         if isinstance(result, Type):
             result = result.to_ref()
         self.result = result

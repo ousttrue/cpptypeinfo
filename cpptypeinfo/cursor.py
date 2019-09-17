@@ -46,6 +46,7 @@ def parse_function(c: cindex.Cursor, extern_c: bool) -> cpptypeinfo.Function:
 
     decl = cpptypeinfo.Function(result, params)
     decl.name = c.spelling
+    decl.mangled_name = c.mangled_name
     decl.extern_c = extern_c
     decl.file = pathlib.Path(c.location.file.name)
     decl.line = c.location.line

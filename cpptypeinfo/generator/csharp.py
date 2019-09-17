@@ -241,7 +241,7 @@ def generate_functions(root_ns: cpptypeinfo.Namespace, context: CSContext):
         else:
             ret_attr = ''
         return f'''// {v.file.name}:{v.line}
-        [DllImport(DLLNAME)]{ret_attr}
+        [DllImport(DLLNAME, EntryPoint="{v.mangled_name}")]{ret_attr}
         public static extern {cstype.type} {v.name}({", ".join(params)});'''
 
     values = []
@@ -249,10 +249,6 @@ def generate_functions(root_ns: cpptypeinfo.Namespace, context: CSContext):
         if not isinstance(ns, cpptypeinfo.Struct):
             for v in ns.functions:
                 if not v.name:
-                    continue
-                if v.name.startswith('ImVector_'):
-                    continue
-                if v.file.name == 'imgui.h':
                     continue
                 if v.name.startswith('operator '):
                     continue
