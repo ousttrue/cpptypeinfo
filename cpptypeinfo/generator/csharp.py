@@ -210,7 +210,7 @@ namespace {{ namespace }}
 
 
 REF = re.compile(r'\bref\b')
-REF_BOOL = re.compile(r'\bref bool (\w+)')
+REF_BOOL = re.compile(r'\bref bool\b')
 
 RE_VEC2 = re.compile(r'ImVec2\((.*)\)')
 
@@ -289,26 +289,18 @@ def generate_functions(root_ns: cpptypeinfo.Namespace, context: CSContext,
     #     return params
 
     def params_str(params: List[cpptypeinfo.Param],
-                   cs_params: List[CSMarshalType]):
-
-        # 一番後ろの ref 引数
-        ref_index = -1
-        for i in range(len(cs_params) - 1, -1, -1):
-            if REF.search(cs_params[i].type):
-                ref_index = i
-                break
-        not_cs_const = -1
-        for i in range(len(cs_params) - 1, -1, -1):
-            if not cs_value(params[i].value):
-                not_cs_const = i
-                break
-
-        start = max(ref_index, not_cs_const) + 1
-
+                   cs_params: List[CSMarshalType], start: int):
         i = 0
         for p, cs in zip(params, cs_params):
-            yield to_cs_param(p, cs, i >= start and p.value)
+            yield to_cs_param(p, cs, (i >= start and p.value))
             i += 1
+
+    def function_call(v: cpptypeinfo.Function, ret_attr: str, ret_type: str,
+                      cs_params: List[CSMarshalType], start: int):
+        params = [p for p in params_str(v.params, cs_params, start)]
+        return f'''// {v.file.name}:{v.line}
+        [DllImport(DLLNAME, EntryPoint="{v.mangled_name}")]{ret_attr}
+        public static extern {ret_type} {v.name}({", ".join(params)});'''
 
     def function_str(v: cpptypeinfo.Function):
         cs_params = [
@@ -322,13 +314,31 @@ def generate_functions(root_ns: cpptypeinfo.Namespace, context: CSContext,
         else:
             ret_attr = ''
 
-        # params
-        params = [p for p in params_str(v.params, cs_params)]
+        # 一番後ろの ref 引数
+        ref_index = -1
+        for i in range(len(cs_params) - 1, -1, -1):
+            if REF.search(cs_params[i].type):
+                ref_index = i
+                break
+        not_cs_const = -1
+        for i in range(len(cs_params) - 1, -1, -1):
+            if not cs_value(v.params[i].value):
+                not_cs_const = i
+                break
 
-        value = f'''// {v.file.name}:{v.line}
-        [DllImport(DLLNAME, EntryPoint="{v.mangled_name}")]{ret_attr}
-        public static extern {cstype.type} {v.name}({", ".join(params)});'''
-        yield value
+        start = max(ref_index, not_cs_const) + 1
+
+        yield function_call(v, ret_attr, cstype.type, cs_params, start)
+
+        # ref bool のデフォルト引数
+        if ref_index >= 0:
+            if REF_BOOL.search(cs_params[ref_index].type):
+                if (ref_index >= 0 and ref_index >= not_cs_const):
+                    if v.params[ref_index].value == 'NULL':
+                        # ref bool を IntPtr にして default で省略できるようにする
+                        cs_params[ref_index] = CSMarshalType('IntPtr')
+                        yield function_call(v, ret_attr, cstype.type,
+                                            cs_params, start - 1)
 
     values = []
     for ns in root_ns.traverse():
@@ -347,8 +357,6 @@ def generate_functions(root_ns: cpptypeinfo.Namespace, context: CSContext,
 
                 for value in function_str(v):
                     values.append(value)
-
-                # ToDo: ref bool を IntPtr にする版
 
     t = Template('''{{ headline }}
 {{ using }}
