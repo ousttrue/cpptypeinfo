@@ -420,7 +420,9 @@ class Array(Pointer):
                  length: Optional[int] = None):
         super().__init__(ref)
         self.length = length
-        self._hash = ref.__hash__() * 13 + 2
+        self._hash = self.typeref.__hash__() * 13 + 2
+        if self.length:
+            self._hash += self.length
 
     def __hash__(self):
         return self._hash

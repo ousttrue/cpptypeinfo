@@ -7,7 +7,9 @@ from jinja2 import Template
 
 HEADLINE = f'// generated cpptypeinfo-{cpptypeinfo.VERSION}'
 USING = '''using System;
-using System.Runtime.InteropServices;'''
+using System.Runtime.InteropServices;
+using System.Numerics;
+'''
 
 
 class CSMarshalType(NamedTuple):
@@ -29,7 +31,7 @@ cstype_map: Dict[cpptypeinfo.Type, CSMarshalType] = {
     cpptypeinfo.Bool(): CSMarshalType('bool', 'MarshalAs(UnmanagedType.U1)'),
 }
 
-# for function pram
+# for function param
 cstype_pointer_map: Dict[cpptypeinfo.Type, CSMarshalType] = {
     cpptypeinfo.Pointer(cpptypeinfo.Int8().to_const()):
     CSMarshalType('string', 'MarshalAs(UnmanagedType.LPUTF8Str)'),
@@ -205,7 +207,7 @@ namespace {{ namespace }}
                      namespace=context.namespace,
                      type_name=decl.type_name,
                      values=[field_str(f) for f in decl.fields],
-                     file=decl.file.name,
+                     file=decl.file.name if decl.file else '',
                      line=decl.line))
 
 

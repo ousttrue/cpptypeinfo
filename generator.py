@@ -153,6 +153,37 @@ def main(root: pathlib.Path, *paths: pathlib.Path):
     root_ns.resolve_typedef_void_p()
     process_enum(root_ns)
 
+    cpptypeinfo.push_namespace(root_ns)
+    # vector2
+    vector2 = cpptypeinfo.Struct('ImVec2')
+    csharp.cstype_map[vector2] = csharp.CSMarshalType('Vector2')
+    csharp.cstype_pointer_map[cpptypeinfo.Pointer(
+        vector2)] = csharp.CSMarshalType('ref Vector2')
+    csharp.cstype_pointer_map[cpptypeinfo.Pointer(
+        vector2.to_const())] = csharp.CSMarshalType('ref Vector2')
+    csharp.cstype_pointer_map[cpptypeinfo.Array(
+        cpptypeinfo.Float(), 2)] = csharp.CSMarshalType('ref Vector2')
+    # vector3
+    vector3 = cpptypeinfo.Struct('ImVec3')
+    csharp.cstype_map[vector3] = csharp.CSMarshalType('Vector3')
+    csharp.cstype_pointer_map[cpptypeinfo.Pointer(
+        vector3)] = csharp.CSMarshalType('ref Vector3')
+    csharp.cstype_pointer_map[cpptypeinfo.Pointer(
+        vector3.to_const())] = csharp.CSMarshalType('ref Vector3')
+    csharp.cstype_pointer_map[cpptypeinfo.Array(
+        cpptypeinfo.Float(), 3)] = csharp.CSMarshalType('ref Vector3')
+    # vector4
+    vector4 = cpptypeinfo.Struct('ImVec4')
+    csharp.cstype_map[vector4] = csharp.CSMarshalType('Vector4')
+    csharp.cstype_pointer_map[cpptypeinfo.Pointer(
+        vector4)] = csharp.CSMarshalType('ref Vector4')
+    csharp.cstype_pointer_map[cpptypeinfo.Pointer(
+        vector4.to_const())] = csharp.CSMarshalType('ref Vector4')
+    csharp.cstype_pointer_map[cpptypeinfo.Array(
+        cpptypeinfo.Float(), 4)] = csharp.CSMarshalType('ref Vector4')
+
+    cpptypeinfo.pop_namespace()
+
     #
     # process each namespace from root
     #
