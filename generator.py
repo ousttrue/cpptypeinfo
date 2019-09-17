@@ -117,10 +117,14 @@ def process_enum(root_ns: cpptypeinfo.Namespace):
 def main(root: pathlib.Path, *paths: pathlib.Path):
     print(f'{[x.name for x in paths]} => {root}')
 
-    root_ns = cpptypeinfo.parse_headers(*paths,
-                                        cpp_flags=[
-                                            '-target', 'x86_64-pc-windows-msvc'
-                                        ])
+    root_ns = cpptypeinfo.parse_headers(
+        *paths,
+        cpp_flags=[
+            '-target',
+            'x86_64-windows-msvc'
+            '-DIMGUI_DISABLE_OBSOLETE_FUNCTIONS=1',
+            '-DIMGUI_USER_CONFIG=<imconfig_dll.h>',
+        ])
 
     #
     # preprocess
@@ -171,7 +175,8 @@ def main(root: pathlib.Path, *paths: pathlib.Path):
     # if v.file.name == 'imgui.h':
     #     continue
     csharp.generate_functions(
-        root_ns, csharp.CSContext(root / 'CImGui.cs', NAMESPACE_NAME))
+        root_ns, csharp.CSContext(root / 'ImGui.cs', NAMESPACE_NAME), 'ImGui',
+        'imgui.dll')
 
     generate_imguiio(root_ns,
                      csharp.CSContext(root / 'ImGuiIO.cs', NAMESPACE_NAME))

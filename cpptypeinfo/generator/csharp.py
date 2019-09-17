@@ -213,7 +213,8 @@ REF = re.compile(r'\bref\b')
 REF_BOOL = re.compile(r'\bref bool (\w+)')
 
 
-def generate_functions(root_ns: cpptypeinfo.Namespace, context: CSContext):
+def generate_functions(root_ns: cpptypeinfo.Namespace, context: CSContext,
+                       class_name: str, dll_name: str):
     def to_cs_param(p: cpptypeinfo.Param):
         cstype = to_cs(p.typeref.ref, ExportFlag.FunctionParam)
         if cstype.marshal_as:
@@ -237,7 +238,7 @@ def generate_functions(root_ns: cpptypeinfo.Namespace, context: CSContext):
     def function_str(v: cpptypeinfo.Function, params: List[str]):
         cstype = to_cs(v.result.ref, ExportFlag.FunctionReturn)
         if cstype.marshal_as:
-            ret_attr = f'\n        [return: {cstype.marshal_as}]\n'
+            ret_attr = f'\n        [return: {cstype.marshal_as}]'
         else:
             ret_attr = ''
         return f'''// {v.file.name}:{v.line}
@@ -269,8 +270,7 @@ def generate_functions(root_ns: cpptypeinfo.Namespace, context: CSContext):
                         break
                 if pos >= 0:
                     params[i] = REF_BOOL.sub(
-                        lambda m: f'IntPtr {m.group(1)} = default',
-                        params[i])
+                        lambda m: f'IntPtr {m.group(1)} = default', params[i])
                     values.append(function_str(v, params))
 
     t = Template('''{{ headline }}
@@ -278,9 +278,9 @@ def generate_functions(root_ns: cpptypeinfo.Namespace, context: CSContext):
 
 namespace {{ namespace }}
 {
-    public static class CImGui
+    public static class {{ class_name }}
     {
-        const string DLLNAME = "cimgui.dll";
+        const string DLLNAME = "{{ dll_name }}";
 
 {%- for value in values %}
 
@@ -294,4 +294,7 @@ namespace {{ namespace }}
             t.render(headline=context.headline,
                      using=context.using,
                      namespace=context.namespace,
-                     values=values))
+                     values=values,
+                     class_name=class_name,
+                     dll_name=dll_name
+                     ))
