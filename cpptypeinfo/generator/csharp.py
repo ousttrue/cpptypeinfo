@@ -212,38 +212,123 @@ namespace {{ namespace }}
 REF = re.compile(r'\bref\b')
 REF_BOOL = re.compile(r'\bref bool (\w+)')
 
+RE_VEC2 = re.compile(r'ImVec2\((.*)\)')
+
+
+def cs_value(src: str) -> str:
+    if not src:
+        return
+    if src in ['NULL', 'ImVec2(0,0)', 'ImVec4(0,0,0,0)', 'false']:
+        return 'default'  # IntPtr.Zero
+    try:
+        int(src)
+        return src
+    except:
+        pass
+    if src == 'true':
+        return src
+    if src.startswith('ImVec2('):
+        # return f'new Vector2({src[7:-1]})'
+        return None
+    if src.startswith('ImVec4('):
+        # return f'new Vector4({src[7:-1]})'
+        return None
+    if src[-1] == 'f':
+        try:
+            float(src[:-1])
+            if src[0] == '.':
+                src = '0' + src
+            if src[-2] == '.':
+                src = src[:-1] + '0f'
+            return src
+        except:
+            pass
+    else:
+        try:
+            float(src)
+            if src[0] == '.':
+                src = '0' + src
+            if src[-1] == '.':
+                src += '0'
+            return src
+        except:
+            pass
+    if src == 'FLT_MAX':
+        return 'float.MaxValue'
+    if src.startswith('sizeof(float)'):
+        return '4'
+    if src[0] == '"' and src[-1] == '"':
+        return src
+    raise Exception(src)
+
 
 def generate_functions(root_ns: cpptypeinfo.Namespace, context: CSContext,
                        class_name: str, dll_name: str):
-    def to_cs_param(p: cpptypeinfo.Param):
-        cstype = to_cs(p.typeref.ref, ExportFlag.FunctionParam)
+    def to_cs_param(p: cpptypeinfo.Param, cstype: CSMarshalType,
+                    has_default: bool):
         if cstype.marshal_as:
             param_attr = f'[{cstype.marshal_as}]'
         else:
             param_attr = ''
-        return f'{param_attr}{cstype.type} {escape_symbol(p.name)}'
 
-    def to_cs_params(v: cpptypeinfo.Function) -> List[str]:
-        params = [to_cs_param(p) for p in v.params]
-        pos = -1
-        for i in range(len(params) - 1, -1, -1):
-            if REF.search(params[i]):
+        if has_default:
+            return f'{param_attr}{cstype.type} {escape_symbol(p.name)} = {cs_value(p.value)}'
+        else:
+            return f'{param_attr}{cstype.type} {escape_symbol(p.name)}'
+
+    # def to_cs_params(v: cpptypeinfo.Function) -> List[str]:
+    #     params = [to_cs_param(p) for p in v.params]
+    #     pos = -1
+    #     for i in range(len(params) - 1, -1, -1):
+    #         if REF.search(params[i]):
+    #             break
+    #         pos = i
+    #     if pos >= 0:
+    #         for i in range(pos, len(params), 1):
+    #             params[i] = params[i] + ' = default'
+    #     return params
+
+    def params_str(params: List[cpptypeinfo.Param],
+                   cs_params: List[CSMarshalType]):
+
+        # 一番後ろの ref 引数
+        ref_index = -1
+        for i in range(len(cs_params) - 1, -1, -1):
+            if REF.search(cs_params[i].type):
+                ref_index = i
                 break
-            pos = i
-        if pos >= 0:
-            for i in range(pos, len(params), 1):
-                params[i] = params[i] + ' = default'
-        return params
+        not_cs_const = -1
+        for i in range(len(cs_params) - 1, -1, -1):
+            if not cs_value(params[i].value):
+                not_cs_const = i
+                break
 
-    def function_str(v: cpptypeinfo.Function, params: List[str]):
+        start = max(ref_index, not_cs_const) + 1
+
+        i = 0
+        for p, cs in zip(params, cs_params):
+            yield to_cs_param(p, cs, i >= start and p.value)
+            i += 1
+
+    def function_str(v: cpptypeinfo.Function):
+        cs_params = [
+            to_cs(p.typeref.ref, ExportFlag.FunctionParam) for p in v.params
+        ]
+
+        # return
         cstype = to_cs(v.result.ref, ExportFlag.FunctionReturn)
         if cstype.marshal_as:
             ret_attr = f'\n        [return: {cstype.marshal_as}]'
         else:
             ret_attr = ''
-        return f'''// {v.file.name}:{v.line}
+
+        # params
+        params = [p for p in params_str(v.params, cs_params)]
+
+        value = f'''// {v.file.name}:{v.line}
         [DllImport(DLLNAME, EntryPoint="{v.mangled_name}")]{ret_attr}
         public static extern {cstype.type} {v.name}({", ".join(params)});'''
+        yield value
 
     values = []
     for ns in root_ns.traverse():
@@ -260,18 +345,10 @@ def generate_functions(root_ns: cpptypeinfo.Namespace, context: CSContext,
                         for p in v.params):
                     continue
 
-                params = to_cs_params(v)
-                values.append(function_str(v, params))
+                for value in function_str(v):
+                    values.append(value)
 
-                pos = -1
-                for i in range(len(params)):
-                    if REF_BOOL.search(params[i]):
-                        pos = i
-                        break
-                if pos >= 0:
-                    params[i] = REF_BOOL.sub(
-                        lambda m: f'IntPtr {m.group(1)} = default', params[i])
-                    values.append(function_str(v, params))
+                # ToDo: ref bool を IntPtr にする版
 
     t = Template('''{{ headline }}
 {{ using }}
@@ -296,5 +373,4 @@ namespace {{ namespace }}
                      namespace=context.namespace,
                      values=values,
                      class_name=class_name,
-                     dll_name=dll_name
-                     ))
+                     dll_name=dll_name))
