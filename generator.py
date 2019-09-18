@@ -195,6 +195,15 @@ def main(root: pathlib.Path, *paths: pathlib.Path):
 
     cpptypeinfo.push_namespace(root_ns)
     # vector2
+    vector2 = cpptypeinfo.Struct('PodImVec2')
+    csharp.cstype_map[vector2] = csharp.CSMarshalType('Vector2')
+    csharp.cstype_pointer_map[cpptypeinfo.Pointer(
+        vector2)] = csharp.CSMarshalType('ref Vector2')
+    csharp.cstype_pointer_map[cpptypeinfo.Pointer(
+        vector2.to_const())] = csharp.CSMarshalType('ref Vector2')
+    csharp.cstype_pointer_map[cpptypeinfo.Array(
+        cpptypeinfo.Float(), 2)] = csharp.CSMarshalType('ref Vector2')
+    # vector2
     vector2 = cpptypeinfo.Struct('ImVec2')
     csharp.cstype_map[vector2] = csharp.CSMarshalType('Vector2')
     csharp.cstype_pointer_map[cpptypeinfo.Pointer(
