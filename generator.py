@@ -23,11 +23,11 @@ class PropInfo(NamedTuple):
 
     def to_cs(self):
         return f'''// offsetof: {self.offset}
-    public {self.cstype} {self.name}
-    {{
-        get => {self.to_cstype}(Marshal.{self.readfunc}(IntPtr.Add(m_p, {self.offset})));
-        set => Marshal.{self.writefunc}(IntPtr.Add(m_p, {self.offset}), {self.from_cstype}(value));
-    }}'''
+        public {self.cstype} {self.name}
+        {{
+            get => {self.to_cstype}(Marshal.{self.readfunc}(IntPtr.Add(m_p, {self.offset})));
+            set => Marshal.{self.writefunc}(IntPtr.Add(m_p, {self.offset}), {self.from_cstype});
+        }}'''
 
 
 def create_property(f) -> PropInfo:
@@ -36,10 +36,10 @@ def create_property(f) -> PropInfo:
             f.name,
             f.offset,
             'int',
-            '',
-            'ReadInt32',  #
-            '',
-            'WriteInt32')
+            to_cstype='',
+            readfunc='ReadInt32',  #
+            from_cstype='value',
+            writefunc='WriteInt32')
     elif isinstance(f.typeref.ref, cpptypeinfo.Enum):
         return PropInfo(
             f.name,
@@ -47,7 +47,7 @@ def create_property(f) -> PropInfo:
             f.typeref.ref.type_name,
             to_cstype=f'({f.typeref.ref.type_name})',
             readfunc='ReadInt32',  #
-            from_cstype='(int)',
+            from_cstype='(int)value',
             writefunc='WriteInt32')
     elif isinstance(f.typeref.ref, cpptypeinfo.Float):
         return PropInfo(
@@ -56,8 +56,17 @@ def create_property(f) -> PropInfo:
             'float',
             to_cstype='BitConverter.Int32BitsToSingle',
             readfunc='ReadInt32',  #
-            from_cstype='BitConverter.SingleToInt32Bits',
+            from_cstype='BitConverter.SingleToInt32Bits(value)',
             writefunc='WriteInt32')
+    elif isinstance(f.typeref.ref, cpptypeinfo.Pointer):
+        return PropInfo(
+            f.name,
+            f.offset,
+            'IntPtr',
+            to_cstype='new IntPtr',
+            readfunc='ReadInt64',  #
+            from_cstype='value.ToInt64()',
+            writefunc='WriteInt64')
     else:
         # print(f.typeref.ref)
         pass
