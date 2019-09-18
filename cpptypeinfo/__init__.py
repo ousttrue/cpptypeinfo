@@ -7,8 +7,10 @@ from .cursor import parse_namespace
 VERSION = '0.1.0'
 
 
-def parse_headers(*paths: pathlib.Path, cpp_flags=None):
+def parse_headers(*paths: pathlib.Path, cpp_flags=None, before=None):
     root_ns = push_namespace()
+    if before:
+        before(root_ns)
     if not cpp_flags:
         cpp_flags = []
     cpp_flags += [f'-I{x.parent}' for x in paths]

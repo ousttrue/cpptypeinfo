@@ -166,6 +166,10 @@ def process_enum(root_ns: cpptypeinfo.Namespace):
 def main(root: pathlib.Path, *paths: pathlib.Path):
     print(f'{[x.name for x in paths]} => {root}')
 
+    def before(root_ns):
+        # predefine
+        cpptypeinfo.Struct('PodImVec2')
+
     root_ns = cpptypeinfo.parse_headers(
         *paths,
         cpp_flags=[
@@ -173,7 +177,8 @@ def main(root: pathlib.Path, *paths: pathlib.Path):
             'x86_64-windows-msvc'
             '-DIMGUI_DISABLE_OBSOLETE_FUNCTIONS=1',
             '-DIMGUI_USER_CONFIG=<imconfig_dll.h>',
-        ])
+        ], 
+        before=before)
 
     #
     # preprocess
