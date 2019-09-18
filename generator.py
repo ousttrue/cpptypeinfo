@@ -1,7 +1,6 @@
 import pathlib
 import sys
 import shutil
-# from typing import Tuple, Optional, Dict, List
 from jinja2 import Template
 import cpptypeinfo
 from cpptypeinfo.generator import csharp
@@ -47,7 +46,8 @@ def generate_imguiio(root_ns: cpptypeinfo.Namespace,
         }}'''
             values.append(value)
         else:
-            print(f.typeref.ref)
+            # print(f.typeref.ref)
+            pass
 
     t = Template('''{{ headline }}
 {{ using }}

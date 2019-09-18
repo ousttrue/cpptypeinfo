@@ -80,8 +80,11 @@ def parse_struct(c: cindex.Cursor):
             field = cpptypeinfo.parse(child.type.spelling)
             offset = child.get_field_offsetof() // 8
             if not decl.template_parameters and offset < 0:
-                # raise Exception(f'struct {c.spelling}: offset error')
-                a = 0
+                # parseに失敗(特定のheaderが見つからないなど)
+                # clang 環境が壊れているかも
+                # VCのプレビュー版とか原因かも
+                # プレビュー版をアンインストールして LLVM を入れたり消したらなおった
+                raise Exception(f'struct {c.spelling}: offset error')
             decl.add_field(cpptypeinfo.Field(field, child.spelling, offset))
         elif child.kind == cindex.CursorKind.CONSTRUCTOR:
             pass
