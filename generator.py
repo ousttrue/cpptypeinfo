@@ -11,6 +11,34 @@ IMGUI_H = HERE / 'libs/imgui/imgui.h'
 NAMESPACE_NAME = 'SharpImGui'
 
 
+def create_property(f):
+    if isinstance(f.typeref.ref, cpptypeinfo.Int32):
+        value = f'''public int {f.name}
+    {{
+        get => (int)Marshal.ReadInt32(IntPtr.Add(m_p, {f.offset}));
+        set => Marshal.WriteInt32(IntPtr.Add(m_p, {f.offset}), (int)value);
+    }}'''
+        return value
+    elif isinstance(f.typeref.ref, cpptypeinfo.Enum):
+        type_name = f.typeref.ref.type_name
+        value = f'''public {type_name} {f.name}
+    {{
+        get => ({type_name})Marshal.ReadInt32(IntPtr.Add(m_p, {f.offset}));
+        set => Marshal.WriteInt32(IntPtr.Add(m_p, {f.offset}), (int)value);
+    }}'''
+        return value
+    elif isinstance(f.typeref.ref, cpptypeinfo.Float):
+        value = f'''public float {f.name}
+    {{
+        get => BitConverter.Int32BitsToSingle(Marshal.ReadInt32(IntPtr.Add(m_p, {f.offset})));
+        set => Marshal.WriteInt32(IntPtr.Add(m_p, {f.offset}), BitConverter.SingleToInt32Bits(value));
+    }}'''
+        return value
+    else:
+        # print(f.typeref.ref)
+        pass
+
+
 def generate_imguiio(root_ns: cpptypeinfo.Namespace,
                      context: csharp.CSContext):
     def find_struct() -> cpptypeinfo.Struct:
@@ -22,32 +50,12 @@ def generate_imguiio(root_ns: cpptypeinfo.Namespace,
 
     imguiio = find_struct()
     values = []
+
     for f in imguiio.fields:
-        if isinstance(f.typeref.ref, cpptypeinfo.Int32):
-            value = f'''public int {f.name}
-        {{
-            get => (int)Marshal.ReadInt32(IntPtr.Add(m_p, {f.offset}));
-            set => Marshal.WriteInt32(IntPtr.Add(m_p, {f.offset}), (int)value);
-        }}'''
-            values.append(value)
-        elif isinstance(f.typeref.ref, cpptypeinfo.Enum):
-            type_name = f.typeref.ref.type_name
-            value = f'''public {type_name} {f.name}
-        {{
-            get => ({type_name})Marshal.ReadInt32(IntPtr.Add(m_p, {f.offset}));
-            set => Marshal.WriteInt32(IntPtr.Add(m_p, {f.offset}), (int)value);
-        }}'''
-            values.append(value)
-        elif isinstance(f.typeref.ref, cpptypeinfo.Float):
-            value = f'''public float {f.name}
-        {{
-            get => BitConverter.Int32BitsToSingle(Marshal.ReadInt32(IntPtr.Add(m_p, {f.offset})));
-            set => Marshal.WriteInt32(IntPtr.Add(m_p, {f.offset}), BitConverter.SingleToInt32Bits(value));
-        }}'''
-            values.append(value)
-        else:
-            # print(f.typeref.ref)
-            pass
+        value = create_property(f)
+        if value:
+            values.append(f'''// offsetof: {f.offset}
+        {value}''')
 
     t = Template('''{{ headline }}
 {{ using }}
