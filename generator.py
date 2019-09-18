@@ -1,6 +1,7 @@
 import pathlib
 import sys
 import shutil
+from typing import NamedTuple
 from jinja2 import Template
 import cpptypeinfo
 from cpptypeinfo.generator import csharp
@@ -11,29 +12,52 @@ IMGUI_H = HERE / 'libs/imgui/imgui.h'
 NAMESPACE_NAME = 'SharpImGui'
 
 
-def create_property(f):
+class PropInfo(NamedTuple):
+    name: str
+    offset: int
+    cstype: str
+    to_cstype: str
+    readfunc: str
+    from_cstype: str
+    writefunc: str
+
+    def to_cs(self):
+        return f'''// offsetof: {self.offset}
+    public {self.cstype} {self.name}
+    {{
+        get => {self.to_cstype}(Marshal.{self.readfunc}(IntPtr.Add(m_p, {self.offset})));
+        set => Marshal.{self.writefunc}(IntPtr.Add(m_p, {self.offset}), {self.from_cstype}(value));
+    }}'''
+
+
+def create_property(f) -> PropInfo:
     if isinstance(f.typeref.ref, cpptypeinfo.Int32):
-        value = f'''public int {f.name}
-    {{
-        get => (int)Marshal.ReadInt32(IntPtr.Add(m_p, {f.offset}));
-        set => Marshal.WriteInt32(IntPtr.Add(m_p, {f.offset}), (int)value);
-    }}'''
-        return value
+        return PropInfo(
+            f.name,
+            f.offset,
+            'int',
+            '',
+            'ReadInt32',  #
+            '',
+            'WriteInt32')
     elif isinstance(f.typeref.ref, cpptypeinfo.Enum):
-        type_name = f.typeref.ref.type_name
-        value = f'''public {type_name} {f.name}
-    {{
-        get => ({type_name})Marshal.ReadInt32(IntPtr.Add(m_p, {f.offset}));
-        set => Marshal.WriteInt32(IntPtr.Add(m_p, {f.offset}), (int)value);
-    }}'''
-        return value
+        return PropInfo(
+            f.name,
+            f.offset,
+            f.typeref.ref.type_name,
+            to_cstype=f'({f.typeref.ref.type_name})',
+            readfunc='ReadInt32',  #
+            from_cstype='(int)',
+            writefunc='WriteInt32')
     elif isinstance(f.typeref.ref, cpptypeinfo.Float):
-        value = f'''public float {f.name}
-    {{
-        get => BitConverter.Int32BitsToSingle(Marshal.ReadInt32(IntPtr.Add(m_p, {f.offset})));
-        set => Marshal.WriteInt32(IntPtr.Add(m_p, {f.offset}), BitConverter.SingleToInt32Bits(value));
-    }}'''
-        return value
+        return PropInfo(
+            f.name,
+            f.offset,
+            'float',
+            to_cstype='BitConverter.Int32BitsToSingle',
+            readfunc='ReadInt32',  #
+            from_cstype='BitConverter.SingleToInt32Bits',
+            writefunc='WriteInt32')
     else:
         # print(f.typeref.ref)
         pass
@@ -54,8 +78,7 @@ def generate_imguiio(root_ns: cpptypeinfo.Namespace,
     for f in imguiio.fields:
         value = create_property(f)
         if value:
-            values.append(f'''// offsetof: {f.offset}
-        {value}''')
+            values.append(value.to_cs())
 
     t = Template('''{{ headline }}
 {{ using }}
