@@ -1,5 +1,5 @@
 import pathlib
-from typing import List
+from typing import List, Optional
 from .declaration import *
 from .get_tu import get_tu, get_tu_from_source, tmp_from_source
 from .cursor import parse_namespace
@@ -7,8 +7,11 @@ from .cursor import parse_namespace
 VERSION = '0.1.0'
 
 
-def parse_headers(*paths: pathlib.Path, cpp_flags=None, before=None):
-    root_ns = push_namespace()
+def parse_headers(*paths: pathlib.Path,
+                  cpp_flags=None,
+                  before=None,
+                  root_namespace: Optional[Namespace] = None):
+    root_ns = push_namespace(root_namespace)
     if before:
         before(root_ns)
     if not cpp_flags:

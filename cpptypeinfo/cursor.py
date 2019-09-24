@@ -32,6 +32,8 @@ def parse_function(c: cindex.Cursor, extern_c: bool) -> cpptypeinfo.Function:
             # macro
             # tokens = [token.spelling for token in child.get_tokens()]
             pass
+        elif child.kind == cindex.CursorKind.UNEXPOSED_EXPR:
+            pass
         elif child.kind == cindex.CursorKind.PARM_DECL:
             params.append(parse_param(child))
             # traverse(child)
@@ -40,6 +42,12 @@ def parse_function(c: cindex.Cursor, extern_c: bool) -> cpptypeinfo.Function:
             # function body
             pass
         elif child.kind == cindex.CursorKind.DLLEXPORT_ATTR:
+            pass
+        elif child.kind == cindex.CursorKind.DLLIMPORT_ATTR:
+            pass
+        elif child.kind == cindex.CursorKind.NAMESPACE_REF:
+            pass
+        elif child.kind == cindex.CursorKind.TEMPLATE_REF:
             pass
         else:
             raise NotImplementedError(f'{child.kind}')
@@ -108,6 +116,10 @@ def parse_struct(c: cindex.Cursor):
             typedef_decl = cpptypeinfo.parse(
                 child.underlying_typedef_type.spelling)
             cpptypeinfo.Typedef(child.spelling, typedef_decl)
+        elif child.kind == cindex.CursorKind.UNEXPOSED_ATTR:
+            pass
+        elif child.kind == cindex.CursorKind.CXX_ACCESS_SPEC_DECL:
+            pass
         else:
             raise NotImplementedError(f'{child.kind}')
     cpptypeinfo.pop_namespace()
@@ -116,7 +128,9 @@ def parse_struct(c: cindex.Cursor):
 
 def parse_typedef(c: cindex.Cursor):
     tokens = [t.spelling for t in c.get_tokens()]
-    if tokens[-1] == ')' or c.underlying_typedef_type.spelling != 'int':
+    if not tokens:
+        return None
+    elif tokens[-1] == ')' or c.underlying_typedef_type.spelling != 'int':
         parsed = cpptypeinfo.parse(c.underlying_typedef_type.spelling)
     else:
         # int type may be wrong.
@@ -132,7 +146,13 @@ def parse_typedef(c: cindex.Cursor):
     decl.line = c.location.line
 
 
-def parse_cursor(c: cindex.Cursor, files: List[pathlib.Path], extern_c=False):
+def parse_cursor(c: cindex.Cursor,
+                 files: List[pathlib.Path],
+                 used,
+                 extern_c=False):
+    if c.hash in used:
+        return
+    used.add(c.hash)
     if pathlib.Path(c.location.file.name) not in files:
         return
 
@@ -150,12 +170,15 @@ def parse_cursor(c: cindex.Cursor, files: List[pathlib.Path], extern_c=False):
         # if 'dllexport' in tokens:
         #     a = 0
         for child in c.get_children():
-            parse_cursor(child, files, extern_c)
+            parse_cursor(child, files, extern_c, used)
 
     elif c.kind == cindex.CursorKind.UNION_DECL:
         parse_struct(c)
 
     elif c.kind == cindex.CursorKind.STRUCT_DECL:
+        parse_struct(c)
+
+    elif c.kind == cindex.CursorKind.CLASS_DECL:
         parse_struct(c)
 
     elif c.kind == cindex.CursorKind.TYPEDEF_DECL:
@@ -171,6 +194,9 @@ def parse_cursor(c: cindex.Cursor, files: List[pathlib.Path], extern_c=False):
         # static variable
         pass
 
+    elif c.kind == cindex.CursorKind.CONSTRUCTOR:
+        pass
+
     elif c.kind == cindex.CursorKind.FUNCTION_TEMPLATE:
         pass
 
@@ -181,7 +207,10 @@ def parse_cursor(c: cindex.Cursor, files: List[pathlib.Path], extern_c=False):
         raise NotImplementedError(str(c.kind))
 
 
-def parse_namespace(c: cindex.Cursor, files: List[pathlib.Path]):
+def parse_namespace(c: cindex.Cursor, files: List[pathlib.Path], used=None):
+    if not used:
+        used = set()
+
     for i, child in enumerate(c.get_children()):
         if child.kind == cindex.CursorKind.NAMESPACE:
             # nested
@@ -190,4 +219,4 @@ def parse_namespace(c: cindex.Cursor, files: List[pathlib.Path]):
             cpptypeinfo.pop_namespace()
         else:
 
-            parse_cursor(child, files)
+            parse_cursor(child, files, used)

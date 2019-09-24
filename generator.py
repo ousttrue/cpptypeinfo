@@ -170,6 +170,14 @@ def main(root: pathlib.Path, *paths: pathlib.Path):
         # predefine
         cpptypeinfo.Struct('PodImVec2')
 
+    root_namespace = cpptypeinfo.push_namespace()
+    std = cpptypeinfo.push_namespace('std')
+
+    cpptypeinfo.parse('struct array')
+
+    cpptypeinfo.pop_namespace()
+    cpptypeinfo.pop_namespace()
+
     root_ns = cpptypeinfo.parse_headers(
         *paths,
         cpp_flags=[
@@ -177,8 +185,9 @@ def main(root: pathlib.Path, *paths: pathlib.Path):
             'x86_64-windows-msvc'
             '-DIMGUI_DISABLE_OBSOLETE_FUNCTIONS=1',
             '-DIMGUI_USER_CONFIG=<imconfig_dll.h>',
-        ], 
-        before=before)
+        ],
+        before=before,
+        root_namespace=root_namespace)
 
     #
     # preprocess
@@ -265,13 +274,12 @@ def main(root: pathlib.Path, *paths: pathlib.Path):
             else:
                 raise Exception()
 
-    # if v.name.startswith('ImVector_'):
-    #     continue
-    # if v.file.name == 'imgui.h':
-    #     continue
     csharp.generate_functions(
         root_ns, csharp.CSContext(root / 'ImGui.cs', NAMESPACE_NAME), 'ImGui',
-        'imgui.dll')
+        'imgui.dll', lambda f: f.file.name != 'im3d.h')
+    csharp.generate_functions(
+        root_ns, csharp.CSContext(root / 'Im3d.cs', NAMESPACE_NAME), 'Im3d',
+        'imgui.dll', lambda f: f.file.name == 'im3d.h')
 
     generate_imguiio(root_ns,
                      csharp.CSContext(root / 'ImGuiIO.cs', NAMESPACE_NAME))

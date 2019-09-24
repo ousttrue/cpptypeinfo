@@ -264,8 +264,11 @@ def cs_value(src: str) -> str:
     raise Exception(src)
 
 
-def generate_functions(root_ns: cpptypeinfo.Namespace, context: CSContext,
-                       class_name: str, dll_name: str):
+def generate_functions(root_ns: cpptypeinfo.Namespace,
+                       context: CSContext,
+                       class_name: str,
+                       dll_name: str,
+                       filter=None):
     def to_cs_param(p: cpptypeinfo.Param, cstype: CSMarshalType,
                     has_default: bool):
         if cstype.marshal_as:
@@ -277,18 +280,6 @@ def generate_functions(root_ns: cpptypeinfo.Namespace, context: CSContext,
             return f'{param_attr}{cstype.type} {escape_symbol(p.name)} = {cs_value(p.value)}'
         else:
             return f'{param_attr}{cstype.type} {escape_symbol(p.name)}'
-
-    # def to_cs_params(v: cpptypeinfo.Function) -> List[str]:
-    #     params = [to_cs_param(p) for p in v.params]
-    #     pos = -1
-    #     for i in range(len(params) - 1, -1, -1):
-    #         if REF.search(params[i]):
-    #             break
-    #         pos = i
-    #     if pos >= 0:
-    #         for i in range(pos, len(params), 1):
-    #             params[i] = params[i] + ' = default'
-    #     return params
 
     def params_str(params: List[cpptypeinfo.Param],
                    cs_params: List[CSMarshalType], start: int):
@@ -355,6 +346,8 @@ def generate_functions(root_ns: cpptypeinfo.Namespace, context: CSContext,
                 if any(
                         isinstance(p.typeref.ref, cpptypeinfo.VaList)
                         for p in v.params):
+                    continue
+                if filter and not filter(v):
                     continue
 
                 for value in function_str(v):

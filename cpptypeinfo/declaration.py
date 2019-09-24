@@ -334,8 +334,13 @@ class Namespace:
 STACK: List[Namespace] = []
 
 
-def push_namespace(name='') -> Namespace:
+def indent():
+    return '  ' * (len(STACK) - 1)
+
+
+def push_namespace(name: Union[str, Namespace] = '') -> Namespace:
     namespace = name if isinstance(name, Namespace) else Namespace(name)
+    print(f'{indent()}{namespace.name} {{')
     if STACK:
         STACK[-1].children.append(namespace)
         namespace.parent = STACK[-1]
@@ -345,6 +350,7 @@ def push_namespace(name='') -> Namespace:
 
 def pop_namespace():
     STACK.pop()
+    print(f'{indent()}}}')
 
 
 NS_PATTERN = re.compile(r'(\w+)::(\w+)$')
@@ -651,15 +657,35 @@ def get_from_ns(src: str) -> Optional[Type]:
         if decl:
             return decl
 
+        if src == namespace.name:
+            return namespace
+
+    for namespace in STACK[0].children:
+        decl = namespace.get(src)
+        if decl:
+            return decl
+
+        if src == namespace.name:
+            return namespace
+
     return None
 
 
 SPLIT_PATTERN = re.compile(r'[*&]')
-FUNC_PATTERN = re.compile(r'^(.*)\(.*\)\((.*)\)$')
+# void (const Im3d::DrawList &)
+NAMED_FUNC_PATTERN = re.compile(r'^(.*)\(.*\)\((.*)\)$')
+FUNC_PATTERN = re.compile(r'^(.*)\((.*)\)$')
 
 
 def parse(src: str, is_const=False) -> TypeRef:
     src = src.strip()
+
+    m = NAMED_FUNC_PATTERN.match(src)
+    if m:
+        result = m.group(1)
+        params = m.group(2).split(',')
+        return TypeRef(
+            Function(parse(result), [Param(typeref=parse(x)) for x in params]))
 
     m = FUNC_PATTERN.match(src)
     if m:
@@ -673,14 +699,25 @@ def parse(src: str, is_const=False) -> TypeRef:
         pos = src.rfind('<')
         if pos == -1:
             raise Exception('< not found')
-        template = get_from_ns(src[:pos].strip())
+        template_name = src[:pos].strip()
+        template = parse(template_name, is_const).ref
         if not template:
-            raise Exception()
-        template_params = [
-            parse(t) for t in src[pos + 1:-1].strip().split(',')
-        ]
-        decl = template.instantiate(template_params)
-        return TypeRef(decl, is_const)
+            raise Exception(f'{template_name} not found')
+        if isinstance(template, Struct):
+            template_params = []
+            for splitted in src[pos + 1:-1].strip().split(','):
+                try:
+                    num = int(splitted)
+                    template_params.append(num)
+                except Exception:
+                    template_params.append(parse(splitted))
+            decl = template.instantiate(template_params)
+            return TypeRef(decl, is_const)
+        else:
+            raise Exception(f'{template_name} is not struct')
+
+        # std::array<float, 16>
+        raise Exception()
 
     if src[-1] == ']':
         # array
@@ -719,23 +756,35 @@ def parse(src: str, is_const=False) -> TypeRef:
             # get struct local type
             ns_list = src.split('::')
             if len(ns_list) > 1:
-                if len(ns_list) != 2:
-                    raise NotImplementedError()
+                # if len(ns_list) != 2:
+                #     raise NotImplementedError()
+                ns_list = ns_list[-2:]
                 current = STACK[-1]
                 if isinstance(current, Struct):
-                    if current.type_name != ns_list[0]:
-                        raise Exception(f'is not {ns_list[0]}')
-                    return parse(ns_list[1], is_const)
-                else:
-                    ns = get_from_ns(ns_list[0])
-                    if not ns:
-                        raise Exception(f'not found {ns_list[0]}')
-                    if not isinstance(ns, Struct):
-                        raise Exception(f'{ns} is not Struct')
+                    if current.type_name == ns_list[0]:
+                        return parse(ns_list[1], is_const)
+
+                ns = get_from_ns(ns_list[0])
+                if not ns:
+                    raise Exception(f'not found {ns_list[0]}')
+
+                if isinstance(ns, Struct) or isinstance(ns, Namespace):
                     decl = ns.get(ns_list[1])
-                    if not decl:
-                        raise Exception(f'{ns_list[1]} is not found in {ns}')
-                    return TypeRef(decl, is_const)
+                    if decl:
+                        return TypeRef(decl, is_const)
+
+                    for ns in reversed(STACK):
+                        for child in ns.children:
+                            if child.name == ns_list[0]:
+                                decl = child.get(ns_list[1])
+                                if decl:
+                                    return TypeRef(decl, is_const)
+                                else:
+                                    raise Exception(f'{src} not found')
+
+                    raise Exception(f'{src} is not found')
+                else:
+                    raise Exception(f'{ns} is not Struct or Namespace')
 
             decl = get_from_ns(src)
             if decl:
