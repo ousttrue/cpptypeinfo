@@ -274,12 +274,20 @@ def main(root: pathlib.Path, *paths: pathlib.Path):
             else:
                 raise Exception()
 
+    def is_im3d(f):
+        if f.name.lower().startswith('im3d'):
+            return True
+        if f.file.name == 'im3d.h':
+            return True
+        return False
     csharp.generate_functions(
-        root_ns, csharp.CSContext(root / 'ImGui.cs', NAMESPACE_NAME), 'ImGui',
-        'imgui.dll', lambda f: f.file.name != 'im3d.h')
+        root_ns, csharp.CSContext(root / 'ImGui.cs',
+                                  NAMESPACE_NAME), 'ImGui', 'imgui.dll',
+        lambda f: not is_im3d(f))
     csharp.generate_functions(
-        root_ns, csharp.CSContext(root / 'Im3d.cs', NAMESPACE_NAME), 'Im3d',
-        'imgui.dll', lambda f: f.file.name == 'im3d.h')
+        root_ns, csharp.CSContext(root / 'Im3d.cs',
+                                  NAMESPACE_NAME), 'Im3d', 'imgui.dll',
+        is_im3d)
 
     generate_imguiio(root_ns,
                      csharp.CSContext(root / 'ImGuiIO.cs', NAMESPACE_NAME))
