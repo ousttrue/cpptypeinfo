@@ -33,11 +33,13 @@ cstype_map: Dict[cpptypeinfo.Type, CSMarshalType] = {
 
 # for function param
 cstype_pointer_map: Dict[cpptypeinfo.Type, CSMarshalType] = {
-    cpptypeinfo.Pointer(cpptypeinfo.Int8().to_const()):
+    cpptypeinfo.Void():
+    CSMarshalType('IntPtr'),
+    cpptypeinfo.Int8():
     CSMarshalType('string', 'MarshalAs(UnmanagedType.LPUTF8Str)'),
-    cpptypeinfo.Pointer(cpptypeinfo.Bool()):
+    cpptypeinfo.Bool():
     CSMarshalType('ref bool', 'MarshalAs(UnmanagedType.U1)'),
-    cpptypeinfo.Pointer(cpptypeinfo.Float()):
+    cpptypeinfo.Float():
     CSMarshalType('ref float'),
 }
 
@@ -60,9 +62,15 @@ def to_cs(decl: cpptypeinfo.Type, context: ExportFlag) -> CSMarshalType:
         return cs_type
 
     if context & ExportFlag.FunctionParam:
-        cs_type = cstype_pointer_map.get(decl)
-        if cs_type:
-            return cs_type
+        if isinstance(decl, cpptypeinfo.Pointer):
+            ref = decl.typeref.ref
+            cs_type = cstype_pointer_map.get(ref)
+            if cs_type:
+                return cs_type
+            else:
+                if isinstance(ref, cpptypeinfo.NamedType):
+                    if not ref.type_name.startswith('Im'):
+                        print(decl)
 
     if isinstance(decl, cpptypeinfo.Void):
         return CSMarshalType('void')
@@ -200,7 +208,7 @@ namespace {{ namespace }}
         return f'''// offsetof: {f.offset}
         {field_attr}public {cstype.type} {f.name}'''
 
-    with open(context.path, 'w') as f:
+    with open(str(context.path).replace('::', '_'), 'w') as f:
         f.write(
             t.render(headline=context.headline,
                      using=context.using,
