@@ -478,7 +478,7 @@ class Struct(NamedType, Namespace):
         self.template_parameters.append(t)
         self.user_type_map[t] = parse(f'struct {t}').ref
 
-    def instantiate(self, template_params: List[Type]) -> 'Struct':
+    def instantiate(self, *template_params: List[Type]) -> 'Struct':
         decl = self.clone()
 
         based_params = [self.get(t) for t in self.template_parameters]

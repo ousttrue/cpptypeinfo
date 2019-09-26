@@ -219,8 +219,7 @@ def main(root: pathlib.Path, *paths: pathlib.Path):
     # vector3
     vector3 = cpptypeinfo.Struct('ImVec3')
     csharp.cstype_map[vector3] = csharp.CSMarshalType('Vector3')
-    csharp.cstype_pointer_map[
-        vector3] = csharp.CSMarshalType('ref Vector3')
+    csharp.cstype_pointer_map[vector3] = csharp.CSMarshalType('ref Vector3')
     # vector4
     vector4 = cpptypeinfo.Struct('ImVec4')
     csharp.cstype_map[vector4] = csharp.CSMarshalType('Vector4')
@@ -229,6 +228,21 @@ def main(root: pathlib.Path, *paths: pathlib.Path):
     vector2 = cpptypeinfo.Struct('Vec2')
     csharp.cstype_map[vector2] = csharp.CSMarshalType('Vector2')
     csharp.cstype_pointer_map[vector2] = csharp.CSMarshalType('ref Vector2')
+    # Im3d
+    # CameraState
+    camera_state = cpptypeinfo.Struct('CameraState')
+    csharp.cstype_pointer_map[camera_state] = csharp.CSMarshalType(
+        'ref CameraState')
+    # MouseState
+    mouse_state = cpptypeinfo.Struct('MouseState')
+    csharp.cstype_pointer_map[mouse_state] = csharp.CSMarshalType(
+        'ref MouseState')
+    # Mat4
+    mat4 = cpptypeinfo.Struct('Mat4')
+    csharp.cstype_map[mat4] = csharp.CSMarshalType('Matrix4x4')
+    # array
+    array16 = cpptypeinfo.Struct('array').instantiate(cpptypeinfo.Float, 16)
+    csharp.cstype_map[array16] = csharp.CSMarshalType('Matrix4x4')
 
     cpptypeinfo.pop_namespace()
 
@@ -265,14 +279,13 @@ def main(root: pathlib.Path, *paths: pathlib.Path):
         if f.file.name == 'im3d.h':
             return True
         return False
+
     csharp.generate_functions(
-        root_ns, csharp.CSContext(root / 'ImGui.cs',
-                                  NAMESPACE_NAME), 'ImGui', 'imgui.dll',
-        lambda f: not is_im3d(f))
+        root_ns, csharp.CSContext(root / 'ImGui.cs', NAMESPACE_NAME), 'ImGui',
+        'imgui.dll', lambda f: not is_im3d(f))
     csharp.generate_functions(
-        root_ns, csharp.CSContext(root / 'Im3d.cs',
-                                  NAMESPACE_NAME), 'Im3d', 'imgui.dll',
-        is_im3d)
+        root_ns, csharp.CSContext(root / 'Im3d.cs', NAMESPACE_NAME), 'Im3d',
+        'imgui.dll', is_im3d)
 
     generate_imguiio(root_ns,
                      csharp.CSContext(root / 'ImGuiIO.cs', NAMESPACE_NAME))
