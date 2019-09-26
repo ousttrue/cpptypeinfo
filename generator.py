@@ -171,11 +171,15 @@ def main(root: pathlib.Path, *paths: pathlib.Path):
         cpptypeinfo.Struct('PodImVec2')
 
     root_namespace = cpptypeinfo.push_namespace()
-    std = cpptypeinfo.push_namespace('std')
-
+    # std
+    cpptypeinfo.push_namespace('std')
     cpptypeinfo.parse('struct array')
-
     cpptypeinfo.pop_namespace()
+    # DirectX
+    cpptypeinfo.push_namespace('DirectX')
+    cpptypeinfo.parse('struct XMFLOAT4X4')
+    cpptypeinfo.pop_namespace()
+    #
     cpptypeinfo.pop_namespace()
 
     root_ns = cpptypeinfo.parse_headers(
@@ -243,6 +247,9 @@ def main(root: pathlib.Path, *paths: pathlib.Path):
     # array
     array16 = cpptypeinfo.Struct('array').instantiate(cpptypeinfo.Float, 16)
     csharp.cstype_map[array16] = csharp.CSMarshalType('Matrix4x4')
+    # Mat4
+    float44 = cpptypeinfo.Struct('XMFLOAT4X4')
+    csharp.cstype_map[float44] = csharp.CSMarshalType('Matrix4x4')
 
     cpptypeinfo.pop_namespace()
 
