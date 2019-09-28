@@ -1,38 +1,9 @@
 import re
 import pathlib
 from typing import Optional
-from cpptypeinfo.base_type import (Type, TypeRef, primitive_type_map, Void,
-                                   Int8, Int16, Int32, Int64, UInt8, UInt16,
-                                   UInt32, UInt64, Bool, Float, Double)
+from cpptypeinfo.base_type import (Type, TypeRef, primitive_type_map)
 from cpptypeinfo.user_type import (Typedef, Namespace, Pointer, Array, Field,
                                    Struct, Param, Function)
-
-__all__ = [
-    'TypeParser',
-    'Type',
-    'TypeRef',
-    # 'primitive_type_map',
-    'Void',
-    'Int8',
-    'Int16',
-    'Int32',
-    'Int64',
-    'UInt8',
-    'UInt16',
-    'UInt32',
-    'UInt64',
-    'Bool',
-    'Float',
-    'Double',
-    # 'Typedef',
-    # 'Namespace',
-    # 'Pointer',
-    # 'Array',
-    # 'Field',
-    # 'Struct',
-    # 'Param',
-    # 'Function',
-]
 
 
 class TypeParser:

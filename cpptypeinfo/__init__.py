@@ -37,7 +37,8 @@ Param: for Function
     + ref: TypeRef
     + name
 '''
-from .typeparser import *
+from .base_type import *
+from .typeparser import TypeParser
 from .get_tu import *
 
 VERSION = '0.2.0'

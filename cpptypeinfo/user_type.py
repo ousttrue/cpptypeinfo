@@ -22,6 +22,9 @@ class UserType(Type):
     def resolve(self, typedef: 'Typedef', replace: Type) -> None:
         pass
 
+    def is_based(self, based: Type) -> bool:
+        raise Exception()
+
 
 class Namespace:
     '''
@@ -87,7 +90,13 @@ class SingleTypeRef(UserType):
         raise Exception()
 
     def is_based(self, based: Type) -> bool:
-        return self.typeref.is_based(based)
+        ref = self.typeref.ref
+        if ref == based:
+            return True
+        if isinstance(ref, UserType):
+            return ref.is_based(based)
+        else:
+            return False
 
     def resolve(self, typedef: 'Typedef', replace: Type) -> None:
         ref = self.typeref
@@ -122,15 +131,6 @@ class Typedef(SingleTypeRef):
         while isinstance(current, Typedef):
             current = current.typeref.ref
         return current
-
-
-# def is_based(self, based: Type) -> bool:
-#     if self.ref == based:
-#         return True
-#     if isinstance(self.ref, UserType):
-#         return self.ref.is_based(based)
-#     else:
-#         return False
 
 
 class Pointer(SingleTypeRef):
