@@ -118,7 +118,10 @@ class Typedef(SingleTypeRef):
         return True
 
     def get_concrete_type(self) -> Type:
-        return self.typeref.get_concrete_type()
+        current = self.typeref.ref
+        while isinstance(current, Typedef):
+            current = current.typeref.ref
+        return current
 
 
 # def is_based(self, based: Type) -> bool:
@@ -128,12 +131,6 @@ class Typedef(SingleTypeRef):
 #         return self.ref.is_based(based)
 #     else:
 #         return False
-
-# def get_concrete_type(self) -> Type:
-#     current = self.ref
-#     while isinstance(current, Typedef):
-#         current = current.typeref.ref
-#     return current
 
 
 class Pointer(SingleTypeRef):
