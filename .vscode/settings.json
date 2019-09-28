@@ -9,6 +9,7 @@
         "cpptypeinfo",
         "dlang",
         "finditer",
+        "noqa",
         "rfind",
         "rmtree",
         "uint"
