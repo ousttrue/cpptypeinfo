@@ -1,5 +1,5 @@
 import pathlib
-from typing import List
+from typing import List, Set
 from clang import cindex
 import cpptypeinfo
 
@@ -148,7 +148,7 @@ def parse_typedef(c: cindex.Cursor):
 
 def parse_cursor(c: cindex.Cursor,
                  files: List[pathlib.Path],
-                 used,
+                 used: Set[int],
                  extern_c=False):
     if c.hash in used:
         return
@@ -170,7 +170,7 @@ def parse_cursor(c: cindex.Cursor,
         # if 'dllexport' in tokens:
         #     a = 0
         for child in c.get_children():
-            parse_cursor(child, files, extern_c, used)
+            parse_cursor(child, files=files, used=used, extern_c=extern_c)
 
     elif c.kind == cindex.CursorKind.UNION_DECL:
         parse_struct(c)

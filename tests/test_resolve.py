@@ -9,7 +9,7 @@ class ResolveTest(unittest.TestCase):
         func = cpptypeinfo.Function(typedef, [])
         cpptypeinfo.pop_namespace()
 
-        root.resolve_typedef('uint8_t')
+        root.resolve_typedef_by_name('uint8_t')
         self.assertEqual(func.result, cpptypeinfo.UInt8())
 
 

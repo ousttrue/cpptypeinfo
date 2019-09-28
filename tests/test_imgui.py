@@ -1,6 +1,5 @@
 import unittest
 import pathlib
-from clang import cindex
 import cpptypeinfo
 
 HERE = pathlib.Path(__file__).absolute().parent
@@ -770,9 +769,7 @@ EXPECTS = {
     'ImGuiSelectableFlags_': [],
     'ImGuiComboFlags_': [],
     'ImGuiTabBarFlags_': [],
-    'ImGuiTabBarFlags_': [],
     'ImGuiFocusedFlags_': [],
-    'ImGuiTabBarFlags_': [],
     'ImGuiDragDropFlags_': [],
     'ImGuiDataType_': [],
     'ImGuiDir_': [],
@@ -831,7 +828,7 @@ cpptypeinfo.pop_namespace()
 class ImGuiTest(unittest.TestCase):
     def test_imgui_h(self) -> None:
         cpptypeinfo.push_namespace(root)
-        cpptypeinfo.parse_header(IMGUI_H,
+        cpptypeinfo.parse_headers(IMGUI_H,
                                  cpp_flags=[
                                      '-DIMGUI_DISABLE_OBSOLETE_FUNCTIONS',
                                  ])

@@ -1,6 +1,5 @@
 import unittest
 import pathlib
-from clang import cindex
 import cpptypeinfo
 
 HERE = pathlib.Path(__file__).absolute().parent
@@ -10,7 +9,8 @@ CIMGUI_H = HERE.parent / 'libs/cimgui/cimgui.h'
 class CImguiTest(unittest.TestCase):
     def test_cimgui(self) -> None:
         ns = cpptypeinfo.push_namespace()
-        cpptypeinfo.parse_header(CIMGUI_H, cpp_flags=[f'-DCIMGUI_DEFINE_ENUMS_AND_STRUCTS'])
+        cpptypeinfo.parse_headers(
+            CIMGUI_H, cpp_flags=[f'-DCIMGUI_DEFINE_ENUMS_AND_STRUCTS'])
         cpptypeinfo.pop_namespace()
 
         for ns in ns.traverse():

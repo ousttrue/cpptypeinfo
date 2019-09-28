@@ -237,6 +237,8 @@ class Namespace:
     ユーザー定義型を管理する
     '''
     def __init__(self, name: str):
+        if name is None:
+            name = ''
         self.name = name
         self.user_type_map: Dict[str, UserType] = {}
         self.children: List[Namespace] = []
@@ -244,7 +246,8 @@ class Namespace:
         self.functions: List[Function] = []
 
     def __str__(self) -> str:
-        return '::'.join([ns.name for ns in self.ancestors()])
+        ancestors = [ns.name for ns in self.ancestors()]
+        return '::'.join(ancestors)
 
     def get(self, src: str) -> Optional[Type]:
         user_type = self.user_type_map.get(src)
