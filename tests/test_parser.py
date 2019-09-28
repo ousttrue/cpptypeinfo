@@ -1,7 +1,21 @@
 import unittest
-from cpptypeinfo import (TypeParser, Float, Double, Bool, Void, Int8, Int16,
-                         Int32, Int64, UInt8, UInt16, UInt32, UInt64, Pointer,
-                         Array, Field, Struct, Param, Function)
+from cpptypeinfo import (
+    TypeParser,
+    Float,
+    Double,
+    Bool,
+    Void,
+    Int8,
+    Int16,
+    Int32,
+    Int64,
+    UInt8,
+    UInt16,
+    UInt32,
+    UInt64,
+)
+from cpptypeinfo.user_type import (Pointer, Array, Field, Struct, Param,
+                                   Function)
 
 
 class ParserTest(unittest.TestCase):

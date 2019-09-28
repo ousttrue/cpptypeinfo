@@ -7,6 +7,33 @@ from cpptypeinfo.base_type import (Type, TypeRef, primitive_type_map, Void,
 from cpptypeinfo.user_type import (Typedef, Namespace, Pointer, Array, Field,
                                    Struct, Param, Function)
 
+__all__ = [
+    'TypeParser',
+    'Type',
+    'TypeRef',
+    # 'primitive_type_map',
+    'Void',
+    'Int8',
+    'Int16',
+    'Int32',
+    'Int64',
+    'UInt8',
+    'UInt16',
+    'UInt32',
+    'UInt64',
+    'Bool',
+    'Float',
+    'Double',
+    # 'Typedef',
+    # 'Namespace',
+    # 'Pointer',
+    # 'Array',
+    # 'Field',
+    # 'Struct',
+    # 'Param',
+    # 'Function',
+]
+
 
 class TypeParser:
     """
@@ -15,19 +42,24 @@ class TypeParser:
     def __init__(self) -> None:
         self.root_namespace = Namespace()
 
-    def resolve(self, found: 'Typedef', replace: Type):
+    def resolve(self, found: Typedef, replace: Optional[Type]):
         if not replace:
             replace = found.typeref.ref
-        for ns in self.traverse():
+        for ns in self.root_namespace.traverse():
             for k, v in ns.user_type_map.items():
                 v.resolve(found, replace)
             for v in ns.functions:
                 v.resolve(found, replace)
 
-        for ns in self.traverse():
-            if found.type_name in ns.user_type_map:
-                print(f'remove {found}')
-                ns.user_type_map.pop(found.type_name)
+        for ns in self.root_namespace.traverse():
+            keys = []
+            for k, v in ns.user_type_map.items():
+                if v == found:
+                    keys.append(k)
+            for k in keys:
+                print(f'remove {k}')
+                ns.user_type_map.pop(k)
+                break
 
     def resolve_typedef_by_name(self, name: str, replace: Type = None):
         '''
@@ -36,17 +68,17 @@ class TypeParser:
         '''
         while True:
             found = None
-            for ns in self.traverse():
+            for ns in self.root_namespace.traverse():
                 decl = ns.user_type_map.get(name)
                 if decl:
                     if isinstance(decl, Typedef):
                         found = decl
                         break
-            if not found:
+            if found:
+                # remove
+                self.resolve(found, replace)
+            else:
                 break
-
-            # remove
-            self.resolve(found, replace)
 
     def resolve_typedef_void_p(self):
         while True:
@@ -92,24 +124,32 @@ class TypeParser:
 
         return None
 
+    def typedef(self, name: str, src: str) -> Typedef:
+        decl = self.parse(src)
+        typedef = Typedef(decl, self.root_namespace)
+        self.root_namespace.user_type_map[name] = typedef
+        return typedef
+
     def parse(self, src: str, is_const=False) -> TypeRef:
         src = src.strip()
 
         m = NAMED_FUNC_PATTERN.match(src)
         if m:
             result = m.group(1)
-            params = m.group(2).split(',')
-            return TypeRef(
-                Function(self.parse(result),
-                         [Param(typeref=self.parse(x)) for x in params]))
+            params = m.group(2).split(',') if m.group(2).strip() else []
+            func = Function(self.parse(result),
+                            [Param(typeref=self.parse(x)) for x in params])
+            self.root_namespace.functions.append(func)
+            return TypeRef(func)
 
         m = FUNC_PATTERN.match(src)
         if m:
             result = m.group(1)
-            params = m.group(2).split(',')
-            return TypeRef(
-                Function(self.parse(result),
-                         [Param(typeref=self.parse(x)) for x in params]))
+            params = m.group(2).split(',') if m.group(2).strip() else []
+            func = Function(self.parse(result),
+                            [Param(typeref=self.parse(x)) for x in params])
+            self.root_namespace.functions.append(func)
+            return TypeRef(func)
 
         if src[-1] == '>':
             # template

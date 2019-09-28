@@ -17,12 +17,13 @@ Type
         + VaList
     + UserType: 名前が付いてExport対象になり得る
         + Enum(Int32)
-        + SingleReferenceType
+        + SingleReferenceType # resolve
             + Typedef
             + Pointer
                 + Array
-        + Function(extern "C", __declspec(dllexport))
-        + Struct(Class, Union, Template...)
+        + Function(extern "C", __declspec(dllexport)) # resolve
+        + Struct(Class, Union, Template...) # resolve
+
 
 TypeRef
     + is_const

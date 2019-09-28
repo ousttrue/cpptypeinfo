@@ -19,6 +19,9 @@ class UserType(Type):
     def clone(self) -> 'UserType':
         return copy.copy(self)
 
+    def resolve(self, typedef: 'Typedef', replace: Type) -> None:
+        pass
+
 
 class Namespace:
     '''
@@ -64,7 +67,7 @@ class Namespace:
 
 
 class SingleTypeRef(UserType):
-    def __init__(self, namespace: Optional['Namespace'], ref: TypeRef) -> None:
+    def __init__(self, ref: TypeRef, namespace: Optional['Namespace']) -> None:
         super().__init__(namespace)
         if not ref:
             raise Exception('no TypeRef')
@@ -80,21 +83,26 @@ class SingleTypeRef(UserType):
     def __hash__(self):
         return hash(self.typeref)
 
-    def is_based(self, based: Type) -> bool:
-        raise NotImplementedError()
-
     def replace_based(self, based: Type, replace: Type) -> 'UserType':
         raise Exception()
 
-    def resolve(self, target: 'Typedef', replace: Type):
-        pass
+    def is_based(self, based: Type) -> bool:
+        return self.typeref.is_based(based)
+
+    def resolve(self, typedef: 'Typedef', replace: Type) -> None:
+        ref = self.typeref
+        if ref == typedef:
+            if not replace:
+                raise Exception()
+            self.typeref = TypeRef(replace, ref.is_const)
 
 
 class Typedef(SingleTypeRef):
-    def __init__(self, namespace: Namespace, ref: Union[TypeRef, Type]):
+    def __init__(self, ref: Union[TypeRef, Type],
+                 namespace: Optional[Namespace]):
         if isinstance(ref, Type):
             ref = ref.to_ref()
-        super().__init__(namespace, ref)
+        super().__init__(ref, namespace)
 
     def __str__(self) -> str:
         return f'typedef {self.namespace.get_name(self)} = {self.typeref}'
@@ -105,21 +113,13 @@ class Typedef(SingleTypeRef):
     def __eq__(self, value):
         if not super().__eq__(value):
             return False
-        if self.type_name == value.type_name:
-            if self.typeref != value.typeref:
-                raise Exception()
         if self.typeref != value.typeref:
             return False
         return True
 
-    def is_based(self, based: Type) -> bool:
-        return self.typeref.is_based(based)
-
-    def resolve(self, target: 'Typedef', replace: Type):
-        self.typeref = self.typeref.resolve(target, replace)
-
     def get_concrete_type(self) -> Type:
         return self.typeref.get_concrete_type()
+
 
 # def is_based(self, based: Type) -> bool:
 #     if self.ref == based:
@@ -129,13 +129,6 @@ class Typedef(SingleTypeRef):
 #     else:
 #         return False
 
-# def resolve(self, typedef: 'Typedef', replace: Type) -> 'TypeRef':
-#     if self.ref == typedef:
-#         if not replace:
-#             raise Exception()
-#         return TypeRef(replace, self.is_const)
-#     return self
-
 # def get_concrete_type(self) -> Type:
 #     current = self.ref
 #     while isinstance(current, Typedef):
@@ -143,34 +136,18 @@ class Typedef(SingleTypeRef):
 #     return current
 
 
-class Pointer(UserType):
+class Pointer(SingleTypeRef):
     def __init__(self, ref: Union[TypeRef, Type]):
         if isinstance(ref, Type):
             ref = TypeRef(ref)
-        self.typeref = ref
+        super().__init__(ref, None)
         self._hash = ref.__hash__() * 13 + 1
 
     def __hash__(self):
         return self._hash
 
-    def __eq__(self, value):
-        if not super().__eq__(value):
-            return False
-        if self.typeref != value.typeref:
-            return False
-        return True
-
     def __str__(self):
         return f'Ptr({self.typeref})'
-
-    def is_based(self, based: Type) -> bool:
-        return self.typeref.is_based(based)
-
-    def replace_based(self, based: Type, replace: Type):
-        self.typeref.replace_based(based, replace)
-
-    def resolve(self, target: Typedef, replace: Type):
-        self.typeref = self.typeref.resolve(target, replace)
 
 
 class Array(Pointer):
@@ -348,7 +325,17 @@ class Function(UserType):
         return False
 
     def resolve(self, typedef: Typedef, replace: Type):
-        self.result = self.result.resolve(typedef, replace)
+        # ret
+        if self.result.ref == typedef:
+            self.result = TypeRef(replace, self.result.is_const)
+        elif isinstance(self.result.ref, UserType):
+            self.result.ref.resolve(typedef, replace)
+
+        ref = self.result
+        if ref == typedef:
+            if not replace:
+                raise Exception()
+        # params
         for i in range(len(self.params)):
             self.params[i] = self.params[i].resolve(typedef, replace)
 
