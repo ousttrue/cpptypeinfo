@@ -1,40 +1,3 @@
-'''
-Type
-    + PrimitiveType
-        + Int8
-        + Int16
-        + Int32
-        + Int64
-        + UInt8
-        + UInt16
-        + UInt32
-        + UInt64
-        + Float
-        + Double
-        + Bool(Int8)
-        + Void
-        + VaList
-    + UserType
-        + Enum(Int32)
-        + SingleReferenceType
-            + Typedef
-            + Pointer
-                + Array
-        + Function(extern "C", __declspec(dllexport))
-        + Struct
-
-TypeRef
-    + is_const
-    + type: Type
-
-Field: for Struct
-    + ref: TypeRef
-    + name
-
-Param: for Function
-    + ref: TypeRef
-    + name
-'''
 import re
 import pathlib
 from typing import Dict, Optional
@@ -45,7 +8,7 @@ from cpptypeinfo.user_type import (Typedef, Namespace, Pointer, Array, Field,
                                    Struct, Param, Function)
 
 
-class TranslationUnit:
+class TypeParser:
     """
     Namespaceのツリーを保持し、文字列をパースして適切なNamespaceに型登録する
     """
@@ -277,49 +240,49 @@ NAMED_FUNC_PATTERN = re.compile(r'^(.*)\(.*\)\((.*)\)$')
 FUNC_PATTERN = re.compile(r'^(.*)\((.*)\)$')
 
 if __name__ == '__main__':
-    root = TranslationUnit()
-    assert (root.parse('int') == Int32())
-    assert (root.parse('int') != UInt32())
-    assert (root.parse('const int') == Int32().to_const())
-    assert (root.parse('int') != Int32().to_const())
-    assert (root.parse('char') == Int8())
-    assert (root.parse('short') == Int16())
-    assert (root.parse('long long') == Int64())
-    assert (root.parse('unsigned int') == UInt32())
-    assert (root.parse('const unsigned int') == UInt32().to_const())
-    assert (root.parse('unsigned int') != TypeRef(UInt32(), True))
-    assert (root.parse('unsigned char') == UInt8())
-    assert (root.parse('unsigned short') == UInt16())
-    assert (root.parse('unsigned long long') == UInt64())
+    parser = TypeParser()
+    assert (parser.parse('int') == Int32())
+    assert (parser.parse('int') != UInt32())
+    assert (parser.parse('const int') == Int32().to_const())
+    assert (parser.parse('int') != Int32().to_const())
+    assert (parser.parse('char') == Int8())
+    assert (parser.parse('short') == Int16())
+    assert (parser.parse('long long') == Int64())
+    assert (parser.parse('unsigned int') == UInt32())
+    assert (parser.parse('const unsigned int') == UInt32().to_const())
+    assert (parser.parse('unsigned int') != TypeRef(UInt32(), True))
+    assert (parser.parse('unsigned char') == UInt8())
+    assert (parser.parse('unsigned short') == UInt16())
+    assert (parser.parse('unsigned long long') == UInt64())
 
-    assert (root.parse('void*') == Pointer(Void()))
-    assert (root.parse('const int*') == Pointer(Int32().to_const()))
-    assert (root.parse('int const*') == Pointer(Int32().to_const()))
-    assert (root.parse('int * const') == Pointer(Int32()).to_const())
-    assert (root.parse('const int * const') == Pointer(
+    assert (parser.parse('void*') == Pointer(Void()))
+    assert (parser.parse('const int*') == Pointer(Int32().to_const()))
+    assert (parser.parse('int const*') == Pointer(Int32().to_const()))
+    assert (parser.parse('int * const') == Pointer(Int32()).to_const())
+    assert (parser.parse('const int * const') == Pointer(
         Int32().to_const()).to_const())
 
-    assert (root.parse('void**') == Pointer(Pointer(Void())))
-    assert (root.parse('const void**') == Pointer(Pointer(Void().to_const())))
-    assert (root.parse('const int&') == Pointer(Int32().to_const()))
+    assert (parser.parse('void**') == Pointer(Pointer(Void())))
+    assert (parser.parse('const void**') == Pointer(Pointer(Void().to_const())))
+    assert (parser.parse('const int&') == Pointer(Int32().to_const()))
 
-    assert (root.parse('int[ ]') == Array(Int32()))
-    assert (root.parse('int[5]') == Array(Int32(), 5))
-    assert (root.parse('const int[5]') == Array(Int32().to_const(), 5))
-    assert (root.parse('const int*[5]') == Array(Pointer(Int32().to_const()),
+    assert (parser.parse('int[ ]') == Array(Int32()))
+    assert (parser.parse('int[5]') == Array(Int32(), 5))
+    assert (parser.parse('const int[5]') == Array(Int32().to_const(), 5))
+    assert (parser.parse('const int*[5]') == Array(Pointer(Int32().to_const()),
                                                  5))
 
-    assert (root.parse('struct ImGuiInputTextCallbackData') == Struct(
+    assert (parser.parse('struct ImGuiInputTextCallbackData') == Struct(
         'ImGuiInputTextCallbackData'))
-    assert (root.parse('int (*)(ImGuiInputTextCallbackData *)') == Function(
+    assert (parser.parse('int (*)(ImGuiInputTextCallbackData *)') == Function(
         Int32(), [Param(Pointer(Struct('ImGuiInputTextCallbackData')))]))
 
-    vec2 = root.parse('struct ImVec2').ref
+    vec2 = parser.parse('struct ImVec2').ref
     vec2.add_field(Field(Float(), 'x'))
     vec2.add_field(Field(Float(), 'y'))
     assert (vec2 == Struct(
         'ImVec2',
         [Field(Float(), 'x'), Field(Float(), 'y')]))
 
-    parsed = root.parse('const ImVec2 &')
+    parsed = parser.parse('const ImVec2 &')
     assert (parsed == Pointer(Struct('ImVec2').to_const()))
