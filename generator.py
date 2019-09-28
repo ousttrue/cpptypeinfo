@@ -228,11 +228,11 @@ def main(root: pathlib.Path, *paths: pathlib.Path):
     vector4 = cpptypeinfo.Struct('ImVec4')
     csharp.cstype_map[vector4] = csharp.CSMarshalType('Vector4')
     csharp.cstype_pointer_map[vector4] = csharp.CSMarshalType('ref Vector4')
+    # Im3d
     # vector2
     vector2 = cpptypeinfo.Struct('Vec2')
     csharp.cstype_map[vector2] = csharp.CSMarshalType('Vector2')
     csharp.cstype_pointer_map[vector2] = csharp.CSMarshalType('ref Vector2')
-    # Im3d
     # CameraState
     camera_state = cpptypeinfo.Struct('CameraState')
     csharp.cstype_pointer_map[camera_state] = csharp.CSMarshalType(
@@ -244,6 +244,7 @@ def main(root: pathlib.Path, *paths: pathlib.Path):
     # Mat4
     mat4 = cpptypeinfo.Struct('Mat4')
     csharp.cstype_map[mat4] = csharp.CSMarshalType('Matrix4x4')
+    csharp.cstype_pointer_map[mat4] = csharp.CSMarshalType('ref Matrix4x4')
     # array
     array16 = cpptypeinfo.Struct('array').instantiate(cpptypeinfo.Float, 16)
     csharp.cstype_map[array16] = csharp.CSMarshalType('Matrix4x4')
