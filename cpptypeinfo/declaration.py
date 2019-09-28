@@ -15,13 +15,13 @@ Type
         + Void
         + VaList
     + UserType
-        + Pointer
-            + Array
-        + Function(extern "C", __declspec(dllexport))
-        + NamedType(export)
-            + Enum(Int32)
+        + Enum(Int32)
+        + SingleReferenceType
             + Typedef
-            + Struct
+            + Pointer
+                + Array
+        + Function(extern "C", __declspec(dllexport))
+        + Struct
 
 TypeRef
     + is_const
@@ -42,8 +42,8 @@ from typing import List, NamedTuple, Dict, Optional, Union
 
 
 class Type:
-    def __init__(self):
-        self.file = ''
+    def __init__(self) -> None:
+        self.file: Optional[pathlib.Path] = None
         self.line = -1
 
     def to_ref(self) -> 'TypeRef':
@@ -57,52 +57,52 @@ class PrimitiveType(Type):
     '''
     Type that has not TypeRef
     '''
-    def __str__(self):
+    def __str__(self) -> str:
         return self.__class__.__name__
 
-    def __eq__(self, value):
+    def __eq__(self, value) -> bool:
         if not isinstance(value, self.__class__):
             return False
         return True
 
 
 class Int8(PrimitiveType):
-    def __hash__(self):
+    def __hash__(self) -> int:
         return 2
 
 
 class Int16(PrimitiveType):
-    def __hash__(self):
+    def __hash__(self) -> int:
         return 3
 
 
 class Int32(PrimitiveType):
-    def __hash__(self):
+    def __hash__(self) -> int:
         return 4
 
 
 class Int64(PrimitiveType):
-    def __hash__(self):
+    def __hash__(self) -> int:
         return 5
 
 
 class UInt8(PrimitiveType):
-    def __hash__(self):
+    def __hash__(self) -> int:
         return 6
 
 
 class UInt16(PrimitiveType):
-    def __hash__(self):
+    def __hash__(self) -> int:
         return 7
 
 
 class UInt32(PrimitiveType):
-    def __hash__(self):
+    def __hash__(self) -> int:
         return 8
 
 
 class UInt64(PrimitiveType):
-    def __hash__(self):
+    def __hash__(self) -> int:
         return 9
 
 
@@ -112,7 +112,7 @@ class Float(PrimitiveType):
 
 
 class Double(PrimitiveType):
-    def __hash__(self):
+    def __hash__(self) -> int:
         return 11
 
 
@@ -120,35 +120,32 @@ class Bool(PrimitiveType):
     '''
     may Int8
     '''
-    def __hash__(self):
+    def __hash__(self) -> int:
         return 12
 
 
 class Void(PrimitiveType):
-    def __hash__(self):
+    def __hash__(self) -> int:
         return 1
 
 
 class VaList(PrimitiveType):
-    def __hash__(self):
+    def __hash__(self) -> int:
         return 13
 
 
-# class TypeRef:
-#     def __init__(self, ref: Type, is_const=False):
-#         self.ref = ref
-#         self.is_const = is_const
 class TypeRef(NamedTuple):
     ref: Type
     is_const: bool = False
 
-    def __eq__(self, value):
+    def __eq__(self, value) -> bool:
         if isinstance(value, Type):
             return self.ref == value
         elif isinstance(value, TypeRef):
             if self.is_const != value.is_const:
                 return False
             return self.ref == value.ref
+        return False
 
     def __str__(self) -> str:
         if self.is_const:
@@ -156,44 +153,66 @@ class TypeRef(NamedTuple):
         else:
             return str(self.ref)
 
-    def is_based(self, based: Type) -> bool:
-        if self.ref == based:
-            return True
-        if isinstance(self.ref, UserType):
-            return self.ref.is_based(based)
-        else:
-            return False
-
     def replace_based(self, based: Type, replace: Type) -> Optional['TypeRef']:
         if self.ref != based:
             return None
         return TypeRef(replace, self.is_const)
 
-    def resolve(self, typedef: 'Typedef', replace: Type) -> 'TypeRef':
-        if self.ref == typedef:
-            if not replace:
-                raise Exception()
-            return TypeRef(replace, self.is_const)
-        return self
+    # def is_based(self, based: Type) -> bool:
+    #     if self.ref == based:
+    #         return True
+    #     if isinstance(self.ref, UserType):
+    #         return self.ref.is_based(based)
+    #     else:
+    #         return False
 
-    def get_concrete_type(self) -> Type:
-        current = self.ref
-        while isinstance(current, Typedef):
-            current = current.typeref.ref
-        return current
+    # def resolve(self, typedef: 'Typedef', replace: Type) -> 'TypeRef':
+    #     if self.ref == typedef:
+    #         if not replace:
+    #             raise Exception()
+    #         return TypeRef(replace, self.is_const)
+    #     return self
+
+    # def get_concrete_type(self) -> Type:
+    #     current = self.ref
+    #     while isinstance(current, Typedef):
+    #         current = current.typeref.ref
+    #     return current
 
 
 class UserType(Type):
+    def __init__(self, namespace: Optional['Namespace']):
+        '''
+        namespaceに名前を登録する
+        '''
+        super().__init__()
+        self.namespace = namespace
+
     def __eq__(self, value):
         if not isinstance(value, self.__class__):
             return False
         return True
 
-    def __str__(self):
-        return self.type_name
-
-    def clone(self):
+    def clone(self) -> 'UserType':
         return copy.copy(self)
+
+
+class SingleTypeRef(UserType):
+    def __init__(self, namespace: Optional['Namespace'], ref: TypeRef) -> None:
+        super().__init__(namespace)
+        if not ref:
+            raise Exception('no TypeRef')
+        self.typeref = ref
+
+    def __eq__(self, value) -> bool:
+        if not isinstance(value, self.__class__):
+            return False
+        if self.typeref != value.typeref:
+            return False
+        return True
+
+    def __hash__(self):
+        return hash(self.typeref)
 
     def is_based(self, based: Type) -> bool:
         raise NotImplementedError()
@@ -205,38 +224,11 @@ class UserType(Type):
         pass
 
 
-class NamedType(UserType):
-    def __init__(self, type_name: str):
-        if not type_name:
-            raise Exception('no name')
-        self.type_name = type_name
-        self.file: Optional[pathlib.Path] = None
-        self.line = -1
-        # 型をNameSpaceに登録する
-        if self.type_name and self.type_name:
-            if self.type_name in STACK[-1].user_type_map:
-                print(
-                    f'duplicate: {self.type_name} => {STACK[-1].user_type_map[self.type_name]}'
-                )
-                return
-            STACK[-1].user_type_map[self.type_name] = self
-
-    def __eq__(self, value):
-        if not isinstance(value, self.__class__):
-            return False
-        if self.type_name != value.type_name:
-            return False
-        return True
-
-    def __hash__(self):
-        return hash(self.type_name)
-
-
 class Namespace:
     '''
     ユーザー定義型を管理する
     '''
-    def __init__(self, name: str):
+    def __init__(self, name: str = None):
         if name is None:
             name = ''
         self.name = name
@@ -248,6 +240,12 @@ class Namespace:
     def __str__(self) -> str:
         ancestors = [ns.name for ns in self.ancestors()]
         return '::'.join(ancestors)
+
+    def get_name(self, user_type: UserType) -> str:
+        for k, v in self.user_type_map:
+            if v == user_type:
+                return k
+        raise KeyError()
 
     def get(self, src: str) -> Optional[Type]:
         user_type = self.user_type_map.get(src)
@@ -333,43 +331,150 @@ class Namespace:
             # remove
             self.resolve(target, target.typeref.ref)
 
+    def get_from_ns(self, src: str) -> Optional[Type]:
+        primitive = primitive_type_map.get(src)
+        if primitive:
+            return primitive
 
-STACK: List[Namespace] = []
+        for namespace in self.traverse():
+            decl = namespace.get(src)
+            if decl:
+                return decl
 
+        return None
 
-def indent():
-    return '  ' * (len(STACK) - 1)
+    def parse(self, src: str, is_const=False) -> TypeRef:
+        src = src.strip()
 
+        m = NAMED_FUNC_PATTERN.match(src)
+        if m:
+            result = m.group(1)
+            params = m.group(2).split(',')
+            return TypeRef(
+                Function(self.parse(result),
+                         [Param(typeref=self.parse(x)) for x in params]))
 
-def push_namespace(name: Union[str, Namespace] = '') -> Namespace:
-    namespace = name if isinstance(name, Namespace) else Namespace(name)
-    print(f'{indent()}{namespace.name} {{')
-    if STACK:
-        STACK[-1].children.append(namespace)
-        namespace.parent = STACK[-1]
-    STACK.append(namespace)
-    return namespace
+        m = FUNC_PATTERN.match(src)
+        if m:
+            result = m.group(1)
+            params = m.group(2).split(',')
+            return TypeRef(
+                Function(self.parse(result),
+                         [Param(typeref=self.parse(x)) for x in params]))
 
+        if src[-1] == '>':
+            # template
+            pos = src.rfind('<')
+            if pos == -1:
+                raise Exception('< not found')
+            template_name = src[:pos].strip()
+            template = self.parse(template_name, is_const).ref
+            if not template:
+                raise Exception(f'{template_name} not found')
+            if isinstance(template, Struct):
+                template_params = []
+                for splitted in src[pos + 1:-1].strip().split(','):
+                    try:
+                        num = int(splitted)
+                        template_params.append(num)
+                    except Exception:
+                        template_params.append(self.parse(splitted))
+                decl = template.instantiate(template_params)
+                return TypeRef(decl, is_const)
+            else:
+                raise Exception(f'{template_name} is not struct')
 
-def pop_namespace():
-    STACK.pop()
-    print(f'{indent()}}}')
+            # std::array<float, 16>
+            raise Exception()
+
+        if src[-1] == ']':
+            # array
+            pos = src.rfind('[')
+            if pos == -1:
+                raise Exception('"[" not found')
+            length_str = src[pos + 1:-1].strip()
+            length = None
+            if length_str:
+                length = int(length_str)
+            return TypeRef(Array(self.parse(src[0:pos]), length), is_const)
+
+        found = [x for x in SPLIT_PATTERN.finditer(src)]
+        if found:
+            # pointer or reference
+            last = found[-1].start()
+            head, tail = src[0:last].strip(), src[last + 1:].strip()
+            return TypeRef(Pointer(self.parse(head)), tail == 'const')
+
+        else:
+            splitted = src.split()
+            if splitted[0] == 'const':
+                return self.parse(' '.join(splitted[1:]), True)
+            elif splitted[-1] == 'const':
+                return self.parse(' '.join(splitted[:-1]), True)
+            elif splitted[0] == 'struct' or splitted[0] == 'union':
+                if len(splitted) != 2:
+                    raise Exception()
+
+                decl = self.get_from_ns(splitted[1])
+                if decl:
+                    return TypeRef(decl, is_const)
+
+                struct = Struct(splitted[1])
+                self.user_type_map[struct.type_name] = struct
+
+                return TypeRef(struct, is_const)
+            else:
+                # get struct local type
+                ns_list = src.split('::')
+                if len(ns_list) > 1:
+                    # if len(ns_list) != 2:
+                    #     raise NotImplementedError()
+                    ns_list = ns_list[-2:]
+                    current = STACK[-1]
+                    if isinstance(current, Struct):
+                        if current.type_name == ns_list[0]:
+                            return self.parse(ns_list[1], is_const)
+
+                    ns = self.get_from_ns(ns_list[0])
+                    if not ns:
+                        raise Exception(f'not found {ns_list[0]}')
+
+                    if isinstance(ns, Struct) or isinstance(ns, Namespace):
+                        decl = ns.get(ns_list[1])
+                        if decl:
+                            return TypeRef(decl, is_const)
+
+                        for ns in reversed(STACK):
+                            for child in ns.children:
+                                if child.name == ns_list[0]:
+                                    decl = child.get(ns_list[1])
+                                    if decl:
+                                        return TypeRef(decl, is_const)
+                                    else:
+                                        raise Exception(f'{src} not found')
+
+                        raise Exception(f'{src} is not found')
+                    else:
+                        raise Exception(f'{ns} is not Struct or Namespace')
+
+                decl = self.get_from_ns(src)
+                if decl:
+                    return TypeRef(decl, is_const)
+
+                raise Exception(f'not found: {src}')
 
 
 NS_PATTERN = re.compile(r'(\w+)::(\w+)$')
 
 
-class Typedef(NamedType):
-    def __init__(self, type_name: str, ref: Union[TypeRef, Type]):
-        super().__init__(type_name)
+class Typedef(SingleTypeRef):
+    def __init__(self, namespace: Namespace, ref: Union[TypeRef, Type]):
         if isinstance(ref, Type):
             ref = ref.to_ref()
-        if not ref:
-            raise Exception()
-        self.typeref = ref
+        super().__init__(namespace, ref)
 
     def __str__(self) -> str:
-        return f'typedef {self.type_name} = {self.typeref}'
+        return f'typedef {self.namespace.get_name(self)} = {self.typeref}'
 
     def __hash__(self):
         return hash(self.typeref)
@@ -455,10 +560,13 @@ class Field(NamedTuple):
                      self.offset, self.value)
 
 
-class Struct(NamedType, Namespace):
-    def __init__(self, type_name, fields: List[Field] = None):
-        super().__init__(type_name)
-        Namespace.__init__(self, type_name)
+class Struct(UserType):
+    def __init__(self,
+                 type_name: str,
+                 fields: List[Field] = None,
+                 namespace: Optional[Namespace] = None):
+        super().__init__(namespace)
+        self.type_name = type_name
         global STACK
 
         self.fields: List[Field] = []
@@ -479,7 +587,7 @@ class Struct(NamedType, Namespace):
 
     def add_template_parameter(self, t: str) -> None:
         self.template_parameters.append(t)
-        self.user_type_map[t] = parse(f'struct {t}').ref
+        self.user_type_map[t] = self.parse(f'struct {t}').ref
 
     def instantiate(self, *template_params: List[Type]) -> 'Struct':
         decl = self.clone()
@@ -547,8 +655,11 @@ class Param(NamedTuple):
 
 
 class Function(UserType):
-    def __init__(self, result: Union[TypeRef, Type], params: List[Param]):
-        super().__init__()
+    def __init__(self,
+                 result: Union[TypeRef, Type],
+                 params: List[Param],
+                 namespace: Optional[Namespace] = None):
+        super().__init__(namespace)
         self.name = ''
         self.mangled_name = ''
         if isinstance(result, Type):
@@ -563,8 +674,6 @@ class Function(UserType):
         self._hash = hash(result)
         for p in self.params:
             self._hash += hash(p)
-
-        STACK[-1].functions.append(self)
 
     def __hash__(self):
         return self._hash
@@ -605,9 +714,11 @@ class EnumValue(NamedTuple):
     value: int
 
 
-class Enum(NamedType):
-    def __init__(self, type_name: str, values: List[EnumValue]):
-        super().__init__(type_name)
+class Enum(UserType):
+    def __init__(self, type_name: str, values: List[EnumValue],
+                 namespace: Namespace):
+        super().__init__(namespace)
+        self.type_name = type_name
         self.values = values
         self.is_flag = False
 
@@ -649,197 +760,55 @@ primitive_type_map: Dict[str, PrimitiveType] = {
     'LPARAM': Pointer(Void()),
 }
 
-
-def get_from_ns(src: str) -> Optional[Type]:
-    primitive = primitive_type_map.get(src)
-    if primitive:
-        return primitive
-
-    for namespace in reversed(STACK):
-        decl = namespace.get(src)
-        if decl:
-            return decl
-
-        if src == namespace.name:
-            return namespace
-
-    for namespace in STACK[0].children:
-        decl = namespace.get(src)
-        if decl:
-            return decl
-
-        if src == namespace.name:
-            return namespace
-
-    return None
-
-
 SPLIT_PATTERN = re.compile(r'[*&]')
 # void (const Im3d::DrawList &)
 NAMED_FUNC_PATTERN = re.compile(r'^(.*)\(.*\)\((.*)\)$')
 FUNC_PATTERN = re.compile(r'^(.*)\((.*)\)$')
 
-
-def parse(src: str, is_const=False) -> TypeRef:
-    src = src.strip()
-
-    m = NAMED_FUNC_PATTERN.match(src)
-    if m:
-        result = m.group(1)
-        params = m.group(2).split(',')
-        return TypeRef(
-            Function(parse(result), [Param(typeref=parse(x)) for x in params]))
-
-    m = FUNC_PATTERN.match(src)
-    if m:
-        result = m.group(1)
-        params = m.group(2).split(',')
-        return TypeRef(
-            Function(parse(result), [Param(typeref=parse(x)) for x in params]))
-
-    if src[-1] == '>':
-        # template
-        pos = src.rfind('<')
-        if pos == -1:
-            raise Exception('< not found')
-        template_name = src[:pos].strip()
-        template = parse(template_name, is_const).ref
-        if not template:
-            raise Exception(f'{template_name} not found')
-        if isinstance(template, Struct):
-            template_params = []
-            for splitted in src[pos + 1:-1].strip().split(','):
-                try:
-                    num = int(splitted)
-                    template_params.append(num)
-                except Exception:
-                    template_params.append(parse(splitted))
-            decl = template.instantiate(template_params)
-            return TypeRef(decl, is_const)
-        else:
-            raise Exception(f'{template_name} is not struct')
-
-        # std::array<float, 16>
-        raise Exception()
-
-    if src[-1] == ']':
-        # array
-        pos = src.rfind('[')
-        if pos == -1:
-            raise Exception('"[" not found')
-        length_str = src[pos + 1:-1].strip()
-        length = None
-        if length_str:
-            length = int(length_str)
-        return TypeRef(Array(parse(src[0:pos]), length), is_const)
-
-    found = [x for x in SPLIT_PATTERN.finditer(src)]
-    if found:
-        # pointer or reference
-        last = found[-1].start()
-        head, tail = src[0:last].strip(), src[last + 1:].strip()
-        return TypeRef(Pointer(parse(head)), tail == 'const')
-
-    else:
-        splitted = src.split()
-        if splitted[0] == 'const':
-            return parse(' '.join(splitted[1:]), True)
-        elif splitted[-1] == 'const':
-            return parse(' '.join(splitted[:-1]), True)
-        elif splitted[0] == 'struct' or splitted[0] == 'union':
-            if len(splitted) != 2:
-                raise Exception()
-
-            decl = get_from_ns(splitted[1])
-            if decl:
-                return TypeRef(decl, is_const)
-
-            return TypeRef(Struct(splitted[1]), is_const)
-        else:
-            # get struct local type
-            ns_list = src.split('::')
-            if len(ns_list) > 1:
-                # if len(ns_list) != 2:
-                #     raise NotImplementedError()
-                ns_list = ns_list[-2:]
-                current = STACK[-1]
-                if isinstance(current, Struct):
-                    if current.type_name == ns_list[0]:
-                        return parse(ns_list[1], is_const)
-
-                ns = get_from_ns(ns_list[0])
-                if not ns:
-                    raise Exception(f'not found {ns_list[0]}')
-
-                if isinstance(ns, Struct) or isinstance(ns, Namespace):
-                    decl = ns.get(ns_list[1])
-                    if decl:
-                        return TypeRef(decl, is_const)
-
-                    for ns in reversed(STACK):
-                        for child in ns.children:
-                            if child.name == ns_list[0]:
-                                decl = child.get(ns_list[1])
-                                if decl:
-                                    return TypeRef(decl, is_const)
-                                else:
-                                    raise Exception(f'{src} not found')
-
-                    raise Exception(f'{src} is not found')
-                else:
-                    raise Exception(f'{ns} is not Struct or Namespace')
-
-            decl = get_from_ns(src)
-            if decl:
-                return TypeRef(decl, is_const)
-
-            raise Exception(f'not found: {src}')
-
-
 if __name__ == '__main__':
-    push_namespace('')  # root
-    assert (parse('int') == Int32())
-    assert (parse('int') != UInt32())
-    assert (parse('const int') == Int32().to_const())
-    assert (parse('int') != Int32().to_const())
-    assert (parse('char') == Int8())
-    assert (parse('short') == Int16())
-    assert (parse('long long') == Int64())
-    assert (parse('unsigned int') == UInt32())
-    assert (parse('const unsigned int') == UInt32().to_const())
-    assert (parse('unsigned int') != TypeRef(UInt32(), True))
-    assert (parse('unsigned char') == UInt8())
-    assert (parse('unsigned short') == UInt16())
-    assert (parse('unsigned long long') == UInt64())
+    root = Namespace()
+    assert (root.parse('int') == Int32())
+    assert (root.parse('int') != UInt32())
+    assert (root.parse('const int') == Int32().to_const())
+    assert (root.parse('int') != Int32().to_const())
+    assert (root.parse('char') == Int8())
+    assert (root.parse('short') == Int16())
+    assert (root.parse('long long') == Int64())
+    assert (root.parse('unsigned int') == UInt32())
+    assert (root.parse('const unsigned int') == UInt32().to_const())
+    assert (root.parse('unsigned int') != TypeRef(UInt32(), True))
+    assert (root.parse('unsigned char') == UInt8())
+    assert (root.parse('unsigned short') == UInt16())
+    assert (root.parse('unsigned long long') == UInt64())
 
-    assert (parse('void*') == Pointer(Void()))
-    assert (parse('const int*') == Pointer(Int32().to_const()))
-    assert (parse('int const*') == Pointer(Int32().to_const()))
-    assert (parse('int * const') == Pointer(Int32()).to_const())
-    assert (parse('const int * const') == Pointer(
+    assert (root.parse('void*') == Pointer(Void()))
+    assert (root.parse('const int*') == Pointer(Int32().to_const()))
+    assert (root.parse('int const*') == Pointer(Int32().to_const()))
+    assert (root.parse('int * const') == Pointer(Int32()).to_const())
+    assert (root.parse('const int * const') == Pointer(
         Int32().to_const()).to_const())
 
-    assert (parse('void**') == Pointer(Pointer(Void())))
-    assert (parse('const void**') == Pointer(Pointer(Void().to_const())))
-    assert (parse('const int&') == Pointer(Int32().to_const()))
+    assert (root.parse('void**') == Pointer(Pointer(Void())))
+    assert (root.parse('const void**') == Pointer(Pointer(Void().to_const())))
+    assert (root.parse('const int&') == Pointer(Int32().to_const()))
 
-    assert (parse('int[ ]') == Array(Int32()))
-    assert (parse('int[5]') == Array(Int32(), 5))
-    assert (parse('const int[5]') == Array(Int32().to_const(), 5))
-    assert (parse('const int*[5]') == Array(Pointer(Int32().to_const()), 5))
+    assert (root.parse('int[ ]') == Array(Int32()))
+    assert (root.parse('int[5]') == Array(Int32(), 5))
+    assert (root.parse('const int[5]') == Array(Int32().to_const(), 5))
+    assert (root.parse('const int*[5]') == Array(Pointer(Int32().to_const()),
+                                                 5))
 
-    assert (parse('struct ImGuiInputTextCallbackData') == Struct(
+    assert (root.parse('struct ImGuiInputTextCallbackData') == Struct(
         'ImGuiInputTextCallbackData'))
-    assert (parse('int (*)(ImGuiInputTextCallbackData *)') == Function(
+    assert (root.parse('int (*)(ImGuiInputTextCallbackData *)') == Function(
         Int32(), [Param(Pointer(Struct('ImGuiInputTextCallbackData')))]))
 
-    vec2 = parse('struct ImVec2').ref
+    vec2 = root.parse('struct ImVec2').ref
     vec2.add_field(Field(Float(), 'x'))
     vec2.add_field(Field(Float(), 'y'))
     assert (vec2 == Struct(
         'ImVec2',
         [Field(Float(), 'x'), Field(Float(), 'y')]))
 
-    parsed = parse('const ImVec2 &')
+    parsed = root.parse('const ImVec2 &')
     assert (parsed == Pointer(Struct('ImVec2').to_const()))
-    pop_namespace()
