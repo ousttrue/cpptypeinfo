@@ -37,8 +37,6 @@ def get_tu(path: pathlib.Path,
     cpp_args = [
         '-x',
         'c++',
-        '-DUNICODE=1',
-        '-DNOMINMAX=1',
     ]
     if include_path_list is not None:
         for i in include_path_list:
@@ -64,6 +62,6 @@ def tmp_from_source(src):
         os.unlink(tmp_name)
 
 
-def get_tu_from_source(src: str):
+def get_tu_from_source(src: str) -> cindex.TranslationUnit:
     with tmp_from_source(src) as path:
         return get_tu(path)

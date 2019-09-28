@@ -1,5 +1,4 @@
 import unittest
-import pathlib
 from clang import cindex
 import cpptypeinfo
 

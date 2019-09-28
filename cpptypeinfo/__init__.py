@@ -37,4 +37,6 @@ Param: for Function
     + name
 '''
 from .typeparser import *
+from .get_tu import *
+
 VERSION = '0.2.0'
