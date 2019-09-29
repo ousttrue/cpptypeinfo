@@ -1,6 +1,7 @@
 {
     "cSpell.words": [
         "Cond",
+        "Conv",
         "DCIMGUI",
         "IMGUI",
         "LLVM",
@@ -10,9 +11,16 @@
         "cimgui",
         "cindex",
         "cpptypeinfo",
+        "dbasetypes",
+        "dcommon",
         "dlang",
+        "dtypes",
+        "dxgicommon",
+        "dxgiformat",
+        "dxgitype",
         "finditer",
         "noqa",
+        "offsetof",
         "rfind",
         "rmtree",
         "uint"

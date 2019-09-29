@@ -3,6 +3,8 @@ import os
 import pathlib
 import cpptypeinfo
 
+CPP_FLAGS = ['-target', 'x86_64-windows-msvc']
+
 
 def get_windowskits() -> pathlib.Path:
     # C:\Program Files (x86)\Windows Kits\10\Include
@@ -14,7 +16,10 @@ def get_windowskits() -> pathlib.Path:
 
 def debug(args):
     parser = cpptypeinfo.TypeParser()
-    cpptypeinfo.parse_files(parser, pathlib.Path(args.header), debug=True)
+    cpptypeinfo.parse_files(parser,
+                            pathlib.Path(args.header),
+                            cpp_flags=CPP_FLAGS,
+                            debug=True)
 
 
 def debug_args(subparsers: argparse._SubParsersAction):
@@ -28,12 +33,27 @@ def gen(args):
     headers = []
     if args.d3d11:
         dir = get_windowskits()
+        headers.append(dir / 'shared/ntdef.h')
+        headers.append(dir / 'shared/basetsd.h')
+        headers.append(dir / 'shared/wtypes.h')
+        # headers.append(dir / 'um/winnt.h')
         headers.append(dir / 'um/d3d11.h')
+        headers.append(dir / 'um/d3dtypes.h')
+        headers.append(dir / 'um/d3dcommon.h')
+        headers.append(dir / 'um/d3d10.h')
+        headers.append(dir / 'um/dxgi.h')
+        headers.append(dir / 'um/dcommon.h')
+        # headers.append(dir / 'um/d2dbasetypes.h')
+        headers.append(dir / 'um/dxgicommon.h')
+        headers.append(dir / 'um/dxgiformat.h')
+        headers.append(dir / 'um/dxgitype.h')
 
-    cpptypeinfo.parse_files(parser, *headers)
+    cpptypeinfo.parse_files(parser, *headers, cpp_flags=CPP_FLAGS)
 
     if args.lang == 'dlang':
-
+        cpptypeinfo.languages.dlang.generate(parser, args.dst)
+    elif args.clang == 'csharp':
+        cpptypeinfo.languages.csharp.generate(parser, args.dst)
     else:
         raise NotImplementedError()
 
@@ -44,6 +64,7 @@ def gen_args(subparsers: argparse._SubParsersAction):
     parser.add_argument('--d3d11', action='store_true')
     parser.add_argument('--windows', action='store_true')
     parser.add_argument('lang', choices=['csharp', 'dlang'])
+    parser.add_argument('dst', help='output folder')
 
 
 def main():

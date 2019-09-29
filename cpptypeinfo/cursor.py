@@ -16,7 +16,7 @@ def debug_print(c, files: List[pathlib.Path], level=''):
     if not display:
         if c.kind == cindex.CursorKind.UNEXPOSED_DECL:
             tokens = [x.spelling for x in c.get_tokens()]
-            if tokens[0] == 'extern':
+            if tokens and tokens[0] == 'extern':
                 display = 'extern "C"'
     extra = ''
     if c.kind == cindex.CursorKind.FUNCTION_DECL:
@@ -86,7 +86,9 @@ def parse_function(parser: TypeParser, c: cindex.Cursor,
 
 
 def parse_enum(parser: TypeParser, c: cindex.Cursor) -> Enum:
-    name = c.spelling
+    name = c.type.spelling
+    if not name:
+        raise Exception(f'no name')
     values = []
     for child in c.get_children():
         if child.kind == cindex.CursorKind.ENUM_CONSTANT_DECL:
@@ -100,8 +102,12 @@ def parse_enum(parser: TypeParser, c: cindex.Cursor) -> Enum:
     return decl
 
 
-def parse_struct(parser: TypeParser, c: cindex.Cursor) -> Struct:
-    decl = parser.parse(f'struct {c.spelling}').ref
+def parse_struct(parser: TypeParser, c: cindex.Cursor) -> Optional[Struct]:
+    name = c.spelling
+    if not name:
+        # anonymous
+        return None
+    decl = parser.parse(f'struct {name}').ref
     if not isinstance(decl, Struct):
         if isinstance(decl, Typedef):
             decl = decl.typeref.ref
@@ -171,6 +177,8 @@ def parse_typedef(parser: TypeParser, c: cindex.Cursor) -> Optional[Typedef]:
                 end = i
                 break
         parsed = parser.parse(' '.join(tokens[1:end]))
+    if not parsed:
+        return
 
     decl = parser.typedef(c.spelling, parsed)
     decl.file = pathlib.Path(c.location.file.name)

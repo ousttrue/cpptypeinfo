@@ -1,12 +1,7 @@
 import unittest
 import cpptypeinfo
 
-
-class FunctionTests(unittest.TestCase):
-    def test_function(self) -> None:
-        parser = cpptypeinfo.TypeParser()
-        cpptypeinfo.parse_source(parser,
-                                 '''
+SOURCE = '''
 namespace A
 {
     int __stdcall stdcall_func(const char *src); // -target=i686-pc-win32 only. ignored 64bit
@@ -20,8 +15,14 @@ namespace A
     void body()
     {
     }
-}
-''',
+}'''
+
+
+class FunctionTests(unittest.TestCase):
+    def test_function(self) -> None:
+        parser = cpptypeinfo.TypeParser()
+        cpptypeinfo.parse_source(parser,
+                                 SOURCE,
                                  cpp_flags=['-target', 'x86_64-windows-msvc'],
                                  debug=True)
 

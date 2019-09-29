@@ -119,7 +119,9 @@ class TypeParser:
         '''
         現在のnamespaceに型をTypedefを登録する
         '''
-        if isinstance(src, str):
+        if not src:
+            raise Exception('no src')
+        elif isinstance(src, str):
             decl = self.parse(src)
         else:
             decl = src
@@ -222,10 +224,23 @@ class TypeParser:
 
         else:
             splitted = src.split()
-            if splitted[0] == 'const':
+            if splitted[0] in ['__unaligned']:
+                # ignore
+                return self.parse(' '.join(splitted[1:]), is_const)
+            elif splitted[0] == 'const':
                 return self.parse(' '.join(splitted[1:]), True)
             elif splitted[-1] == 'const':
                 return self.parse(' '.join(splitted[:-1]), True)
+            elif splitted[0] == 'enum':
+                if len(splitted) != 2:
+                    raise Exception()
+
+                decl = self.get_from_ns(splitted[1])
+                if decl:
+                    return TypeRef(decl, is_const)
+
+                raise Exception(f'{src} is not found')
+
             elif splitted[0] == 'struct' or splitted[0] == 'union':
                 if len(splitted) != 2:
                     raise Exception()
@@ -262,7 +277,7 @@ class TypeParser:
                                 if decl:
                                     return TypeRef(decl, is_const)
                                 else:
-                                    raise Exception(f'{src} not found')
+                                    raise Exception(f'{src} is not found')
 
                     raise Exception(f'{src} is not found')
 
@@ -270,4 +285,4 @@ class TypeParser:
                 if decl:
                     return TypeRef(decl, is_const)
 
-                raise Exception(f'not found: {src}')
+                raise Exception(f'{src} is not found')

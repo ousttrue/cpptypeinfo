@@ -126,6 +126,7 @@ primitive_type_map: Dict[str, PrimitiveType] = {
     #
     'char': Int8(),
     'int': Int32(),
+    'long': Int32(),
     'short': Int16(),
     'long long': Int64(),
     #
@@ -136,7 +137,9 @@ primitive_type_map: Dict[str, PrimitiveType] = {
     #
     'unsigned char': UInt8(),
     'unsigned int': UInt32(),
+    'unsigned long': UInt32(),
     'unsigned short': UInt16(),
+    'wchar_t': UInt16(),
     'unsigned long long': UInt64(),
     #
     'size_t': UInt64(),

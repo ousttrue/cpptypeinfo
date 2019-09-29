@@ -20,6 +20,7 @@
                 "gen",
                 "--d3d11",
                 "dlang",
+                "output"
             ],
             "console": "integratedTerminal"
         },
@@ -30,7 +31,8 @@
             "program": "${workspaceFolder}/cpptypeinfo/cli.py",
             "args": [
                 "debug",
-                "C:/Program Files (x86)/Windows Kits/10/Include/10.0.16299.0/shared/windef.h"
+                // "C:/Program Files (x86)/Windows Kits/10/Include/10.0.16299.0/shared/windef.h"
+                "C:/Program Files (x86)/Windows Kits/10/Include/10.0.16299.0/um/d3dcommon.h"
             ],
             "console": "integratedTerminal"
         }
