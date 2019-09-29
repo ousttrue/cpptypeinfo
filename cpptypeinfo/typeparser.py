@@ -38,9 +38,9 @@ class TypeParser:
             replace = target.typeref.ref
         for ns in self.root_namespace.traverse():
             for k, v in ns.user_type_map.items():
-                v.replace(target, replace)
+                v.replace(target, replace, [])
             for v in ns.functions:
-                v.replace(target, replace)
+                v.replace(target, replace, [])
 
         for ns in self.root_namespace.traverse():
             keys = []
@@ -52,7 +52,7 @@ class TypeParser:
                 ns.user_type_map.pop(k)
                 break
 
-    def resolve_typedef_by_name(self, name: str, replace: Type = None):
+    def resolve_typedef_by_name(self, name: str, replace: Type = None) -> None:
         '''
         typedefを削除する。
         型を破壊的に変更する
@@ -71,10 +71,10 @@ class TypeParser:
             else:
                 break
 
-    def resolve_typedef_void_p(self):
+    def resolve_typedef_void_p(self) -> None:
         while True:
             targets = []
-            for ns in self.traverse():
+            for ns in self.root_namespace.traverse():
                 for k, v in ns.user_type_map.items():
                     if isinstance(v, Typedef):
                         if v.typeref.ref == Pointer(Void()):
@@ -86,13 +86,13 @@ class TypeParser:
                 # remove
                 self.resolve(target, target.typeref.ref)
 
-    def resolve_typedef_struct_tag(self):
+    def resolve_typedef_struct_tag(self) -> None:
         '''
         remove
         typedef struct Some Some;
         '''
         targets = []
-        for ns in self.traverse():
+        for ns in self.root_namespace.traverse():
             for k, v in ns.user_type_map.items():
                 if isinstance(v, Typedef):
                     if isinstance(v.typeref.ref, Struct):
@@ -123,13 +123,24 @@ class TypeParser:
             decl = self.parse(src)
         else:
             decl = src
-        typedef = Typedef(decl)
+        typedef = Typedef(name, decl)
         namespace = self.get_current_namespace()
         namespace.register_type(name, typedef)
         typedef.parent = namespace
+
+        if typedef.typeref.ref == typedef:
+            raise Exception()
+
         return typedef
 
-    def struct(self, name: str, fields: List[Field]) -> Struct:
+    def struct(self, name: str,
+               fields: Optional[List[Field]] = None) -> Struct:
+        decl = self.get_from_ns(name)
+        if isinstance(decl, Struct):
+            return decl
+
+        if fields is None:
+            fields = []
         decl = Struct(name, fields)
         namespace = self.get_current_namespace()
         namespace.register_type(name, decl)

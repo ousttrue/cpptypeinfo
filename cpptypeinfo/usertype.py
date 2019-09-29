@@ -3,7 +3,8 @@ from typing import (Optional, Dict, List, Union, NamedTuple, Iterable)
 from .basictype import Type, TypeRef
 
 
-def replace_typeref(self: TypeRef, target: Type, replace: Type) -> TypeRef:
+def replace_typeref(self: TypeRef, target: Type, replace: Type,
+                    recursive) -> TypeRef:
     '''
     参照する型を置き換えたTypeRefを作りなおす
     '''
@@ -13,7 +14,12 @@ def replace_typeref(self: TypeRef, target: Type, replace: Type) -> TypeRef:
 
     if isinstance(ref, UserType):
         # nested
-        ref.replace(target, replace)
+        if ref in recursive:
+            # raise Exception('recursive')
+            pass
+        else:
+            recursive.append(ref)
+            ref.replace(target, replace, recursive)
 
     # end
     return self
@@ -31,7 +37,7 @@ class UserType(Type):
     def clone(self) -> 'UserType':
         return copy.copy(self)
 
-    def replace(self, target: Type, replace: Type) -> None:
+    def replace(self, target: Type, replace: Type, recursive) -> None:
         pass
 
     def is_based(self, based: Type) -> bool:
@@ -114,19 +120,21 @@ class SingleTypeRef(UserType):
         else:
             return False
 
-    def replace(self, target: Type, replace: Type) -> None:
-        self.typeref = replace_typeref(self.typeref, target, replace)
+    def replace(self, target: Type, replace: Type, recursive) -> None:
+        self.typeref = replace_typeref(self.typeref, target, replace,
+                                       recursive)
 
 
 class Typedef(SingleTypeRef):
-    def __init__(self, ref: Union[TypeRef, Type]):
+    def __init__(self, type_name: str, ref: Union[TypeRef, Type]):
         if isinstance(ref, Type):
             ref = ref.to_ref()
         super().__init__(ref)
+        self.type_name = type_name
         self.parent: Optional[Namespace] = None
 
     def __str__(self) -> str:
-        return f'typedef {self.parent.get_name(self)} = {self.typeref}'
+        return f'typedef {self.type_name} = {self.typeref}'
 
     def __hash__(self):
         return hash(self.typeref)
@@ -135,6 +143,8 @@ class Typedef(SingleTypeRef):
         if not super().__eq__(value):
             return False
         if self.typeref != value.typeref:
+            return False
+        if self.type_name != value.type_name:
             return False
         return True
 
@@ -185,9 +195,9 @@ class Field(NamedTuple):
     offset: int = -1
     value: str = ''
 
-    def replace(self, target: Type, replace: Type) -> 'Field':
-        return Field(replace_typeref(self.typeref, target, replace), self.name,
-                     self.offset, self.value)
+    def replace(self, target: Type, replace: Type, recursive) -> 'Field':
+        return Field(replace_typeref(self.typeref, target, replace, recursive),
+                     self.name, self.offset, self.value)
 
 
 class Struct(UserType):
@@ -249,9 +259,9 @@ class Struct(UserType):
                 return True
         return False
 
-    def replace(self, target: Type, replace: Type):
+    def replace(self, target: Type, replace: Type, recursive):
         for i in range(len(self.fields)):
-            self.fields[i] = self.fields[i].replace(target, replace)
+            self.fields[i] = self.fields[i].replace(target, replace, recursive)
 
     def __hash__(self):
         return hash(self.type_name)
@@ -283,9 +293,9 @@ class Param(NamedTuple):
     name: str = ''
     value: str = ''
 
-    def replace(self, target: Type, replace: Type) -> 'Param':
-        return Param(replace_typeref(self.typeref, target, replace), self.name,
-                     self.value)
+    def replace(self, target: Type, replace: Type, recursive) -> 'Param':
+        return Param(replace_typeref(self.typeref, target, replace, recursive),
+                     self.name, self.value)
 
 
 class Function(UserType):
@@ -339,12 +349,12 @@ class Function(UserType):
                 return True
         return False
 
-    def replace(self, target: Type, replace: Type) -> None:
+    def replace(self, target: Type, replace: Type, recursive) -> None:
         # ret
-        self.result = replace_typeref(self.result, target, replace)
+        self.result = replace_typeref(self.result, target, replace, recursive)
         # params
         for i in range(len(self.params)):
-            self.params[i] = self.params[i].replace(target, replace)
+            self.params[i] = self.params[i].replace(target, replace, recursive)
 
 
 class EnumValue(NamedTuple):
@@ -358,6 +368,16 @@ class Enum(UserType):
         self.type_name = type_name
         self.values = values
         self.is_flag = False
+
+    def __hash__(self):
+        return self.type_name.__hash__()
+
+    def __eq__(self, value) -> bool:
+        if not super().__eq__(value):
+            return False
+        if self.type_name != value.type_name:
+            return False
+        return True
 
     def __str__(self) -> str:
         return f'enum {self.type_name}'

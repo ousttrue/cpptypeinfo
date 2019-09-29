@@ -56,6 +56,7 @@ def parse_function(parser: TypeParser, c: cindex.Cursor,
             raise NotImplementedError(f'{child.kind}')
 
     decl = Function(result, params)
+    parser.get_current_namespace().functions.append(decl)
     decl.name = c.spelling
     decl.mangled_name = c.mangled_name
     decl.extern_c = extern_c

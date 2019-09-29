@@ -4,7 +4,7 @@ import shutil
 from typing import NamedTuple
 from jinja2 import Template
 import cpptypeinfo
-from cpptypeinfo.usertype import (Namespace, Pointer)
+from cpptypeinfo.usertype import (Namespace, Pointer, Struct, Typedef)
 from cpptypeinfo.generator import csharp
 HERE = pathlib.Path(__file__).absolute().parent
 CIMGUI_H = HERE / 'libs/cimgui/cimgui.h'
@@ -59,7 +59,7 @@ def create_property(f) -> PropInfo:
             readfunc='ReadInt32',  #
             from_cstype='BitConverter.SingleToInt32Bits(value)',
             writefunc='WriteInt32')
-    elif isinstance(f.typeref.ref, cpptypeinfo.Pointer):
+    elif isinstance(f.typeref.ref, Pointer):
         return PropInfo(
             f.name,
             f.offset,
@@ -74,7 +74,7 @@ def create_property(f) -> PropInfo:
 
 
 def generate_imguiio(root_ns: Namespace, context: csharp.CSContext):
-    def find_struct() -> cpptypeinfo.Struct:
+    def find_struct() -> Struct:
         for ns in root_ns.traverse():
             for k, v in ns.user_type_map.items():
                 if k == 'ImGuiIO' and isinstance(v, Struct):
@@ -122,12 +122,12 @@ namespace {{ namespace }}
                      values=values))
 
 
-def process_enum(root_ns: Namespace):
+def process_enum(parser: cpptypeinfo.TypeParser) -> None:
     '''
     enum XXXFlags_ と typedef int XXXFlags
     をまとめて enum XXXFlags にする。
     '''
-    for ns in root_ns.traverse():
+    for ns in parser.root_namespace.traverse():
         while True:
             found = None
             for k, v in ns.user_type_map.items():
@@ -156,10 +156,11 @@ def process_enum(root_ns: Namespace):
             ns.user_type_map.pop(v.type_name)
             v.type_name = v.type_name[:-1]
 
+            print(f'process: {k} {v.type_name}')
             old = ns.user_type_map.get(v.type_name)
             if old:
                 # remove typdef
-                root_ns.resolve(old, v)
+                parser.resolve(old, v)
             ns.user_type_map[v.type_name] = v
 
 
@@ -203,6 +204,7 @@ def main(root: pathlib.Path, *paths: pathlib.Path):
     if root.exists():
         shutil.rmtree(root)
 
+    process_enum(parser)
     parser.resolve_typedef_by_name('ImS8')
     parser.resolve_typedef_by_name('ImS16')
     parser.resolve_typedef_by_name('ImS32')
@@ -211,74 +213,74 @@ def main(root: pathlib.Path, *paths: pathlib.Path):
     parser.resolve_typedef_by_name('ImU16')
     parser.resolve_typedef_by_name('ImU32')
     parser.resolve_typedef_by_name('ImU64')
+    parser.resolve_typedef_by_name('UINT')
     parser.resolve_typedef_struct_tag()
     parser.resolve_typedef_void_p()
-    process_enum(parser)
 
     # vector2
-    vector2 = cpptypeinfo.Struct('PodImVec2')
+    vector2 = parser.struct('PodImVec2')
     csharp.cstype_map[vector2] = csharp.CSMarshalType('Vector2')
     csharp.cstype_pointer_map[vector2] = csharp.CSMarshalType('ref Vector2')
     # vector2
-    vector2 = cpptypeinfo.Struct('ImVec2')
+    vector2 = parser.struct('ImVec2')
     csharp.cstype_map[vector2] = csharp.CSMarshalType('Vector2')
     csharp.cstype_pointer_map[vector2] = csharp.CSMarshalType('ref Vector2')
     # vector3
-    vector3 = cpptypeinfo.Struct('ImVec3')
+    vector3 = parser.struct('ImVec3')
     csharp.cstype_map[vector3] = csharp.CSMarshalType('Vector3')
     csharp.cstype_pointer_map[vector3] = csharp.CSMarshalType('ref Vector3')
     # vector4
-    vector4 = cpptypeinfo.Struct('ImVec4')
+    vector4 = parser.struct('ImVec4')
     csharp.cstype_map[vector4] = csharp.CSMarshalType('Vector4')
     csharp.cstype_pointer_map[vector4] = csharp.CSMarshalType('ref Vector4')
     # Im3d
     # vector2
-    vector2 = cpptypeinfo.Struct('Vec2')
+    vector2 = parser.struct('Vec2')
     csharp.cstype_map[vector2] = csharp.CSMarshalType('Vector2')
     csharp.cstype_pointer_map[vector2] = csharp.CSMarshalType('ref Vector2')
     # CameraState
-    camera_state = cpptypeinfo.Struct('CameraState')
+    camera_state = parser.struct('CameraState')
     csharp.cstype_pointer_map[camera_state] = csharp.CSMarshalType(
         'ref CameraState')
     # MouseState
-    mouse_state = cpptypeinfo.Struct('MouseState')
+    mouse_state = parser.struct('MouseState')
     csharp.cstype_pointer_map[mouse_state] = csharp.CSMarshalType(
         'ref MouseState')
     # Mat4
-    mat4 = cpptypeinfo.Struct('Mat4')
+    mat4 = parser.struct('Mat4')
     csharp.cstype_map[mat4] = csharp.CSMarshalType('Matrix4x4')
     csharp.cstype_pointer_map[mat4] = csharp.CSMarshalType('ref Matrix4x4')
     # array
-    array16 = cpptypeinfo.Struct('array').instantiate(cpptypeinfo.Float, 16)
+    array16 = parser.struct('array').instantiate(cpptypeinfo.Float, 16)
     csharp.cstype_map[array16] = csharp.CSMarshalType('Matrix4x4')
     # Mat4
-    float44 = cpptypeinfo.Struct('XMFLOAT4X4')
+    float44 = parser.struct('XMFLOAT4X4')
     csharp.cstype_map[float44] = csharp.CSMarshalType('Matrix4x4')
 
     #
     # process each namespace from root
     #
     root.mkdir(parents=True, exist_ok=True)
-    for ns in root_ns.traverse():
+    for ns in parser.root_namespace.traverse():
+        if ns.struct:
+            continue
 
         for k, v in ns.user_type_map.items():
             if isinstance(v, cpptypeinfo.Enum):
                 csharp.generate_enum(
-                    v,
-                    csharp.CSContext(root / f'{v.type_name}.cs',
-                                     NAMESPACE_NAME))
-            elif isinstance(v, cpptypeinfo.Typedef):
-                if v.type_name.endswith('Callback'):
+                    k, v, csharp.CSContext(root / f'{k}.cs', NAMESPACE_NAME))
+            elif isinstance(v, Typedef):
+                if k.endswith('Callback'):
                     continue
                 csharp.generate_typedef(
-                    v,
-                    csharp.CSContext(root / f'{v.type_name}.cs',
-                                     NAMESPACE_NAME))
-            elif isinstance(v, cpptypeinfo.Struct):
-                csharp.generate_struct(
-                    v,
-                    csharp.CSContext(root / f'{v.type_name}.cs',
-                                     NAMESPACE_NAME))
+                    k, v, csharp.CSContext(root / f'{k}.cs', NAMESPACE_NAME))
+            elif isinstance(v, Struct):
+                if v.fields:
+                    csharp.generate_struct(
+                        k, v, csharp.CSContext(root / f'{k}.cs',
+                                               NAMESPACE_NAME))
+                else:
+                    print(k)
             else:
                 raise Exception()
 
@@ -290,13 +292,15 @@ def main(root: pathlib.Path, *paths: pathlib.Path):
         return False
 
     csharp.generate_functions(
-        root_ns, csharp.CSContext(root / 'ImGui.cs', NAMESPACE_NAME), 'ImGui',
+        parser.root_namespace,
+        csharp.CSContext(root / 'ImGui.cs', NAMESPACE_NAME), 'ImGui',
         'imgui.dll', lambda f: not is_im3d(f))
     csharp.generate_functions(
-        root_ns, csharp.CSContext(root / 'Im3d.cs', NAMESPACE_NAME), 'Im3d',
+        parser.root_namespace,
+        csharp.CSContext(root / 'Im3d.cs', NAMESPACE_NAME), 'Im3d',
         'imgui.dll', is_im3d)
 
-    generate_imguiio(root_ns,
+    generate_imguiio(parser.root_namespace,
                      csharp.CSContext(root / 'ImGuiIO.cs', NAMESPACE_NAME))
 
 

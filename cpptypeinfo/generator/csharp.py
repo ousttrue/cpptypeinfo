@@ -3,8 +3,8 @@ import re
 from typing import Dict, NamedTuple, List
 import enum
 import cpptypeinfo
-from cpptypeinfo.usertype import (Enum, Pointer, Struct, Function, Typedef,
-                                  Namespace)
+from cpptypeinfo.usertype import (UserType, Enum, Pointer, Array, Field, Param, Struct,
+                                  Function, Typedef, Namespace)
 from jinja2 import Template
 
 HEADLINE = f'// generated cpptypeinfo-{cpptypeinfo.VERSION}'
@@ -71,23 +71,24 @@ def to_cs(decl: cpptypeinfo.Type, context: ExportFlag) -> CSMarshalType:
                 return cs_type
             else:
                 if isinstance(ref, UserType):
-                    if not ref.type_name.startswith('Im'):
-                        print(decl)
+                    pass
+                    # if not ref.type_name.startswith('Im'):
+                    #     print(decl)
 
     if isinstance(decl, cpptypeinfo.Void):
         return CSMarshalType('void')
-    elif isinstance(decl, cpptypeinfo.Array):
+    elif isinstance(decl, Array):
         return CSMarshalType('IntPtr')
-    elif isinstance(decl, cpptypeinfo.Pointer):
+    elif isinstance(decl, Pointer):
         return CSMarshalType('IntPtr')
-    elif isinstance(decl, cpptypeinfo.Function):
+    elif isinstance(decl, Function):
         return CSMarshalType('IntPtr')
     elif isinstance(decl, cpptypeinfo.Enum):
         return CSMarshalType(decl.type_name)
-    elif isinstance(decl, cpptypeinfo.Struct):
+    elif isinstance(decl, Struct):
         return CSMarshalType(decl.type_name)
-    elif isinstance(decl, cpptypeinfo.Typedef):
-        if isinstance(decl.get_concrete_type(), cpptypeinfo.Function):
+    elif isinstance(decl, Typedef):
+        if isinstance(decl.get_concrete_type(), Function):
             return CSMarshalType('IntPtr')
         else:
             return CSMarshalType(decl.type_name)
@@ -111,7 +112,7 @@ class CSContext(NamedTuple):
     using: str = USING
 
 
-def generate_enum(enum: Enum, context: CSContext):
+def generate_enum(type_name: str, enum: Enum, context: CSContext):
 
     # type_name = typename_filter(enum.type_name)
 
@@ -136,19 +137,13 @@ namespace {{ namespace }}
                      using=context.using,
                      namespace=context.namespace,
                      attribute='[Flags]' if enum.is_flag else '',
-                     type_name=enum.type_name,
+                     type_name=type_name,
                      values=enum.values,
                      file=enum.file.name,
                      line=enum.line))
 
 
-def generate_typedef(typedef: Typedef, context: CSContext):
-
-    if isinstance(
-            typedef.typeref,
-            cpptypeinfo.Struct) and typedef.type_name == typedef.src.type_name:
-        # skip typedef struct same name
-        return
+def generate_typedef(type_name: str, typedef: Typedef, context: CSContext):
 
     t = Template('''{{ headline }}
 {{ using }}
@@ -176,13 +171,13 @@ namespace {{ namespace }}
             t.render(headline=context.headline,
                      using=context.using,
                      namespace=context.namespace,
-                     type_name=typedef.type_name,
+                     type_name=type_name,
                      type=typedef_type,
-                     file=typedef.file.name,
+                     file=typedef.file.name if typedef.file else '',
                      line=typedef.line))
 
 
-def generate_struct(decl: Struct, context: CSContext):
+def generate_struct(type_name: str, decl: Struct, context: CSContext):
 
     t = Template('''// {{ headline }}
 {{ using }}
@@ -201,7 +196,7 @@ namespace {{ namespace }}
 }
 ''')
 
-    def field_str(f: cpptypeinfo.Field):
+    def field_str(f: Field):
         cstype = to_cs(f.typeref.ref, ExportFlag.StructField)
         if cstype.marshal_as:
             field_attr = f'[{cstype.marshal_as}]'
@@ -215,7 +210,7 @@ namespace {{ namespace }}
             t.render(headline=context.headline,
                      using=context.using,
                      namespace=context.namespace,
-                     type_name=decl.type_name,
+                     type_name=type_name,
                      values=[field_str(f) for f in decl.fields],
                      file=decl.file.name if decl.file else '',
                      line=decl.line))
@@ -279,8 +274,7 @@ def generate_functions(root_ns: Namespace,
                        class_name: str,
                        dll_name: str,
                        filter=None):
-    def to_cs_param(p: cpptypeinfo.Param, cstype: CSMarshalType,
-                    has_default: bool):
+    def to_cs_param(p: Param, cstype: CSMarshalType, has_default: bool):
         if cstype.marshal_as:
             param_attr = f'[{cstype.marshal_as}]'
         else:
@@ -291,21 +285,21 @@ def generate_functions(root_ns: Namespace,
         else:
             return f'{param_attr}{cstype.type} {escape_symbol(p.name)}'
 
-    def params_str(params: List[cpptypeinfo.Param],
-                   cs_params: List[CSMarshalType], start: int):
+    def params_str(params: List[Param], cs_params: List[CSMarshalType],
+                   start: int):
         i = 0
         for p, cs in zip(params, cs_params):
             yield to_cs_param(p, cs, (i >= start and p.value))
             i += 1
 
-    def function_call(v: cpptypeinfo.Function, ret_attr: str, ret_type: str,
+    def function_call(v: Function, ret_attr: str, ret_type: str,
                       cs_params: List[CSMarshalType], start: int):
         params = [p for p in params_str(v.params, cs_params, start)]
         return f'''// {v.file.name}:{v.line}
         [DllImport(DLLNAME, EntryPoint="{v.mangled_name}")]{ret_attr}
         public static extern {ret_type} {v.name}({", ".join(params)});'''
 
-    def function_str(v: cpptypeinfo.Function):
+    def function_str(v: Function):
         cs_params = [
             to_cs(p.typeref.ref, ExportFlag.FunctionParam) for p in v.params
         ]
@@ -345,7 +339,7 @@ def generate_functions(root_ns: Namespace,
 
     values = []
     for ns in root_ns.traverse():
-        if not isinstance(ns, cpptypeinfo.Struct):
+        if not ns.struct and ns.functions:
             for v in ns.functions:
                 if not v.name:
                     continue

@@ -38,6 +38,7 @@ Param: for Function
     + name
 '''
 from .basictype import *
+from .usertype import Enum, EnumValue
 from .typeparser import TypeParser
 from .get_tu import *
 from .cursor import parse_headers
