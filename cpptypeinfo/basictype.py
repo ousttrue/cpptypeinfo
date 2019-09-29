@@ -7,6 +7,9 @@ class Type:
         self.file: Optional[pathlib.Path] = None
         self.line = -1
 
+    def __repr__(self) -> str:
+        return str(self)
+
     def to_ref(self) -> 'TypeRef':
         return TypeRef(self)
 

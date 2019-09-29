@@ -188,7 +188,7 @@ def main(root: pathlib.Path, *paths: pathlib.Path):
     parser.pop_namespace()
     #
 
-    root_ns = cpptypeinfo.parse_headers(
+    root_ns = cpptypeinfo.parse_files(
         parser,
         *paths,
         cpp_flags=[

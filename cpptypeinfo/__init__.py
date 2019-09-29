@@ -41,6 +41,6 @@ from .basictype import *
 from .usertype import Enum, EnumValue
 from .typeparser import TypeParser
 from .get_tu import *
-from .cursor import parse_headers
+from .cursor import parse_files, parse_source
 
 VERSION = '0.2.0'

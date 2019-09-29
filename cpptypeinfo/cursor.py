@@ -7,6 +7,12 @@ from .typeparser import TypeParser
 from .get_tu import get_tu, tmp_from_source
 
 
+def debug_print(c, level=''):
+    print(f'{level}{c.kind}=>{c.spelling}: {c.type.kind}=>{c.type.spelling}')
+    for child in c.get_children():
+        debug_print(child, level + '  ')
+
+
 def parse_param(parser: TypeParser, c: cindex.Cursor) -> Param:
     tokens = [x.spelling for x in c.get_tokens()]
     default_value = ''
@@ -17,12 +23,6 @@ def parse_param(parser: TypeParser, c: cindex.Cursor) -> Param:
 
     parsed = parser.parse(c.type.spelling)
     return Param(parsed, c.spelling, default_value)
-
-
-def debug_print(c, level=''):
-    print(f'{level}{c.kind}=>{c.spelling}: {c.type.kind}=>{c.type.spelling}')
-    for child in c.get_children():
-        debug_print(child, level + '  ')
 
 
 def parse_function(parser: TypeParser, c: cindex.Cursor,
@@ -166,7 +166,7 @@ def parse_cursor(parser: TypeParser,
     if c.hash in used:
         return
     used.add(c.hash)
-    if pathlib.Path(c.location.file.name) not in files:
+    if files and pathlib.Path(c.location.file.name) not in files:
         return
 
     if c.kind == cindex.CursorKind.UNEXPOSED_DECL:
@@ -242,7 +242,7 @@ def parse_namespace(parser: TypeParser,
             parse_cursor(parser, child, files, used)
 
 
-def parse_headers(parser: TypeParser, *paths: pathlib.Path, cpp_flags=None):
+def parse_files(parser: TypeParser, *paths: pathlib.Path, cpp_flags=None):
     if not cpp_flags:
         cpp_flags = []
     cpp_flags += [f'-I{x.parent}' for x in paths]
@@ -252,3 +252,11 @@ def parse_headers(parser: TypeParser, *paths: pathlib.Path, cpp_flags=None):
         include_path_list = [x for x in paths]
         include_path_list.append(path)
         parse_namespace(parser, tu.cursor, include_path_list)
+
+
+def parse_source(parser: TypeParser, source: str, debug=False):
+    with tmp_from_source(source) as path:
+        tu = get_tu(path)
+        if debug:
+            debug_print(tu.cursor)
+        parse_namespace(parser, tu.cursor, [])

@@ -166,7 +166,7 @@ EXPECTS = {
              [Param(Pointer(parser.parse('struct ImGuiContext')), 'ctx')]),
     'DebugCheckVersionAndDataLayout':
     Function(cpptypeinfo.Bool(), [
-        Param(('const char*'), 'version_str'),
+        Param(parser.parse('const char*'), 'version_str'),
         Param(cpptypeinfo.UInt64(), 'sz_io'),
         Param(cpptypeinfo.UInt64(), 'sz_style'),
         Param(cpptypeinfo.UInt64(), 'sz_vec2'),
@@ -788,7 +788,7 @@ EXPECTS = {
 
 class ImGuiTest(unittest.TestCase):
     def test_imgui_h(self) -> None:
-        cpptypeinfo.parse_headers(parser,
+        cpptypeinfo.parse_files(parser,
                                   IMGUI_H,
                                   cpp_flags=[
                                       '-DIMGUI_DISABLE_OBSOLETE_FUNCTIONS',

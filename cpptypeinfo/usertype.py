@@ -65,11 +65,11 @@ class Namespace:
     def register_type(self, name: str, usertype: UserType) -> None:
         self.user_type_map[name] = usertype
 
-    def get_name(self, usertype: UserType) -> str:
-        for k, v in self.user_type_map.items():
-            if v == usertype:
-                return k
-        raise KeyError()
+    # def get_name(self, usertype: UserType) -> str:
+    #     for k, v in self.user_type_map.items():
+    #         if v == usertype:
+    #             return k
+    #     raise KeyError()
 
     def get(self, src: str) -> Optional[Type]:
         usertype = self.user_type_map.get(src)
