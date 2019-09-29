@@ -3,3 +3,4 @@
 # generated
 *.cs
 __pycache__
+*.egg

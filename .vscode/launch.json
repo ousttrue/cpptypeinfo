@@ -10,6 +10,29 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal"
+        },
+        {
+            "name": "gen d3d11 dlang",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/cpptypeinfo/cli.py",
+            "args": [
+                "gen",
+                "--d3d11",
+                "dlang",
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "debug cli",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/cpptypeinfo/cli.py",
+            "args": [
+                "debug",
+                "C:/Program Files (x86)/Windows Kits/10/Include/10.0.16299.0/shared/windef.h"
+            ],
+            "console": "integratedTerminal"
         }
     ]
 }
