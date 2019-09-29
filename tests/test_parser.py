@@ -14,8 +14,8 @@ from cpptypeinfo import (
     UInt32,
     UInt64,
 )
-from cpptypeinfo.user_type import (Pointer, Array, Field, Struct, Param,
-                                   Function)
+from cpptypeinfo.usertype import (Pointer, Array, Field, Struct, Param,
+                                  Function)
 
 
 class ParserTest(unittest.TestCase):
@@ -61,12 +61,13 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(parser.parse('const int*[5]'),
                          Array(Pointer(Int32().to_const()), 5))
 
-        self.assertEqual(parser.parse('struct ImGuiInputTextCallbackData'),
-                         Struct('ImGuiInputTextCallbackData'))
+        self.assertIsInstance(
+            parser.parse('struct ImGuiInputTextCallbackData').ref, Struct)
         self.assertEqual(
             parser.parse('int (*)(ImGuiInputTextCallbackData *)'),
             Function(Int32(), [
-                Param(Pointer(Struct('ImGuiInputTextCallbackData')).to_ref())
+                Param(Pointer(
+                    Struct('ImGuiInputTextCallbackData')))
             ]))
 
         vec2 = parser.parse('struct ImVec2').ref

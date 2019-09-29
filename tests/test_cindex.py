@@ -23,6 +23,9 @@ class CIndexTest(unittest.TestCase):
         children = [child for child in c.get_children()]
         self.assertEqual(0, len(children))
 
+        # ToDo: struct forward decl with body decl
+        # ToDo: function forward decl with body decl
+
 
 if __name__ == '__main__':
     unittest.main()

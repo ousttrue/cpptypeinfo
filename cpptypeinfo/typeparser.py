@@ -1,9 +1,9 @@
 import re
 import pathlib
 from typing import Optional
-from cpptypeinfo.base_type import (Type, TypeRef, primitive_type_map)
-from cpptypeinfo.user_type import (Typedef, Namespace, Pointer, Array, Field,
-                                   Struct, Param, Function)
+from cpptypeinfo.basictype import (Type, TypeRef, primitive_type_map)
+from cpptypeinfo.usertype import (Typedef, Namespace, Pointer, Array, Field,
+                                  Struct, Param, Function)
 
 
 class TypeParser:
@@ -97,12 +97,17 @@ class TypeParser:
 
     def typedef(self, name: str, src: str) -> Typedef:
         decl = self.parse(src)
-        typedef = Typedef(decl, self.root_namespace)
+        typedef = Typedef(self.root_namespace, decl)
         self.root_namespace.user_type_map[name] = typedef
         return typedef
 
-    def parse(self, src: str, is_const=False) -> TypeRef:
+    def parse(self,
+              src: str,
+              is_const=False,
+              namespace: Optional[Namespace] = None) -> TypeRef:
         src = src.strip()
+        if not namespace:
+            namespace = self.root_namespace
 
         m = NAMED_FUNC_PATTERN.match(src)
         if m:
@@ -110,7 +115,8 @@ class TypeParser:
             params = m.group(2).split(',') if m.group(2).strip() else []
             func = Function(self.parse(result),
                             [Param(typeref=self.parse(x)) for x in params])
-            self.root_namespace.functions.append(func)
+            func.parent = namespace
+            namespace.functions.append(func)
             return TypeRef(func)
 
         m = FUNC_PATTERN.match(src)
@@ -119,7 +125,7 @@ class TypeParser:
             params = m.group(2).split(',') if m.group(2).strip() else []
             func = Function(self.parse(result),
                             [Param(typeref=self.parse(x)) for x in params])
-            self.root_namespace.functions.append(func)
+            namespace.functions.append(func)
             return TypeRef(func)
 
         if src[-1] == '>':
@@ -180,7 +186,8 @@ class TypeParser:
                     return TypeRef(decl, is_const)
 
                 struct = Struct(splitted[1])
-                self.root_namespace.user_type_map[struct.type_name] = struct
+                struct.parent = namespace
+                namespace.user_type_map[struct.type_name] = struct
 
                 return TypeRef(struct, is_const)
             else:

@@ -1,15 +1,11 @@
 import copy
 from typing import Optional, Dict, List, Union, NamedTuple
-from .base_type import Type, TypeRef
+from .basictype import Type, TypeRef
 
 
 class UserType(Type):
-    def __init__(self, namespace: Optional['Namespace']):
-        '''
-        namespaceに名前を登録する
-        '''
+    def __init__(self):
         super().__init__()
-        self.namespace = namespace
 
     def __eq__(self, value):
         if not isinstance(value, self.__class__):
@@ -43,17 +39,17 @@ class Namespace:
         ancestors = [ns.name for ns in self.ancestors()]
         return '::'.join(ancestors)
 
-    def get_name(self, user_type: UserType) -> str:
+    def get_name(self, usertype: UserType) -> str:
         for k, v in self.user_type_map:
-            if v == user_type:
+            if v == usertype:
                 return k
         raise KeyError()
 
     def get(self, src: str) -> Optional[Type]:
-        user_type = self.user_type_map.get(src)
-        if not user_type:
+        usertype = self.user_type_map.get(src)
+        if not usertype:
             return None
-        return user_type
+        return usertype
 
     def ancestors(self):
         yield self
@@ -70,8 +66,8 @@ class Namespace:
 
 
 class SingleTypeRef(UserType):
-    def __init__(self, ref: TypeRef, namespace: Optional['Namespace']) -> None:
-        super().__init__(namespace)
+    def __init__(self, ref: TypeRef) -> None:
+        super().__init__()
         if not ref:
             raise Exception('no TypeRef')
         self.typeref = ref
@@ -107,14 +103,16 @@ class SingleTypeRef(UserType):
 
 
 class Typedef(SingleTypeRef):
-    def __init__(self, ref: Union[TypeRef, Type],
-                 namespace: Optional[Namespace]):
+    def __init__(self, parent: Namespace, ref: Union[TypeRef, Type]):
         if isinstance(ref, Type):
             ref = ref.to_ref()
-        super().__init__(ref, namespace)
+        super().__init__(ref)
+        if not parent:
+            raise Exception('no parent namespace')
+        self.parent = parent
 
     def __str__(self) -> str:
-        return f'typedef {self.namespace.get_name(self)} = {self.typeref}'
+        return f'typedef {self.parent.get_name(self)} = {self.typeref}'
 
     def __hash__(self):
         return hash(self.typeref)
@@ -137,7 +135,7 @@ class Pointer(SingleTypeRef):
     def __init__(self, ref: Union[TypeRef, Type]):
         if isinstance(ref, Type):
             ref = TypeRef(ref)
-        super().__init__(ref, None)
+        super().__init__(ref)
         self._hash = ref.__hash__() * 13 + 1
 
     def __hash__(self):
@@ -151,13 +149,10 @@ class Array(Pointer):
     def __init__(self, ref: Union[Type, TypeRef],
                  length: Optional[int] = None):
         super().__init__(ref)
+        self._hash += 1
         self.length = length
-        self._hash = self.typeref.__hash__() * 13 + 2
         if self.length:
             self._hash += self.length
-
-    def __hash__(self):
-        return self._hash
 
     def __eq__(self, value):
         if not super().__eq__(value):
@@ -179,13 +174,15 @@ class Field(NamedTuple):
 
 
 class Struct(UserType):
-    def __init__(self,
-                 type_name: str,
-                 fields: List[Field] = None,
-                 namespace: Optional[Namespace] = None):
-        super().__init__(namespace)
+    def __init__(
+            self,
+            type_name: str,
+            fields: List[Field] = None,
+    ):
+        super().__init__()
         self.type_name = type_name
-        global STACK
+        self.parent: Optional[Namespace] = None
+        self.namespace = Namespace(self.type_name)
 
         self.fields: List[Field] = []
         if fields:
@@ -273,11 +270,13 @@ class Param(NamedTuple):
 
 
 class Function(UserType):
-    def __init__(self,
-                 result: Union[TypeRef, Type],
-                 params: List[Param],
-                 namespace: Optional[Namespace] = None):
-        super().__init__(namespace)
+    def __init__(
+            self,
+            result: Union[TypeRef, Type],
+            params: List[Param],
+    ):
+        super().__init__()
+        self.parent: Optional[Namespace] = None
         self.name = ''
         self.mangled_name = ''
         if isinstance(result, Type):
