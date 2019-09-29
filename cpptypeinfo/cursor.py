@@ -8,7 +8,21 @@ from .get_tu import get_tu, tmp_from_source
 
 
 def debug_print(c, level=''):
-    print(f'{level}{c.kind}=>{c.spelling}: {c.type.kind}=>{c.type.spelling}')
+    display = c.type.spelling
+    if not display:
+        if c.kind == cindex.CursorKind.UNEXPOSED_DECL:
+            tokens = [x.spelling for x in c.get_tokens()]
+            if tokens[0] == 'extern':
+                display = 'extern "C"'
+    extra = ''
+    if c.kind == cindex.CursorKind.FUNCTION_DECL:
+        # https://clang.llvm.org/doxygen/Index_8h_source.html
+        calling_convention = cindex.conf.lib.clang_getFunctionTypeCallingConv(
+            c.type)
+        extra = {1: '', 2: '(stdcall)', 100: '# invalid #'}[calling_convention]
+    text = f'{level}{c.kind}=>{extra}{c.spelling}: {c.type.kind}=>{display}'
+
+    print(text)
     for child in c.get_children():
         debug_print(child, level + '  ')
 
@@ -45,8 +59,10 @@ def parse_function(parser: TypeParser, c: cindex.Cursor,
             # function body
             pass
         elif child.kind == cindex.CursorKind.DLLEXPORT_ATTR:
+            # __declspec(dllexport)
             pass
         elif child.kind == cindex.CursorKind.DLLIMPORT_ATTR:
+            # __declspec(dllimport)
             pass
         elif child.kind == cindex.CursorKind.NAMESPACE_REF:
             pass
@@ -243,7 +259,7 @@ def parse_namespace(parser: TypeParser,
 
 
 def parse_files(parser: TypeParser, *paths: pathlib.Path, cpp_flags=None):
-    if not cpp_flags:
+    if cpp_flags is None:
         cpp_flags = []
     cpp_flags += [f'-I{x.parent}' for x in paths]
     with tmp_from_source(''.join([f'#include <{x.name}>\n'
@@ -254,9 +270,11 @@ def parse_files(parser: TypeParser, *paths: pathlib.Path, cpp_flags=None):
         parse_namespace(parser, tu.cursor, include_path_list)
 
 
-def parse_source(parser: TypeParser, source: str, debug=False):
+def parse_source(parser: TypeParser, source: str, cpp_flags=None, debug=False):
+    if cpp_flags is None:
+        cpp_flags = []
     with tmp_from_source(source) as path:
-        tu = get_tu(path)
+        tu = get_tu(path, cpp_flags=cpp_flags)
         if debug:
             debug_print(tu.cursor)
         parse_namespace(parser, tu.cursor, [])
