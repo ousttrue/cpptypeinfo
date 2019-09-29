@@ -39,8 +39,11 @@ class Namespace:
         ancestors = [ns.name for ns in self.ancestors()]
         return '::'.join(ancestors)
 
+    def register_type(self, name: str, usertype: UserType) -> None:
+        self.user_type_map[name] = usertype
+
     def get_name(self, usertype: UserType) -> str:
-        for k, v in self.user_type_map:
+        for k, v in self.user_type_map.items():
             if v == usertype:
                 return k
         raise KeyError()
@@ -103,13 +106,11 @@ class SingleTypeRef(UserType):
 
 
 class Typedef(SingleTypeRef):
-    def __init__(self, parent: Namespace, ref: Union[TypeRef, Type]):
+    def __init__(self, ref: Union[TypeRef, Type]):
         if isinstance(ref, Type):
             ref = ref.to_ref()
         super().__init__(ref)
-        if not parent:
-            raise Exception('no parent namespace')
-        self.parent = parent
+        self.parent: Optional[Namespace] = None
 
     def __str__(self) -> str:
         return f'typedef {self.parent.get_name(self)} = {self.typeref}'
@@ -138,7 +139,7 @@ class Pointer(SingleTypeRef):
         super().__init__(ref)
         self._hash = ref.__hash__() * 13 + 1
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return self._hash
 
     def __str__(self):
@@ -153,6 +154,9 @@ class Array(Pointer):
         self.length = length
         if self.length:
             self._hash += self.length
+
+    def __hash__(self) -> int:
+        return self._hash
 
     def __eq__(self, value):
         if not super().__eq__(value):
@@ -342,9 +346,8 @@ class EnumValue(NamedTuple):
 
 
 class Enum(UserType):
-    def __init__(self, type_name: str, values: List[EnumValue],
-                 namespace: Namespace):
-        super().__init__(namespace)
+    def __init__(self, type_name: str, values: List[EnumValue]):
+        super().__init__()
         self.type_name = type_name
         self.values = values
         self.is_flag = False

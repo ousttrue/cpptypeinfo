@@ -8,6 +8,8 @@ class TypedefTest(unittest.TestCase):
         typedef = parser.typedef('uint8_t', 'unsigned char')
         self.assertEqual(typedef.get_concrete_type(), cpptypeinfo.UInt8())
 
+    # ToDo: struct tag typedef
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,9 +1,15 @@
 import re
 import pathlib
-from typing import Optional
-from cpptypeinfo.basictype import (Type, TypeRef, primitive_type_map)
-from cpptypeinfo.usertype import (Typedef, Namespace, Pointer, Array, Field,
-                                  Struct, Param, Function)
+from typing import Optional, List, Union
+from cpptypeinfo.basictype import (Type, TypeRef, primitive_type_map, Void)
+from cpptypeinfo.usertype import (UserType, Typedef, Namespace, Pointer, Array,
+                                  Field, Struct, Param, Function)
+from .get_tu import get_tu, tmp_from_source
+
+SPLIT_PATTERN = re.compile(r'[*&]')
+# void (const Im3d::DrawList &)
+NAMED_FUNC_PATTERN = re.compile(r'^(.*)\(.*\)\((.*)\)$')
+FUNC_PATTERN = re.compile(r'^(.*)\((.*)\)$')
 
 
 class TypeParser:
@@ -12,6 +18,16 @@ class TypeParser:
     """
     def __init__(self) -> None:
         self.root_namespace = Namespace()
+        self.stack: List[Namespace] = []
+
+    def push_namespace(self, namespace: Namespace) -> None:
+        self.stack.append(namespace)
+
+    def pop_namespace(self) -> None:
+        self.stack.pop()
+
+    def get_current_namespace(self) -> Namespace:
+        return self.stack[-1] if self.stack else self.root_namespace
 
     def resolve(self, found: Typedef, replace: Optional[Type]):
         if not replace:
@@ -95,10 +111,18 @@ class TypeParser:
 
         return None
 
-    def typedef(self, name: str, src: str) -> Typedef:
-        decl = self.parse(src)
-        typedef = Typedef(self.root_namespace, decl)
-        self.root_namespace.user_type_map[name] = typedef
+    def typedef(self, name: str, src: Union[str, TypeRef]) -> Typedef:
+        '''
+        現在のnamespaceに型をTypedefを登録する
+        '''
+        if isinstance(src, str):
+            decl = self.parse(src)
+        else:
+            decl = src
+        typedef = Typedef(decl)
+        namespace = self.get_current_namespace()
+        namespace.register_type(name, typedef)
+        typedef.parent = namespace
         return typedef
 
     def parse(self,
@@ -229,30 +253,3 @@ class TypeParser:
                     return TypeRef(decl, is_const)
 
                 raise Exception(f'not found: {src}')
-
-    def parse_headers(self,
-                      *paths: pathlib.Path,
-                      cpp_flags=None,
-                      before=None,
-                      root_namespace: Optional[Namespace] = None):
-        root_ns = push_namespace(root_namespace)
-        if before:
-            before(root_ns)
-        if not cpp_flags:
-            cpp_flags = []
-        cpp_flags += [f'-I{x.parent}' for x in paths]
-        with tmp_from_source(''.join([f'#include <{x.name}>\n'
-                                      for x in paths])) as path:
-            tu = get_tu(path, cpp_flags=cpp_flags)
-            include_path_list = [x for x in paths]
-            include_path_list.append(path)
-            parse_namespace(tu.cursor, include_path_list)
-
-        pop_namespace()
-        return root_ns
-
-
-SPLIT_PATTERN = re.compile(r'[*&]')
-# void (const Im3d::DrawList &)
-NAMED_FUNC_PATTERN = re.compile(r'^(.*)\(.*\)\((.*)\)$')
-FUNC_PATTERN = re.compile(r'^(.*)\((.*)\)$')

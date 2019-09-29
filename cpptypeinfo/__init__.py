@@ -40,5 +40,6 @@ Param: for Function
 from .basictype import *
 from .typeparser import TypeParser
 from .get_tu import *
+from .cursor import parse_headers
 
 VERSION = '0.2.0'

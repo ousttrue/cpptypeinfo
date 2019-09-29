@@ -8,13 +8,12 @@ CIMGUI_H = HERE.parent / 'libs/cimgui/cimgui.h'
 
 class CImguiTest(unittest.TestCase):
     def test_cimgui(self) -> None:
-        ns = cpptypeinfo.push_namespace()
+        parser = cpptypeinfo.TypeParser()
         cpptypeinfo.parse_headers(
-            CIMGUI_H, cpp_flags=[f'-DCIMGUI_DEFINE_ENUMS_AND_STRUCTS'])
-        cpptypeinfo.pop_namespace()
+            parser, CIMGUI_H, cpp_flags=[f'-DCIMGUI_DEFINE_ENUMS_AND_STRUCTS'])
 
-        for ns in ns.traverse():
-            if isinstance(ns, cpptypeinfo.Struct):
+        for ns in parser.root_namespace.traverse():
+            if isinstance(ns, cpptypeinfo.usertype.Struct):
                 continue
 
             for k, v in ns.user_type_map.items():
