@@ -3,6 +3,22 @@ from typing import (Optional, Dict, List, Union, NamedTuple, Iterable)
 from .basictype import Type, TypeRef
 
 
+def replace_typeref(self: TypeRef, target: Type, replace: Type) -> TypeRef:
+    '''
+    参照する型を置き換えたTypeRefを作りなおす
+    '''
+    ref = self.ref
+    if ref == target:
+        return TypeRef(replace, self.is_const)
+
+    if isinstance(ref, UserType):
+        # nested
+        ref.replace(target, replace)
+
+    # end
+    return self
+
+
 class UserType(Type):
     def __init__(self):
         super().__init__()
@@ -15,7 +31,7 @@ class UserType(Type):
     def clone(self) -> 'UserType':
         return copy.copy(self)
 
-    def resolve(self, typedef: 'Typedef', replace: Type) -> None:
+    def replace(self, target: Type, replace: Type) -> None:
         pass
 
     def is_based(self, based: Type) -> bool:
@@ -31,8 +47,8 @@ class Namespace:
             name = ''
         self.name = name
         self.user_type_map: Dict[str, UserType] = {}
-        self.children: List[Namespace] = []
-        self.parent: Optional[Namespace] = None
+        self._children: List[Namespace] = []
+        self._parent: Optional[Namespace] = None
         self.functions: List[Function] = []
         self.struct: Optional[Struct] = struct
 
@@ -55,18 +71,21 @@ class Namespace:
             return None
         return usertype
 
+    def add_child(self, child: 'Namespace') -> None:
+        self._children.append(child)
+        child._parent = self
+
     def ancestors(self) -> Iterable['Namespace']:
         yield self
-        if self.parent:
-            for x in self.parent.ancestors():
+        if self._parent:
+            for x in self._parent.ancestors():
                 yield x
 
     def traverse(self, level=0):
         yield self
-        for child in self.children:
+        for child in self._children:
             for x in child.traverse(level + 1):
-                if not isinstance(x, Struct):
-                    yield x
+                yield x
 
 
 class SingleTypeRef(UserType):
@@ -86,9 +105,6 @@ class SingleTypeRef(UserType):
     def __hash__(self):
         return hash(self.typeref)
 
-    def replace_based(self, based: Type, replace: Type) -> 'UserType':
-        raise Exception()
-
     def is_based(self, based: Type) -> bool:
         ref = self.typeref.ref
         if ref == based:
@@ -98,12 +114,8 @@ class SingleTypeRef(UserType):
         else:
             return False
 
-    def resolve(self, typedef: 'Typedef', replace: Type) -> None:
-        ref = self.typeref
-        if ref == typedef:
-            if not replace:
-                raise Exception()
-            self.typeref = TypeRef(replace, ref.is_const)
+    def replace(self, target: Type, replace: Type) -> None:
+        self.typeref = replace_typeref(self.typeref, target, replace)
 
 
 class Typedef(SingleTypeRef):
@@ -173,8 +185,8 @@ class Field(NamedTuple):
     offset: int = -1
     value: str = ''
 
-    def resolve(self, typedef: Typedef, replace: Type) -> 'Field':
-        return Field(self.typeref.resolve(typedef, replace), self.name,
+    def replace(self, target: Type, replace: Type) -> 'Field':
+        return Field(replace_typeref(self.typeref, target, replace), self.name,
                      self.offset, self.value)
 
 
@@ -218,7 +230,7 @@ class Struct(UserType):
 
         for based, replace in zip(based_params, template_params):
             for i in range(len(self.fields)):
-                f = self.fields[i]
+                f = self.fields[i]  # noqa
                 # if f.typeref.is_based(based):
                 #     if f.type == based:
                 #         self.fields[i] = Field(replace, f.name, f.value)
@@ -237,9 +249,9 @@ class Struct(UserType):
                 return True
         return False
 
-    def resolve(self, target: Typedef, replace: Type):
+    def replace(self, target: Type, replace: Type):
         for i in range(len(self.fields)):
-            self.fields[i] = self.fields[i].resolve(target, replace)
+            self.fields[i] = self.fields[i].replace(target, replace)
 
     def __hash__(self):
         return hash(self.type_name)
@@ -253,12 +265,12 @@ class Struct(UserType):
             if len(self.fields) != len(value.fields):
                 return False
             for l, r in zip(self.fields, value.fields):
-                if l != r:
+                if l != r:  # noqa
                     return False
         if len(self.template_parameters) != len(value.template_parameters):
             return False
         for l, r in zip(self.template_parameters, value.template_parameters):
-            if l != r:
+            if l != r:  # noqa
                 return False
         return True
 
@@ -271,8 +283,8 @@ class Param(NamedTuple):
     name: str = ''
     value: str = ''
 
-    def resolve(self, typedef: Typedef, replace: Type) -> 'Param':
-        return Param(self.typeref.resolve(typedef, replace), self.name,
+    def replace(self, target: Type, replace: Type) -> 'Param':
+        return Param(replace_typeref(self.typeref, target, replace), self.name,
                      self.value)
 
 
@@ -327,20 +339,12 @@ class Function(UserType):
                 return True
         return False
 
-    def resolve(self, typedef: Typedef, replace: Type):
+    def replace(self, target: Type, replace: Type) -> None:
         # ret
-        if self.result.ref == typedef:
-            self.result = TypeRef(replace, self.result.is_const)
-        elif isinstance(self.result.ref, UserType):
-            self.result.ref.resolve(typedef, replace)
-
-        ref = self.result
-        if ref == typedef:
-            if not replace:
-                raise Exception()
+        self.result = replace_typeref(self.result, target, replace)
         # params
         for i in range(len(self.params)):
-            self.params[i] = self.params[i].resolve(typedef, replace)
+            self.params[i] = self.params[i].replace(target, replace)
 
 
 class EnumValue(NamedTuple):

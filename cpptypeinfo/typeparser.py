@@ -1,10 +1,8 @@
 import re
-import pathlib
 from typing import Optional, List, Union
 from cpptypeinfo.basictype import (Type, TypeRef, primitive_type_map, Void)
-from cpptypeinfo.usertype import (UserType, Typedef, Namespace, Pointer, Array,
-                                  Field, Struct, Param, Function)
-from .get_tu import get_tu, tmp_from_source
+from cpptypeinfo.usertype import (Typedef, Namespace, Pointer, Array, Field,
+                                  Struct, Param, Function)
 
 SPLIT_PATTERN = re.compile(r'[*&]')
 # void (const Im3d::DrawList &)
@@ -18,7 +16,7 @@ class TypeParser:
     """
     def __init__(self) -> None:
         self.root_namespace = Namespace()
-        self.stack: List[Namespace] = []
+        self.stack: List[Namespace] = [self.root_namespace]
 
     def push_namespace(self, namespace: Union[str, Namespace]) -> None:
         if isinstance(namespace, str):
@@ -26,7 +24,7 @@ class TypeParser:
         if not isinstance(namespace, Namespace):
             raise Exception(f'{namespace} is not namespace')
         if self.stack:
-            self.stack[-1].children.append(namespace)
+            self.stack[-1].add_child(namespace)
         self.stack.append(namespace)
 
     def pop_namespace(self) -> None:
@@ -35,19 +33,19 @@ class TypeParser:
     def get_current_namespace(self) -> Namespace:
         return self.stack[-1] if self.stack else self.root_namespace
 
-    def resolve(self, found: Typedef, replace: Optional[Type]):
+    def resolve(self, target: Typedef, replace: Optional[Type]):
         if not replace:
-            replace = found.typeref.ref
+            replace = target.typeref.ref
         for ns in self.root_namespace.traverse():
             for k, v in ns.user_type_map.items():
-                v.resolve(found, replace)
+                v.replace(target, replace)
             for v in ns.functions:
-                v.resolve(found, replace)
+                v.replace(target, replace)
 
         for ns in self.root_namespace.traverse():
             keys = []
             for k, v in ns.user_type_map.items():
-                if v == found:
+                if v == target:
                     keys.append(k)
             for k in keys:
                 print(f'remove {k}')
@@ -143,6 +141,7 @@ class TypeParser:
               is_const=False,
               namespace: Optional[Namespace] = None) -> TypeRef:
         src = src.strip()
+
         if not namespace:
             namespace = self.get_current_namespace()
             if not isinstance(namespace, Namespace):
@@ -238,10 +237,7 @@ class TypeParser:
                     ns_list = ns_list[-2:]
 
                     ns = self.get_from_ns(ns_list[0])
-                    if not ns:
-                        raise Exception(f'not found {ns_list[0]}')
-
-                    if isinstance(ns, Struct):
+                    if ns and isinstance(ns, Struct):
                         decl = ns.namespace.get(ns_list[1])
                         if decl:
                             return TypeRef(decl, is_const)

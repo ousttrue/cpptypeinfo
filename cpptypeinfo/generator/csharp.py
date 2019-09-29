@@ -3,6 +3,8 @@ import re
 from typing import Dict, NamedTuple, List
 import enum
 import cpptypeinfo
+from cpptypeinfo.usertype import (Enum, Pointer, Struct, Function, Typedef,
+                                  Namespace)
 from jinja2 import Template
 
 HEADLINE = f'// generated cpptypeinfo-{cpptypeinfo.VERSION}'
@@ -62,13 +64,13 @@ def to_cs(decl: cpptypeinfo.Type, context: ExportFlag) -> CSMarshalType:
         return cs_type
 
     if context & ExportFlag.FunctionParam:
-        if isinstance(decl, cpptypeinfo.Pointer):
+        if isinstance(decl, Pointer):
             ref = decl.typeref.ref
             cs_type = cstype_pointer_map.get(ref)
             if cs_type:
                 return cs_type
             else:
-                if isinstance(ref, cpptypeinfo.NamedType):
+                if isinstance(ref, UserType):
                     if not ref.type_name.startswith('Im'):
                         print(decl)
 
@@ -109,7 +111,7 @@ class CSContext(NamedTuple):
     using: str = USING
 
 
-def generate_enum(enum: cpptypeinfo.Enum, context: CSContext):
+def generate_enum(enum: Enum, context: CSContext):
 
     # type_name = typename_filter(enum.type_name)
 
@@ -140,7 +142,7 @@ namespace {{ namespace }}
                      line=enum.line))
 
 
-def generate_typedef(typedef: cpptypeinfo.Typedef, context: CSContext):
+def generate_typedef(typedef: Typedef, context: CSContext):
 
     if isinstance(
             typedef.typeref,
@@ -180,7 +182,7 @@ namespace {{ namespace }}
                      line=typedef.line))
 
 
-def generate_struct(decl: cpptypeinfo.Struct, context: CSContext):
+def generate_struct(decl: Struct, context: CSContext):
 
     t = Template('''// {{ headline }}
 {{ using }}
@@ -272,7 +274,7 @@ def cs_value(src: str) -> str:
     raise Exception(src)
 
 
-def generate_functions(root_ns: cpptypeinfo.Namespace,
+def generate_functions(root_ns: Namespace,
                        context: CSContext,
                        class_name: str,
                        dll_name: str,

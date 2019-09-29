@@ -64,7 +64,7 @@ def parse_function(parser: TypeParser, c: cindex.Cursor,
     return decl
 
 
-def parse_enum(c: cindex.Cursor) -> Enum:
+def parse_enum(parser: TypeParser, c: cindex.Cursor) -> Enum:
     name = c.spelling
     values = []
     for child in c.get_children():
@@ -73,6 +73,7 @@ def parse_enum(c: cindex.Cursor) -> Enum:
         else:
             raise Exception(f'{child.kind}')
     decl = Enum(name, values)
+    parser.get_current_namespace().register_type(name, decl)
     decl.file = pathlib.Path(c.location.file.name)
     decl.line = c.location.line
     return decl
@@ -203,7 +204,7 @@ def parse_cursor(parser: TypeParser,
         parse_function(parser, c, extern_c)
 
     elif c.kind == cindex.CursorKind.ENUM_DECL:
-        parse_enum(c)
+        parse_enum(parser, c)
 
     elif c.kind == cindex.CursorKind.VAR_DECL:
         # static variable
@@ -241,7 +242,6 @@ def parse_namespace(parser: TypeParser,
 
 
 def parse_headers(parser: TypeParser, *paths: pathlib.Path, cpp_flags=None):
-    parser.push_namespace(parser.root_namespace)
     if not cpp_flags:
         cpp_flags = []
     cpp_flags += [f'-I{x.parent}' for x in paths]
@@ -251,5 +251,3 @@ def parse_headers(parser: TypeParser, *paths: pathlib.Path, cpp_flags=None):
         include_path_list = [x for x in paths]
         include_path_list.append(path)
         parse_namespace(parser, tu.cursor, include_path_list)
-
-    parser.pop_namespace()

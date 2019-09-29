@@ -4,6 +4,7 @@ import shutil
 from typing import NamedTuple
 from jinja2 import Template
 import cpptypeinfo
+from cpptypeinfo.usertype import (Namespace, Pointer)
 from cpptypeinfo.generator import csharp
 HERE = pathlib.Path(__file__).absolute().parent
 CIMGUI_H = HERE / 'libs/cimgui/cimgui.h'
@@ -72,12 +73,11 @@ def create_property(f) -> PropInfo:
         pass
 
 
-def generate_imguiio(root_ns: cpptypeinfo.Namespace,
-                     context: csharp.CSContext):
+def generate_imguiio(root_ns: Namespace, context: csharp.CSContext):
     def find_struct() -> cpptypeinfo.Struct:
         for ns in root_ns.traverse():
             for k, v in ns.user_type_map.items():
-                if k == 'ImGuiIO' and isinstance(v, cpptypeinfo.Struct):
+                if k == 'ImGuiIO' and isinstance(v, Struct):
                     return v
         raise Exception()
 
@@ -122,7 +122,7 @@ namespace {{ namespace }}
                      values=values))
 
 
-def process_enum(root_ns: cpptypeinfo.Namespace):
+def process_enum(root_ns: Namespace):
     '''
     enum XXXFlags_ と typedef int XXXFlags
     をまとめて enum XXXFlags にする。
@@ -166,32 +166,36 @@ def process_enum(root_ns: cpptypeinfo.Namespace):
 def main(root: pathlib.Path, *paths: pathlib.Path):
     print(f'{[x.name for x in paths]} => {root}')
 
-    def before(root_ns):
-        # predefine
-        cpptypeinfo.Struct('PodImVec2')
+    parser = cpptypeinfo.TypeParser()
 
-    root_namespace = cpptypeinfo.push_namespace()
+    # predefine
+    parser.struct('PodImVec2', [])
+    # win32API
+    parser.typedef('LRESULT', Pointer(cpptypeinfo.Void()))
+    parser.typedef('HWND', Pointer(cpptypeinfo.Void()))
+    parser.typedef('UINT', cpptypeinfo.UInt32())
+    parser.typedef('WPARAM', Pointer(cpptypeinfo.Void()))
+    parser.typedef('LPARAM', Pointer(cpptypeinfo.Void()))
+
     # std
-    cpptypeinfo.push_namespace('std')
-    cpptypeinfo.parse('struct array')
-    cpptypeinfo.pop_namespace()
+    parser.push_namespace('std')
+    parser.parse('struct array')
+    parser.pop_namespace()
     # DirectX
-    cpptypeinfo.push_namespace('DirectX')
-    cpptypeinfo.parse('struct XMFLOAT4X4')
-    cpptypeinfo.pop_namespace()
+    parser.push_namespace('DirectX')
+    parser.parse('struct XMFLOAT4X4')
+    parser.pop_namespace()
     #
-    cpptypeinfo.pop_namespace()
 
     root_ns = cpptypeinfo.parse_headers(
+        parser,
         *paths,
         cpp_flags=[
             '-target',
             'x86_64-windows-msvc'
             '-DIMGUI_DISABLE_OBSOLETE_FUNCTIONS=1',
             '-DIMGUI_USER_CONFIG=<imconfig_dll.h>',
-        ],
-        before=before,
-        root_namespace=root_namespace)
+        ])
 
     #
     # preprocess
@@ -199,19 +203,18 @@ def main(root: pathlib.Path, *paths: pathlib.Path):
     if root.exists():
         shutil.rmtree(root)
 
-    root_ns.resolve_typedef_by_name('ImS8')
-    root_ns.resolve_typedef_by_name('ImS16')
-    root_ns.resolve_typedef_by_name('ImS32')
-    root_ns.resolve_typedef_by_name('ImS64')
-    root_ns.resolve_typedef_by_name('ImU8')
-    root_ns.resolve_typedef_by_name('ImU16')
-    root_ns.resolve_typedef_by_name('ImU32')
-    root_ns.resolve_typedef_by_name('ImU64')
-    root_ns.resolve_typedef_struct_tag()
-    root_ns.resolve_typedef_void_p()
-    process_enum(root_ns)
+    parser.resolve_typedef_by_name('ImS8')
+    parser.resolve_typedef_by_name('ImS16')
+    parser.resolve_typedef_by_name('ImS32')
+    parser.resolve_typedef_by_name('ImS64')
+    parser.resolve_typedef_by_name('ImU8')
+    parser.resolve_typedef_by_name('ImU16')
+    parser.resolve_typedef_by_name('ImU32')
+    parser.resolve_typedef_by_name('ImU64')
+    parser.resolve_typedef_struct_tag()
+    parser.resolve_typedef_void_p()
+    process_enum(parser)
 
-    cpptypeinfo.push_namespace(root_ns)
     # vector2
     vector2 = cpptypeinfo.Struct('PodImVec2')
     csharp.cstype_map[vector2] = csharp.CSMarshalType('Vector2')
@@ -251,8 +254,6 @@ def main(root: pathlib.Path, *paths: pathlib.Path):
     # Mat4
     float44 = cpptypeinfo.Struct('XMFLOAT4X4')
     csharp.cstype_map[float44] = csharp.CSMarshalType('Matrix4x4')
-
-    cpptypeinfo.pop_namespace()
 
     #
     # process each namespace from root

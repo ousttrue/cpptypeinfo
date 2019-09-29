@@ -114,11 +114,6 @@ class TypeRef(NamedTuple):
         else:
             return str(self.ref)
 
-    def replace_based(self, based: Type, replace: Type) -> Optional['TypeRef']:
-        if self.ref != based:
-            return None
-        return TypeRef(replace, self.is_const)
-
 
 primitive_type_map: Dict[str, PrimitiveType] = {
     'void': Void(),
@@ -146,10 +141,4 @@ primitive_type_map: Dict[str, PrimitiveType] = {
     'double': Double(),
     'bool': Bool(),
     'va_list': VaList(),
-    # win32API
-    # 'LRESULT': Pointer(Void()),
-    # 'HWND': Pointer(Void()),
-    # 'UINT': UInt32(),
-    # 'WPARAM': Pointer(Void()),
-    # 'LPARAM': Pointer(Void()),
 }
