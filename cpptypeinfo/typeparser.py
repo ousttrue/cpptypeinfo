@@ -20,7 +20,13 @@ class TypeParser:
         self.root_namespace = Namespace()
         self.stack: List[Namespace] = []
 
-    def push_namespace(self, namespace: Namespace) -> None:
+    def push_namespace(self, namespace: Union[str, Namespace]) -> None:
+        if isinstance(namespace, str):
+            namespace = Namespace(namespace)
+        if not isinstance(namespace, Namespace):
+            raise Exception(f'{namespace} is not namespace')
+        if self.stack:
+            self.stack[-1].children.append(namespace)
         self.stack.append(namespace)
 
     def pop_namespace(self) -> None:
@@ -125,13 +131,22 @@ class TypeParser:
         typedef.parent = namespace
         return typedef
 
+    def struct(self, name: str, fields: List[Field]) -> Struct:
+        decl = Struct(name, fields)
+        namespace = self.get_current_namespace()
+        namespace.register_type(name, decl)
+        decl.parent = namespace
+        return decl
+
     def parse(self,
               src: str,
               is_const=False,
               namespace: Optional[Namespace] = None) -> TypeRef:
         src = src.strip()
         if not namespace:
-            namespace = self.root_namespace
+            namespace = self.get_current_namespace()
+            if not isinstance(namespace, Namespace):
+                raise Exception(f'{namespace} is not Namespace')
 
         m = NAMED_FUNC_PATTERN.match(src)
         if m:
@@ -221,32 +236,28 @@ class TypeParser:
                     # if len(ns_list) != 2:
                     #     raise NotImplementedError()
                     ns_list = ns_list[-2:]
-                    current = STACK[-1]
-                    if isinstance(current, Struct):
-                        if current.type_name == ns_list[0]:
-                            return self.parse(ns_list[1], is_const)
 
                     ns = self.get_from_ns(ns_list[0])
                     if not ns:
                         raise Exception(f'not found {ns_list[0]}')
 
-                    if isinstance(ns, Struct) or isinstance(ns, Namespace):
-                        decl = ns.get(ns_list[1])
+                    if isinstance(ns, Struct):
+                        decl = ns.namespace.get(ns_list[1])
                         if decl:
                             return TypeRef(decl, is_const)
+                        else:
+                            raise Exception()
 
-                        for ns in reversed(STACK):
-                            for child in ns.children:
-                                if child.name == ns_list[0]:
-                                    decl = child.get(ns_list[1])
-                                    if decl:
-                                        return TypeRef(decl, is_const)
-                                    else:
-                                        raise Exception(f'{src} not found')
+                    for ns in namespace.ancestors():
+                        for child in ns.traverse():
+                            if child.name == ns_list[0]:
+                                decl = child.get(ns_list[1])
+                                if decl:
+                                    return TypeRef(decl, is_const)
+                                else:
+                                    raise Exception(f'{src} not found')
 
-                        raise Exception(f'{src} is not found')
-                    else:
-                        raise Exception(f'{ns} is not Struct or Namespace')
+                    raise Exception(f'{src} is not found')
 
                 decl = self.get_from_ns(src)
                 if decl:

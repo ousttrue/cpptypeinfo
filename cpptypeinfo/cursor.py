@@ -1,7 +1,6 @@
 import pathlib
 from typing import List, Set, Optional
 from clang import cindex
-import cpptypeinfo
 from .usertype import (Param, Field, Struct, Function, EnumValue, Enum,
                        Typedef)
 from .typeparser import TypeParser
@@ -84,8 +83,8 @@ def parse_struct(parser: TypeParser, c: cindex.Cursor) -> Struct:
     if not isinstance(decl, Struct):
         if isinstance(decl, Typedef):
             decl = decl.typeref.ref
-        if not isinstance(decl, Struct):
-            raise Exception('not struct')
+    if not isinstance(decl, Struct):
+        raise Exception('not struct')
     decl.file = pathlib.Path(c.location.file.name)
     decl.line = c.location.line
     # if isinstance(decl, Typedef):
@@ -111,7 +110,9 @@ def parse_struct(parser: TypeParser, c: cindex.Cursor) -> Struct:
         elif child.kind == cindex.CursorKind.CONVERSION_FUNCTION:
             pass
         elif child.kind == cindex.CursorKind.TEMPLATE_TYPE_PARAMETER:
-            decl.add_template_parameter(child.spelling)
+            t = child.spelling
+            parser.parse(f'struct {t}')
+            decl.add_template_parameter(t)
         elif child.kind == cindex.CursorKind.VAR_DECL:
             # static variable
             pass

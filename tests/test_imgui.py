@@ -1,362 +1,334 @@
 import unittest
 import pathlib
 import cpptypeinfo
+from cpptypeinfo.usertype import (Field, Struct, Pointer, Param, Function)
 
 HERE = pathlib.Path(__file__).absolute().parent
 IMGUI_H = HERE.parent / 'libs/imgui/imgui.h'
 
-root = cpptypeinfo.push_namespace('')
+parser = cpptypeinfo.TypeParser()
 EXPECTS = {
     'ImDrawChannel':
-    cpptypeinfo.Struct('ImDrawChannel'),
+    parser.parse('struct ImDrawChannel'),
     'ImDrawCmd':
-    cpptypeinfo.Struct('ImDrawCmd'),
+    parser.parse('struct ImDrawCmd'),
     'ImDrawData':
-    cpptypeinfo.Struct('ImDrawData'),
+    parser.parse('struct ImDrawData'),
     'ImDrawList':
-    cpptypeinfo.Struct('ImDrawList'),
+    parser.parse('struct ImDrawList'),
     'ImDrawListSharedData':
-    cpptypeinfo.Struct('ImDrawListSharedData'),
+    parser.parse('struct ImDrawListSharedData'),
     'ImDrawListSplitter':
-    cpptypeinfo.Struct('ImDrawListSplitter'),
+    parser.parse('struct ImDrawListSplitter'),
     'ImDrawVert':
-    cpptypeinfo.Struct('ImDrawVert'),
+    parser.parse('struct ImDrawVert'),
     'ImFont':
-    cpptypeinfo.Struct('ImFont'),
+    parser.parse('struct ImFont'),
     'ImFontAtlas':
-    cpptypeinfo.Struct('ImFontAtlas'),
+    parser.parse('struct ImFontAtlas'),
     'ImFontConfig':
-    cpptypeinfo.Struct('ImFontConfig'),
+    parser.parse('struct ImFontConfig'),
     'ImFontGlyph':
-    cpptypeinfo.Struct('ImFontGlyph'),
+    parser.parse('struct ImFontGlyph'),
     'ImFontGlyphRangesBuilder':
-    cpptypeinfo.Struct('ImFontGlyphRangesBuilder'),
+    parser.parse('struct ImFontGlyphRangesBuilder'),
     'ImColor':
-    cpptypeinfo.Struct('ImColor'),
+    parser.parse('struct ImColor'),
     'ImGuiContext':
-    cpptypeinfo.Struct('ImGuiContext'),
+    parser.parse('struct ImGuiContext'),
     'ImGuiIO':
-    cpptypeinfo.Struct('ImGuiIO'),
+    parser.parse('struct ImGuiIO'),
     'ImGuiInputTextCallbackData':
-    cpptypeinfo.Struct('ImGuiInputTextCallbackData'),
+    parser.parse('struct ImGuiInputTextCallbackData'),
     'ImGuiListClipper':
-    cpptypeinfo.Struct('ImGuiListClipper'),
+    parser.parse('struct ImGuiListClipper'),
     'ImGuiOnceUponAFrame':
-    cpptypeinfo.Struct('ImGuiOnceUponAFrame'),
+    parser.parse('struct ImGuiOnceUponAFrame'),
     'ImGuiPayload':
-    cpptypeinfo.Struct('ImGuiPayload'),
+    parser.parse('struct ImGuiPayload'),
     'ImGuiSizeCallbackData':
-    cpptypeinfo.Struct('ImGuiSizeCallbackData'),
+    parser.parse('struct ImGuiSizeCallbackData'),
     'ImGuiStorage':
-    cpptypeinfo.Struct('ImGuiStorage'),
+    parser.parse('struct ImGuiStorage'),
     'ImGuiStyle':
-    cpptypeinfo.Struct('ImGuiStyle'),
+    parser.parse('struct ImGuiStyle'),
     'ImGuiTextBuffer':
-    cpptypeinfo.Struct('ImGuiTextBuffer'),
+    parser.parse('struct ImGuiTextBuffer'),
     'ImGuiTextFilter':
-    cpptypeinfo.Struct('ImGuiTextFilter'),
+    parser.parse('struct ImGuiTextFilter'),
     'ImTextureID':
-    cpptypeinfo.Typedef('ImTextureID',
-                        cpptypeinfo.Pointer(cpptypeinfo.Void())),
+    parser.typedef('ImTextureID', Pointer(cpptypeinfo.Void())),
     'ImGuiID':
-    cpptypeinfo.Typedef('ImGuiID', cpptypeinfo.UInt32()),
+    parser.typedef('ImGuiID', cpptypeinfo.UInt32()),
     'ImWchar':
-    cpptypeinfo.Typedef('ImWchar', cpptypeinfo.UInt16()),
+    parser.typedef('ImWchar', cpptypeinfo.UInt16()),
     'ImGuiCol':
-    cpptypeinfo.Typedef('ImGuiCol', cpptypeinfo.Int32()),
+    parser.typedef('ImGuiCol', cpptypeinfo.Int32()),
     'ImGuiCond':
-    cpptypeinfo.Typedef('ImGuiCond', cpptypeinfo.Int32()),
+    parser.typedef('ImGuiCond', cpptypeinfo.Int32()),
     'ImGuiDataType':
-    cpptypeinfo.Typedef('ImGuiDataType', cpptypeinfo.Int32()),
+    parser.typedef('ImGuiDataType', cpptypeinfo.Int32()),
     'ImGuiDir':
-    cpptypeinfo.Typedef('ImGuiDir', cpptypeinfo.Int32()),
+    parser.typedef('ImGuiDir', cpptypeinfo.Int32()),
     'ImGuiKey':
-    cpptypeinfo.Typedef('ImGuiKey', cpptypeinfo.Int32()),
+    parser.typedef('ImGuiKey', cpptypeinfo.Int32()),
     'ImGuiNavInput':
-    cpptypeinfo.Typedef('ImGuiNavInput', cpptypeinfo.Int32()),
+    parser.typedef('ImGuiNavInput', cpptypeinfo.Int32()),
     'ImGuiMouseCursor':
-    cpptypeinfo.Typedef('ImGuiMouseCursor', cpptypeinfo.Int32()),
+    parser.typedef('ImGuiMouseCursor', cpptypeinfo.Int32()),
     'ImGuiStyleVar':
-    cpptypeinfo.Typedef('ImGuiStyleVar', cpptypeinfo.Int32()),
+    parser.typedef('ImGuiStyleVar', cpptypeinfo.Int32()),
     'ImDrawCornerFlags':
-    cpptypeinfo.Typedef('ImDrawCornerFlags', cpptypeinfo.Int32()),
+    parser.typedef('ImDrawCornerFlags', cpptypeinfo.Int32()),
     'ImDrawListFlags':
-    cpptypeinfo.Typedef('ImDrawListFlags', cpptypeinfo.Int32()),
+    parser.typedef('ImDrawListFlags', cpptypeinfo.Int32()),
     'ImFontAtlasFlags':
-    cpptypeinfo.Typedef('ImFontAtlasFlags', cpptypeinfo.Int32()),
+    parser.typedef('ImFontAtlasFlags', cpptypeinfo.Int32()),
     'ImGuiBackendFlags':
-    cpptypeinfo.Typedef('ImGuiBackendFlags', cpptypeinfo.Int32()),
+    parser.typedef('ImGuiBackendFlags', cpptypeinfo.Int32()),
     'ImGuiColorEditFlags':
-    cpptypeinfo.Typedef('ImGuiColorEditFlags', cpptypeinfo.Int32()),
+    parser.typedef('ImGuiColorEditFlags', cpptypeinfo.Int32()),
     'ImGuiConfigFlags':
-    cpptypeinfo.Typedef('ImGuiConfigFlags', cpptypeinfo.Int32()),
+    parser.typedef('ImGuiConfigFlags', cpptypeinfo.Int32()),
     'ImGuiComboFlags':
-    cpptypeinfo.Typedef('ImGuiComboFlags', cpptypeinfo.Int32()),
+    parser.typedef('ImGuiComboFlags', cpptypeinfo.Int32()),
     'ImGuiDragDropFlags':
-    cpptypeinfo.Typedef('ImGuiDragDropFlags', cpptypeinfo.Int32()),
+    parser.typedef('ImGuiDragDropFlags', cpptypeinfo.Int32()),
     'ImGuiFocusedFlags':
-    cpptypeinfo.Typedef('ImGuiFocusedFlags', cpptypeinfo.Int32()),
+    parser.typedef('ImGuiFocusedFlags', cpptypeinfo.Int32()),
     'ImGuiHoveredFlags':
-    cpptypeinfo.Typedef('ImGuiHoveredFlags', cpptypeinfo.Int32()),
+    parser.typedef('ImGuiHoveredFlags', cpptypeinfo.Int32()),
     'ImGuiInputTextFlags':
-    cpptypeinfo.Typedef('ImGuiInputTextFlags', cpptypeinfo.Int32()),
+    parser.typedef('ImGuiInputTextFlags', cpptypeinfo.Int32()),
     'ImGuiSelectableFlags':
-    cpptypeinfo.Typedef('ImGuiSelectableFlags', cpptypeinfo.Int32()),
+    parser.typedef('ImGuiSelectableFlags', cpptypeinfo.Int32()),
     'ImGuiTabBarFlags':
-    cpptypeinfo.Typedef('ImGuiTabBarFlags', cpptypeinfo.Int32()),
+    parser.typedef('ImGuiTabBarFlags', cpptypeinfo.Int32()),
     'ImGuiTabItemFlags':
-    cpptypeinfo.Typedef('ImGuiTabItemFlags', cpptypeinfo.Int32()),
+    parser.typedef('ImGuiTabItemFlags', cpptypeinfo.Int32()),
     'ImGuiTreeNodeFlags':
-    cpptypeinfo.Typedef('ImGuiTreeNodeFlags', cpptypeinfo.Int32()),
+    parser.typedef('ImGuiTreeNodeFlags', cpptypeinfo.Int32()),
     'ImGuiWindowFlags':
-    cpptypeinfo.Typedef('ImGuiWindowFlags', cpptypeinfo.Int32()),
+    parser.typedef('ImGuiWindowFlags', cpptypeinfo.Int32()),
     'ImGuiInputTextCallback':
-    cpptypeinfo.Typedef(
+    parser.typedef(
         'ImGuiInputTextCallback',
-        cpptypeinfo.Function(cpptypeinfo.Int32(), [
-            cpptypeinfo.Param(
-                cpptypeinfo.Pointer(
-                    cpptypeinfo.Struct('ImGuiInputTextCallbackData')))
+        Function(cpptypeinfo.Int32(), [
+            Param(Pointer(parser.parse('struct ImGuiInputTextCallbackData')))
         ])),
     'ImGuiSizeCallback':
-    cpptypeinfo.Typedef(
+    parser.typedef(
         'ImGuiSizeCallback',
-        cpptypeinfo.Function(cpptypeinfo.Void(), [
-            cpptypeinfo.Param(
-                cpptypeinfo.Pointer(
-                    cpptypeinfo.Struct('ImGuiSizeCallbackData')))
-        ])),
+        Function(
+            cpptypeinfo.Void(),
+            [Param(Pointer(parser.parse('struct ImGuiSizeCallbackData')))])),
     'ImS8':
-    cpptypeinfo.Typedef('ImS8', cpptypeinfo.Int8()),
+    parser.typedef('ImS8', cpptypeinfo.Int8()),
     'ImU8':
-    cpptypeinfo.Typedef('ImU8', cpptypeinfo.UInt8()),
+    parser.typedef('ImU8', cpptypeinfo.UInt8()),
     'ImS16':
-    cpptypeinfo.Typedef('ImS16', cpptypeinfo.Int16()),
+    parser.typedef('ImS16', cpptypeinfo.Int16()),
     'ImU16':
-    cpptypeinfo.Typedef('ImU16', cpptypeinfo.UInt16()),
+    parser.typedef('ImU16', cpptypeinfo.UInt16()),
     'ImS32':
-    cpptypeinfo.Typedef('ImS32', cpptypeinfo.Int32()),
+    parser.typedef('ImS32', cpptypeinfo.Int32()),
     'ImU32':
-    cpptypeinfo.Typedef('ImU32', cpptypeinfo.UInt32()),
+    parser.typedef('ImU32', cpptypeinfo.UInt32()),
     'ImS64':
-    cpptypeinfo.Typedef('ImS64', cpptypeinfo.Int64()),
+    parser.typedef('ImS64', cpptypeinfo.Int64()),
     'ImU64':
-    cpptypeinfo.Typedef('ImU64', cpptypeinfo.UInt64()),
+    parser.typedef('ImU64', cpptypeinfo.UInt64()),
     'ImVec2':
-    cpptypeinfo.Struct('ImVec2', [
-        cpptypeinfo.Field(cpptypeinfo.Float(), 'x'),
-        cpptypeinfo.Field(cpptypeinfo.Float(), 'y')
-    ]),
+    parser.struct(
+        'ImVec2',
+        [Field(cpptypeinfo.Float(), 'x'),
+         Field(cpptypeinfo.Float(), 'y')]),
     'ImVec4':
-    cpptypeinfo.Struct('ImVec4', [
-        cpptypeinfo.Field(cpptypeinfo.Float(), 'x'),
-        cpptypeinfo.Field(cpptypeinfo.Float(), 'y'),
-        cpptypeinfo.Field(cpptypeinfo.Float(), 'z'),
-        cpptypeinfo.Field(cpptypeinfo.Float(), 'w')
+    parser.struct('ImVec4', [
+        Field(cpptypeinfo.Float(), 'x'),
+        Field(cpptypeinfo.Float(), 'y'),
+        Field(cpptypeinfo.Float(), 'z'),
+        Field(cpptypeinfo.Float(), 'w')
     ]),
     'CreateContext':
-    cpptypeinfo.Function(
-        cpptypeinfo.Pointer(cpptypeinfo.Struct('ImGuiContext')), [
-            cpptypeinfo.Param(
-                cpptypeinfo.Pointer(cpptypeinfo.Struct('ImFontAtlas')),
-                'shared_font_atlas', 'NULL')
-        ]),
+    Function(Pointer(parser.parse('struct ImGuiContext')), [
+        Param(Pointer(parser.parse('struct ImFontAtlas')), 'shared_font_atlas',
+              'NULL')
+    ]),
     'DestroyContext':
-    cpptypeinfo.Function(cpptypeinfo.Void(), [
-        cpptypeinfo.Param(
-            cpptypeinfo.Pointer(cpptypeinfo.Struct('ImGuiContext')), 'ctx',
-            'NULL')
-    ]),
+    Function(
+        cpptypeinfo.Void(),
+        [Param(Pointer(parser.parse('struct ImGuiContext')), 'ctx', 'NULL')]),
     'GetCurrentContext':
-    cpptypeinfo.Function(
-        cpptypeinfo.Pointer(cpptypeinfo.Struct('ImGuiContext')), []),
+    Function(Pointer(parser.parse('struct ImGuiContext')), []),
     'SetCurrentContext':
-    cpptypeinfo.Function(cpptypeinfo.Void(), [
-        cpptypeinfo.Param(
-            cpptypeinfo.Pointer(cpptypeinfo.Struct('ImGuiContext')), 'ctx')
-    ]),
+    Function(cpptypeinfo.Void(),
+             [Param(Pointer(parser.parse('struct ImGuiContext')), 'ctx')]),
     'DebugCheckVersionAndDataLayout':
-    cpptypeinfo.Function(cpptypeinfo.Bool(), [
-        cpptypeinfo.Param(cpptypeinfo.parse('const char*'), 'version_str'),
-        cpptypeinfo.Param(cpptypeinfo.UInt64(), 'sz_io'),
-        cpptypeinfo.Param(cpptypeinfo.UInt64(), 'sz_style'),
-        cpptypeinfo.Param(cpptypeinfo.UInt64(), 'sz_vec2'),
-        cpptypeinfo.Param(cpptypeinfo.UInt64(), 'sz_vec4'),
-        cpptypeinfo.Param(cpptypeinfo.UInt64(), 'sz_drawvert'),
-        cpptypeinfo.Param(cpptypeinfo.UInt64(), 'sz_drawidx'),
+    Function(cpptypeinfo.Bool(), [
+        Param(('const char*'), 'version_str'),
+        Param(cpptypeinfo.UInt64(), 'sz_io'),
+        Param(cpptypeinfo.UInt64(), 'sz_style'),
+        Param(cpptypeinfo.UInt64(), 'sz_vec2'),
+        Param(cpptypeinfo.UInt64(), 'sz_vec4'),
+        Param(cpptypeinfo.UInt64(), 'sz_drawvert'),
+        Param(cpptypeinfo.UInt64(), 'sz_drawidx'),
     ]),
     # ImGuiIO & GetIO ( )
     'GetIO':
-    cpptypeinfo.Function(cpptypeinfo.parse('ImGuiIO &'), []),
+    Function(parser.parse('ImGuiIO &'), []),
     # ImGuiStyle & GetStyle ( )
     'GetStyle':
-    cpptypeinfo.Function(cpptypeinfo.parse('ImGuiStyle &'), []),
+    Function(parser.parse('ImGuiStyle &'), []),
     # void NewFrame ( )
     'NewFrame':
-    cpptypeinfo.Function(cpptypeinfo.Void(), []),
+    Function(cpptypeinfo.Void(), []),
     'EndFrame':
-    cpptypeinfo.Function(cpptypeinfo.Void(), []),
+    Function(cpptypeinfo.Void(), []),
     'Render':
-    cpptypeinfo.Function(cpptypeinfo.Void(), []),
+    Function(cpptypeinfo.Void(), []),
     # ImDrawData * GetDrawData ( )
     'GetDrawData':
-    cpptypeinfo.Function(cpptypeinfo.parse('ImDrawData *'), []),
+    Function(parser.parse('ImDrawData *'), []),
     # void ShowDemoWindow ( bool * p_open = NULL )
     'ShowDemoWindow':
-    cpptypeinfo.Function(
-        cpptypeinfo.Void(),
-        [cpptypeinfo.Param(cpptypeinfo.parse('bool *'), 'p_open', 'NULL')]),
+    Function(cpptypeinfo.Void(),
+             [Param(parser.parse('bool *'), 'p_open', 'NULL')]),
     # void ShowAboutWindow ( bool * p_open = NULL )
     'ShowAboutWindow':
-    cpptypeinfo.Function(
-        cpptypeinfo.Void(),
-        [cpptypeinfo.Param(cpptypeinfo.parse('bool *'), 'p_open', 'NULL')]),
+    Function(cpptypeinfo.Void(),
+             [Param(parser.parse('bool *'), 'p_open', 'NULL')]),
     # void ShowMetricsWindow ( bool * p_open = NULL )
     'ShowMetricsWindow':
-    cpptypeinfo.Function(
-        cpptypeinfo.Void(),
-        [cpptypeinfo.Param(cpptypeinfo.parse('bool *'), 'p_open', 'NULL')]),
+    Function(cpptypeinfo.Void(),
+             [Param(parser.parse('bool *'), 'p_open', 'NULL')]),
     # void ShowStyleEditor ( ImGuiStyle * ref = NULL )
     'ShowStyleEditor':
-    cpptypeinfo.Function(
-        cpptypeinfo.Void(),
-        [cpptypeinfo.Param(cpptypeinfo.parse('ImGuiStyle *'), 'ref', 'NULL')]),
+    Function(cpptypeinfo.Void(),
+             [Param(parser.parse('ImGuiStyle *'), 'ref', 'NULL')]),
     # bool ShowStyleSelector ( const char * label )
     'ShowStyleSelector':
-    cpptypeinfo.Function(
-        cpptypeinfo.Bool(),
-        [cpptypeinfo.Param(cpptypeinfo.parse('const char*'), 'label')]),
+    Function(cpptypeinfo.Bool(),
+             [Param(parser.parse('const char*'), 'label')]),
     # void ShowFontSelector ( const char * label )
     'ShowFontSelector':
-    cpptypeinfo.Function(
-        cpptypeinfo.Void(),
-        [cpptypeinfo.Param(cpptypeinfo.parse('const char*'), 'label')]),
+    Function(cpptypeinfo.Void(),
+             [Param(parser.parse('const char*'), 'label')]),
     # void ShowUserGuide ( )
     'ShowUserGuide':
-    cpptypeinfo.Function(cpptypeinfo.Void(), []),
+    Function(cpptypeinfo.Void(), []),
     # const char * GetVersion ( )
     'GetVersion':
-    cpptypeinfo.Function(cpptypeinfo.parse('const char*'), []),
+    Function(parser.parse('const char*'), []),
     # void StyleColorsDark ( ImGuiStyle * dst = NULL )
     'StyleColorsDark':
-    cpptypeinfo.Function(
-        cpptypeinfo.Void(),
-        [cpptypeinfo.Param(cpptypeinfo.parse('ImGuiStyle *'), 'dst', 'NULL')]),
+    Function(cpptypeinfo.Void(),
+             [Param(parser.parse('ImGuiStyle *'), 'dst', 'NULL')]),
     # void StyleColorsClassic ( ImGuiStyle * dst = NULL )
     'StyleColorsClassic':
-    cpptypeinfo.Function(
-        cpptypeinfo.Void(),
-        [cpptypeinfo.Param(cpptypeinfo.parse('ImGuiStyle *'), 'dst', 'NULL')]),
+    Function(cpptypeinfo.Void(),
+             [Param(parser.parse('ImGuiStyle *'), 'dst', 'NULL')]),
     # void StyleColorsLight ( ImGuiStyle * dst = NULL )
     'StyleColorsLight':
-    cpptypeinfo.Function(
-        cpptypeinfo.Void(),
-        [cpptypeinfo.Param(cpptypeinfo.parse('ImGuiStyle *'), 'dst', 'NULL')]),
+    Function(cpptypeinfo.Void(),
+             [Param(parser.parse('ImGuiStyle *'), 'dst', 'NULL')]),
     # bool Begin ( const char * name , bool * p_open = NULL , ImGuiWindowFlags flags = 0 )
     'Begin':
-    cpptypeinfo.Function(cpptypeinfo.Bool(), [
-        cpptypeinfo.Param(cpptypeinfo.parse('const char *'), 'name'),
-        cpptypeinfo.Param(cpptypeinfo.parse('bool *'), 'p_open', 'NULL'),
-        cpptypeinfo.Param(cpptypeinfo.parse('ImGuiWindowFlags'), 'flags', '0')
+    Function(cpptypeinfo.Bool(), [
+        Param(parser.parse('const char *'), 'name'),
+        Param(parser.parse('bool *'), 'p_open', 'NULL'),
+        Param(parser.parse('ImGuiWindowFlags'), 'flags', '0')
     ]),
     'End':
-    cpptypeinfo.Function(cpptypeinfo.Void(), []),
+    Function(cpptypeinfo.Void(), []),
     # bool BeginChild ( const char * str_id , const ImVec2 & size = ImVec2 ( 0 , 0 ) , bool border = false , ImGuiWindowFlags flags = 0 )
     # bool BeginChild(ImGuiID id, const ImVec2& size = ImVec2(0,0), bool border = false, ImGuiWindowFlags flags = 0);
     # function overloading
     'BeginChild': [
-        cpptypeinfo.Function(cpptypeinfo.Bool(), [
-            cpptypeinfo.Param(cpptypeinfo.parse('const char *'), 'str_id'),
-            cpptypeinfo.Param(cpptypeinfo.Param('const ImVec2 &'), 'size',
-                              'ImVec2(0,0)'),
-            cpptypeinfo.Param(cpptypeinfo.Param('bool'), 'border', 'false'),
-            cpptypeinfo.Param(cpptypeinfo.parse('ImGuiWindowFlags'), 'flags',
-                              '0')
+        Function(cpptypeinfo.Bool(), [
+            Param(parser.parse('const char *'), 'str_id'),
+            Param(Param('const ImVec2 &'), 'size', 'ImVec2(0,0)'),
+            Param(Param('bool'), 'border', 'false'),
+            Param(parser.parse('ImGuiWindowFlags'), 'flags', '0')
         ])
     ],
     '__dummy__0':
     None,
     'EndChild':
-    cpptypeinfo.Function(cpptypeinfo.Void(), []),
+    Function(cpptypeinfo.Void(), []),
     # bool IsWindowAppearing ( )
     'IsWindowAppearing':
-    cpptypeinfo.Function(cpptypeinfo.Bool(), []),
+    Function(cpptypeinfo.Bool(), []),
     # bool IsWindowCollapsed ( )
     'IsWindowCollapsed':
-    cpptypeinfo.Function(cpptypeinfo.Bool(), []),
+    Function(cpptypeinfo.Bool(), []),
     # bool IsWindowFocused ( ImGuiFocusedFlags flags = 0 )
     'IsWindowFocused':
-    cpptypeinfo.Function(cpptypeinfo.Bool(), [
-        cpptypeinfo.Param(cpptypeinfo.parse('ImGuiFocusedFlags'), 'flags', '0')
-    ]),
+    Function(cpptypeinfo.Bool(),
+             [Param(parser.parse('ImGuiFocusedFlags'), 'flags', '0')]),
     # bool IsWindowHovered ( ImGuiHoveredFlags flags = 0 )
     'IsWindowHovered':
-    cpptypeinfo.Function(cpptypeinfo.Bool(), [
-        cpptypeinfo.Param(cpptypeinfo.parse('ImGuiHoveredFlags'), 'flags', '0')
-    ]),
+    Function(cpptypeinfo.Bool(),
+             [Param(parser.parse('ImGuiHoveredFlags'), 'flags', '0')]),
     # ImDrawList * GetWindowDrawList ( )
     'GetWindowDrawList':
-    cpptypeinfo.Function(cpptypeinfo.parse('ImDrawList*'), []),
+    Function(parser.parse('ImDrawList*'), []),
     # ImVec2 GetWindowPos ( )
     'GetWindowPos':
-    cpptypeinfo.Function(cpptypeinfo.parse('ImVec2'), []),
+    Function(parser.parse('ImVec2'), []),
     # ImVec2 GetWindowSize ( )
     'GetWindowSize':
-    cpptypeinfo.Function(cpptypeinfo.parse('ImVec2'), []),
+    Function(parser.parse('ImVec2'), []),
     # float GetWindowWidth ( )
     'GetWindowWidth':
-    cpptypeinfo.Function(cpptypeinfo.Float(), []),
+    Function(cpptypeinfo.Float(), []),
     'GetWindowHeight':
-    cpptypeinfo.Function(cpptypeinfo.Float(), []),
+    Function(cpptypeinfo.Float(), []),
     # void SetNextWindowPos ( const ImVec2 & pos , ImGuiCond cond = 0 , const ImVec2 & pivot = ImVec2 ( 0 , 0 ) )
     'SetNextWindowPos':
-    cpptypeinfo.Function(cpptypeinfo.Void(), [
-        cpptypeinfo.Param(cpptypeinfo.parse('const ImVec2&'), 'pos'),
-        cpptypeinfo.Param(cpptypeinfo.parse('ImGuiCond'), 'cond', '0'),
-        cpptypeinfo.Param(cpptypeinfo.parse('const ImVec2 &'), 'pivot',
-                          'ImVec2(0,0)'),
+    Function(cpptypeinfo.Void(), [
+        Param(parser.parse('const ImVec2&'), 'pos'),
+        Param(parser.parse('ImGuiCond'), 'cond', '0'),
+        Param(parser.parse('const ImVec2 &'), 'pivot', 'ImVec2(0,0)'),
     ]),
     # void SetNextWindowSize ( const ImVec2 & size , ImGuiCond cond = 0 )
     'SetNextWindowSize':
-    cpptypeinfo.Function(cpptypeinfo.Void(), [
-        cpptypeinfo.Param(cpptypeinfo.parse('const ImVec2 &'), 'size'),
-        cpptypeinfo.Param(cpptypeinfo.parse('ImGuiCond'), 'cond', '0')
+    Function(cpptypeinfo.Void(), [
+        Param(parser.parse('const ImVec2 &'), 'size'),
+        Param(parser.parse('ImGuiCond'), 'cond', '0')
     ]),
     # void SetNextWindowSizeConstraints ( const ImVec2 & size_min , const ImVec2 & size_max , ImGuiSizeCallback custom_callback = NULL , void * custom_callback_data = NULL )
     'SetNextWindowSizeConstraints':
-    cpptypeinfo.Function(cpptypeinfo.Void(), [
-        cpptypeinfo.Param(cpptypeinfo.parse('const ImVec2 &'), 'size_min'),
-        cpptypeinfo.Param(cpptypeinfo.parse('const ImVec2 &'), 'size_max'),
-        cpptypeinfo.Param(cpptypeinfo.parse('ImGuiSizeCallback'),
-                          'custom_callback', 'NULL'),
-        cpptypeinfo.Param(cpptypeinfo.parse('void *'), 'custom_callback_data',
-                          'NULL')
+    Function(cpptypeinfo.Void(), [
+        Param(parser.parse('const ImVec2 &'), 'size_min'),
+        Param(parser.parse('const ImVec2 &'), 'size_max'),
+        Param(parser.parse('ImGuiSizeCallback'), 'custom_callback', 'NULL'),
+        Param(parser.parse('void *'), 'custom_callback_data', 'NULL')
     ]),
     # void SetNextWindowContentSize ( const ImVec2 & size )
     'SetNextWindowContentSize':
-    cpptypeinfo.Function(cpptypeinfo.Void(), [
-        cpptypeinfo.Param(cpptypeinfo.parse('const ImVec2 &'), 'size'),
+    Function(cpptypeinfo.Void(), [
+        Param(parser.parse('const ImVec2 &'), 'size'),
     ]),
     # void SetNextWindowCollapsed ( bool collapsed , ImGuiCond cond = 0 )
     'SetNextWindowCollapsed':
-    cpptypeinfo.Function(cpptypeinfo.Void(), [
-        cpptypeinfo.Param(cpptypeinfo.Bool(), 'collapsed'),
-        cpptypeinfo.Param(cpptypeinfo.parse('ImGuiCond'), 'cond', '0'),
+    Function(cpptypeinfo.Void(), [
+        Param(cpptypeinfo.Bool(), 'collapsed'),
+        Param(parser.parse('ImGuiCond'), 'cond', '0'),
     ]),
     # void SetNextWindowFocus ( )
     'SetNextWindowFocus':
-    cpptypeinfo.Function(cpptypeinfo.Void(), []),
+    Function(cpptypeinfo.Void(), []),
     # void SetNextWindowBgAlpha ( float alpha )
     'SetNextWindowBgAlpha':
-    cpptypeinfo.Function(cpptypeinfo.Void(),
-                         [cpptypeinfo.Param(cpptypeinfo.Float(), 'alpha')]),
+    Function(cpptypeinfo.Void(), [Param(cpptypeinfo.Float(), 'alpha')]),
     # void SetWindowPos ( const ImVec2 & pos , ImGuiCond cond = 0 )
     # void SetWindowPos(const char* name, const ImVec2& pos, ImGuiCond cond = 0);
     # function overloading
     'SetWindowPos': [
-        cpptypeinfo.Function(cpptypeinfo.Void(), [
-            cpptypeinfo.Param(cpptypeinfo.parse('const ImVec2 &'), 'pos'),
-            cpptypeinfo.Param(cpptypeinfo.parse('ImGuiCond'), 'cond', '0'),
+        Function(cpptypeinfo.Void(), [
+            Param(parser.parse('const ImVec2 &'), 'pos'),
+            Param(parser.parse('ImGuiCond'), 'cond', '0'),
         ])
     ],
     '__dummy__1':
@@ -365,9 +337,9 @@ EXPECTS = {
     # void          SetWindowSize(const char* name, const ImVec2& size, ImGuiCond cond = 0);
     # function overloading
     'SetWindowSize': [
-        cpptypeinfo.Function(cpptypeinfo.Void(), [
-            cpptypeinfo.Param(cpptypeinfo.parse('const ImVec2 &'), 'size'),
-            cpptypeinfo.Param(cpptypeinfo.parse('ImGuiCond'), 'cond', '0'),
+        Function(cpptypeinfo.Void(), [
+            Param(parser.parse('const ImVec2 &'), 'size'),
+            Param(parser.parse('ImGuiCond'), 'cond', '0'),
         ])
     ],
     '__dummy__2':
@@ -375,119 +347,109 @@ EXPECTS = {
     # void SetWindowCollapsed ( bool collapsed , ImGuiCond cond = 0 )
     #  IMGUI_API void          SetWindowCollapsed(const char* name, bool collapsed, ImGuiCond cond = 0);   // set named window collapsed state
     'SetWindowCollapsed': [
-        cpptypeinfo.Function(cpptypeinfo.Void(), [
-            cpptypeinfo.Param(cpptypeinfo.Bool(), 'collapsed'),
-            cpptypeinfo.Param(cpptypeinfo.parse('ImGuiCond'), 'cond', '0'),
+        Function(cpptypeinfo.Void(), [
+            Param(cpptypeinfo.Bool(), 'collapsed'),
+            Param(parser.parse('ImGuiCond'), 'cond', '0'),
         ])
     ],
     '__dummy__3':
     None,
     # void SetWindowFocus ( )
     # IMGUI_API void          SetWindowFocus(const char* name);
-    'SetWindowFocus': [cpptypeinfo.Function(cpptypeinfo.Void(), [])],
+    'SetWindowFocus': [Function(cpptypeinfo.Void(), [])],
     '__dummy__4':
     None,
     # void SetWindowFontScale ( float scale )
     'SetWindowFontScale':
-    cpptypeinfo.Function(cpptypeinfo.Void(),
-                         [cpptypeinfo.Param(cpptypeinfo.Float(), 'scale')]),
+    Function(cpptypeinfo.Void(), [Param(cpptypeinfo.Float(), 'scale')]),
     # ImVec2 GetContentRegionMax ( )
     'GetContentRegionMax':
-    cpptypeinfo.Function(cpptypeinfo.parse('ImVec2'), []),
+    Function(parser.parse('ImVec2'), []),
     # ImVec2 GetContentRegionAvail ( )
     'GetContentRegionAvail':
-    cpptypeinfo.Function(cpptypeinfo.parse('ImVec2'), []),
+    Function(parser.parse('ImVec2'), []),
     # ImVec2 GetWindowContentRegionMin ( )
     'GetWindowContentRegionMin':
-    cpptypeinfo.Function(cpptypeinfo.parse('ImVec2'), []),
+    Function(parser.parse('ImVec2'), []),
     # ImVec2 GetWindowContentRegionMax ( )
     'GetWindowContentRegionMax':
-    cpptypeinfo.Function(cpptypeinfo.parse('ImVec2'), []),
+    Function(parser.parse('ImVec2'), []),
     # float GetWindowContentRegionWidth ( )
     'GetWindowContentRegionWidth':
-    cpptypeinfo.Function(cpptypeinfo.Float(), []),
+    Function(cpptypeinfo.Float(), []),
     # float GetScrollX ( )
     'GetScrollX':
-    cpptypeinfo.Function(cpptypeinfo.Float(), []),
+    Function(cpptypeinfo.Float(), []),
     'GetScrollY':
-    cpptypeinfo.Function(cpptypeinfo.Float(), []),
+    Function(cpptypeinfo.Float(), []),
     'GetScrollMaxX':
-    cpptypeinfo.Function(cpptypeinfo.Float(), []),
+    Function(cpptypeinfo.Float(), []),
     'GetScrollMaxY':
-    cpptypeinfo.Function(cpptypeinfo.Float(), []),
+    Function(cpptypeinfo.Float(), []),
     # void SetScrollX ( float scroll_x )
     'SetScrollX':
-    cpptypeinfo.Function(cpptypeinfo.Void(),
-                         [cpptypeinfo.Param(cpptypeinfo.Float(), 'scroll_x')]),
+    Function(cpptypeinfo.Void(), [Param(cpptypeinfo.Float(), 'scroll_x')]),
     'SetScrollY':
-    cpptypeinfo.Function(cpptypeinfo.Void(),
-                         [cpptypeinfo.Param(cpptypeinfo.Float(), 'scroll_y')]),
+    Function(cpptypeinfo.Void(), [Param(cpptypeinfo.Float(), 'scroll_y')]),
     # void SetScrollHereX ( float center_x_ratio = 0.5f )
     'SetScrollHereX':
-    cpptypeinfo.Function(
-        cpptypeinfo.Void(),
-        [cpptypeinfo.Param(cpptypeinfo.Float(), 'center_x_ratio', '0.5f')]),
+    Function(cpptypeinfo.Void(),
+             [Param(cpptypeinfo.Float(), 'center_x_ratio', '0.5f')]),
     'SetScrollHereY':
-    cpptypeinfo.Function(
-        cpptypeinfo.Void(),
-        [cpptypeinfo.Param(cpptypeinfo.Float(), 'center_y_ratio', '0.5f')]),
+    Function(cpptypeinfo.Void(),
+             [Param(cpptypeinfo.Float(), 'center_y_ratio', '0.5f')]),
     # void SetScrollFromPosX ( float local_x , float center_x_ratio = 0.5f )
     'SetScrollFromPosX':
-    cpptypeinfo.Function(cpptypeinfo.Void(), [
-        cpptypeinfo.Param(cpptypeinfo.Float(), 'local_x'),
-        cpptypeinfo.Param(cpptypeinfo.Float(), 'center_x_ratio', '0.5f')
+    Function(cpptypeinfo.Void(), [
+        Param(cpptypeinfo.Float(), 'local_x'),
+        Param(cpptypeinfo.Float(), 'center_x_ratio', '0.5f')
     ]),
     'SetScrollFromPosY':
-    cpptypeinfo.Function(cpptypeinfo.Void(), [
-        cpptypeinfo.Param(cpptypeinfo.Float(), 'local_y'),
-        cpptypeinfo.Param(cpptypeinfo.Float(), 'center_y_ratio', '0.5f')
+    Function(cpptypeinfo.Void(), [
+        Param(cpptypeinfo.Float(), 'local_y'),
+        Param(cpptypeinfo.Float(), 'center_y_ratio', '0.5f')
     ]),
     # void PushFont ( ImFont * font )
     'PushFont':
-    cpptypeinfo.Function(
-        cpptypeinfo.Void(),
-        [cpptypeinfo.Param(cpptypeinfo.parse('ImFont*'), 'font')]),
+    Function(cpptypeinfo.Void(), [Param(parser.parse('ImFont*'), 'font')]),
     # void PopFont ( )
     'PopFont':
-    cpptypeinfo.Function(cpptypeinfo.Void(), []),
+    Function(cpptypeinfo.Void(), []),
     # void PushStyleColor ( ImGuiCol idx , ImU32 col )
     # void PushStyleColor ( ImGuiCol idx , ImU32 col )
     'PushStyleColor': [
-        cpptypeinfo.Function(cpptypeinfo.Void(), [
-            cpptypeinfo.Param(cpptypeinfo.parse('ImGuiCol'), 'idx'),
-            cpptypeinfo.Param(cpptypeinfo.parse('ImU32'), 'col')
+        Function(cpptypeinfo.Void(), [
+            Param(parser.parse('ImGuiCol'), 'idx'),
+            Param(parser.parse('ImU32'), 'col')
         ])
     ],
     '__dummy__5':
     None,
     # void PopStyleColor ( int count = 1 )
     'PopStyleColor':
-    cpptypeinfo.Function(
-        cpptypeinfo.Void(),
-        [cpptypeinfo.Param(cpptypeinfo.Int32(), 'count', '1')]),
+    Function(cpptypeinfo.Void(), [Param(cpptypeinfo.Int32(), 'count', '1')]),
     # void PushStyleVar ( ImGuiStyleVar idx , float val )
     # void PushStyleVar(ImGuiStyleVar idx, const ImVec2& val);
     'PushStyleVar': [
-        cpptypeinfo.Function(cpptypeinfo.Void(), [
-            cpptypeinfo.Param(cpptypeinfo.parse('ImGuiCol'), 'idx'),
-            cpptypeinfo.Param(cpptypeinfo.Float(), 'val')
+        Function(cpptypeinfo.Void(), [
+            Param(parser.parse('ImGuiCol'), 'idx'),
+            Param(cpptypeinfo.Float(), 'val')
         ])
     ],
     '__dummy__6':
     None,
     # :void PopStyleVar ( int count = 1 )
     'PopStyleVar':
-    cpptypeinfo.Function(cpptypeinfo.Void(), [
-        cpptypeinfo.Param(cpptypeinfo.Int32(), 'count', '1'),
+    Function(cpptypeinfo.Void(), [
+        Param(cpptypeinfo.Int32(), 'count', '1'),
     ]),
     # const ImVec4 & GetStyleColorVec4 ( ImGuiCol idx )
     'GetStyleColorVec4':
-    cpptypeinfo.Function(
-        cpptypeinfo.parse('const ImVec4 &'),
-        [cpptypeinfo.Param(cpptypeinfo.parse('ImGuiCol'), 'idx')]),
+    Function(parser.parse('const ImVec4 &'),
+             [Param(parser.parse('ImGuiCol'), 'idx')]),
     # ImFont * GetFont ( )
     'GetFont':
-    cpptypeinfo.Function(cpptypeinfo.parse('ImFont*'), []),
+    Function(parser.parse('ImFont*'), []),
     'GetFontSize': [],
     'GetFontTexUvWhitePixel': [],
     # 3 overloading
@@ -786,13 +748,13 @@ EXPECTS = {
     'ImGuiTabItemFlags_': [],
     # allocator
     'ImNewDummy':
-    cpptypeinfo.Struct('ImNewDummy'),
+    parser.parse('struct ImNewDummy'),
     'operator new': [],
     'operator delete': [],
     'IM_DELETE': [],
     #
     'ImVector':
-    cpptypeinfo.parse('struct ImVector'),
+    parser.parse('struct ImVector'),
     #
     'TreeAdvanceToLabelPos': [],
     'SetNextTreeNodeOpen': [],
@@ -816,26 +778,24 @@ EXPECTS = {
     'ImGuiTextEditCallbackData': [],
     'ImDrawCallback': [],
     'ImDrawIdx':
-    cpptypeinfo.Typedef('ImDrawIdx', cpptypeinfo.UInt16()),
+    parser.typedef('ImDrawIdx', cpptypeinfo.UInt16()),
     'ImDrawCornerFlags_': [],
     'ImDrawListFlags_': [],
     'ImFontAtlasCustomRect': [],
     'ImFontAtlasFlags_': [],
 }
-cpptypeinfo.pop_namespace()
 
 
 class ImGuiTest(unittest.TestCase):
     def test_imgui_h(self) -> None:
-        cpptypeinfo.push_namespace(root)
-        cpptypeinfo.parse_headers(IMGUI_H,
-                                 cpp_flags=[
-                                     '-DIMGUI_DISABLE_OBSOLETE_FUNCTIONS',
-                                 ])
-        cpptypeinfo.pop_namespace()
+        cpptypeinfo.parse_headers(parser,
+                                  IMGUI_H,
+                                  cpp_flags=[
+                                      '-DIMGUI_DISABLE_OBSOLETE_FUNCTIONS',
+                                  ])
 
-        for ns in root.traverse():
-            if isinstance(ns, cpptypeinfo.Struct):
+        for ns in parser.root_namespace.traverse():
+            if ns.struct:
                 continue
 
             for k, v in ns.user_type_map.items():

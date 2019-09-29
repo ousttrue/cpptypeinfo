@@ -1,5 +1,5 @@
 import copy
-from typing import Optional, Dict, List, Union, NamedTuple
+from typing import (Optional, Dict, List, Union, NamedTuple, Iterable)
 from .basictype import Type, TypeRef
 
 
@@ -26,7 +26,7 @@ class Namespace:
     '''
     UserType を管理する
     '''
-    def __init__(self, name: str = None):
+    def __init__(self, name: str = None, struct: Optional['Struct'] = None):
         if name is None:
             name = ''
         self.name = name
@@ -34,6 +34,7 @@ class Namespace:
         self.children: List[Namespace] = []
         self.parent: Optional[Namespace] = None
         self.functions: List[Function] = []
+        self.struct: Optional[Struct] = struct
 
     def __str__(self) -> str:
         ancestors = [ns.name for ns in self.ancestors()]
@@ -54,7 +55,7 @@ class Namespace:
             return None
         return usertype
 
-    def ancestors(self):
+    def ancestors(self) -> Iterable['Namespace']:
         yield self
         if self.parent:
             for x in self.parent.ancestors():
@@ -186,7 +187,7 @@ class Struct(UserType):
         super().__init__()
         self.type_name = type_name
         self.parent: Optional[Namespace] = None
-        self.namespace = Namespace(self.type_name)
+        self.namespace = Namespace(self.type_name, self)
 
         self.fields: List[Field] = []
         if fields:
@@ -206,12 +207,14 @@ class Struct(UserType):
 
     def add_template_parameter(self, t: str) -> None:
         self.template_parameters.append(t)
-        self.user_type_map[t] = self.parse(f'struct {t}').ref
+        self.namespace.user_type_map[t] = Struct(t)
 
     def instantiate(self, *template_params: List[Type]) -> 'Struct':
         decl = self.clone()
 
-        based_params = [self.get(t) for t in self.template_parameters]
+        based_params = [
+            self.namespace.get(t) for t in self.template_parameters
+        ]
 
         for based, replace in zip(based_params, template_params):
             for i in range(len(self.fields)):
@@ -307,7 +310,7 @@ class Function(UserType):
         if (len(self.params) != len(value.params)):
             return False
         for l, r in zip(self.params, value.params):
-            if (l != r):
+            if l != r:  # noqa
                 return False
         return True
 
