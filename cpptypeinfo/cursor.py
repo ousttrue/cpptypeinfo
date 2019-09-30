@@ -18,17 +18,23 @@ def debug_print(c, files: List[pathlib.Path], level=''):
             tokens = [x.spelling for x in c.get_tokens()]
             if tokens and tokens[0] == 'extern':
                 display = 'extern "C"'
-    extra = ''
-    if c.kind == cindex.CursorKind.FUNCTION_DECL:
-        # https://clang.llvm.org/doxygen/Index_8h_source.html
-        calling_convention = cindex.conf.lib.clang_getFunctionTypeCallingConv(
-            c.type)
-        extra = {1: '', 2: '(stdcall)', 100: '# invalid #'}[calling_convention]
-    text = f'{level}{c.kind}=>{extra}{c.spelling}: {c.type.kind}=>{display}'
 
-    print(text)
-    for child in c.get_children():
-        debug_print(child, files, level + '  ')
+    if c.kind == cindex.CursorKind.TYPEDEF_DECL:
+        text = f'{level}({c.hash}){c.kind}=>{c.spelling}: {c.underlying_typedef_type.kind}=>{next(c.get_children()).hash}'
+        print(text)
+
+    else:
+        extra = ''
+        if c.kind == cindex.CursorKind.FUNCTION_DECL:
+            # https://clang.llvm.org/doxygen/Index_8h_source.html
+            calling_convention = cindex.conf.lib.clang_getFunctionTypeCallingConv(
+                c.type)
+            extra = {1: '', 2: '(stdcall)', 100: '# invalid #'}[calling_convention]
+        text = f'{level}({c.hash}){c.kind}=>{extra}{c.spelling}: {c.type.kind}=>{display}'
+
+        print(text)
+        for child in c.get_children():
+            debug_print(child, files, level + '  ')
 
 
 def parse_param(parser: TypeParser, c: cindex.Cursor) -> Param:

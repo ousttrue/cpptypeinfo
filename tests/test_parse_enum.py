@@ -13,7 +13,6 @@ class EnumTests(unittest.TestCase):
         parser = cpptypeinfo.TypeParser()
         cpptypeinfo.parse_source(parser,
                                  SOURCE,
-                                 cpp_flags=[],
                                  debug=True)
 
 

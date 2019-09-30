@@ -305,6 +305,7 @@ class Function(UserType):
             params: List[Param],
     ):
         super().__init__()
+        self.extern_c = False
         self.parent: Optional[Namespace] = None
         self.name = ''
         self.mangled_name = ''
