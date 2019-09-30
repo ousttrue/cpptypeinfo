@@ -23,7 +23,6 @@ class FunctionTests(unittest.TestCase):
         parser = cpptypeinfo.TypeParser()
         cpptypeinfo.parse_source(parser,
                                  SOURCE,
-                                 cpp_flags=['-target', 'x86_64-windows-msvc'],
                                  debug=True)
 
 

@@ -3,8 +3,6 @@ import os
 import pathlib
 import cpptypeinfo
 
-CPP_FLAGS = ['-target', 'x86_64-windows-msvc']
-
 
 def get_windowskits() -> pathlib.Path:
     # C:\Program Files (x86)\Windows Kits\10\Include
@@ -18,7 +16,6 @@ def debug(args):
     parser = cpptypeinfo.TypeParser()
     cpptypeinfo.parse_files(parser,
                             pathlib.Path(args.header),
-                            cpp_flags=CPP_FLAGS,
                             debug=True)
 
 
@@ -48,7 +45,7 @@ def gen(args):
         headers.append(dir / 'um/dxgiformat.h')
         headers.append(dir / 'um/dxgitype.h')
 
-    cpptypeinfo.parse_files(parser, *headers, cpp_flags=CPP_FLAGS)
+    cpptypeinfo.parse_files(parser, *headers)
 
     if args.lang == 'dlang':
         cpptypeinfo.languages.dlang.generate(parser, args.dst)
