@@ -43,4 +43,4 @@ from .typeparser import TypeParser
 from .get_tu import *
 from .cursor import parse_files, parse_source
 
-VERSION = '0.2.0'
+VERSION = '0.3.0'

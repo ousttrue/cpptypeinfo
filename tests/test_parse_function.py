@@ -6,7 +6,6 @@ namespace A
 {
     // -target=i686-pc-win32 only. ignored 64bit
     int __stdcall stdcall_func(const char *src);
-    void __stdcall StdcallFunc(){}
 
     extern "C" void* Hello(const char *src);
     __declspec(dllexport) void* Export(const char *src);

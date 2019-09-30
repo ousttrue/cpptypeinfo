@@ -25,16 +25,36 @@ def debug_print(c, files: List[pathlib.Path], level=''):
 
     else:
         extra = ''
-        if c.kind == cindex.CursorKind.FUNCTION_DECL:
-            # https://clang.llvm.org/doxygen/Index_8h_source.html
-            calling_convention = cindex.conf.lib.clang_getFunctionTypeCallingConv(
-                c.type)
-            extra = {1: '', 2: '(stdcall)', 100: '# invalid #'}[calling_convention]
-        text = f'{level}({c.hash}){c.kind}=>{extra}{c.spelling}: {c.type.kind}=>{display}'
+        go_children = True
 
+        if c.type.kind == cindex.TypeKind.POINTER:
+            p = c.type.get_pointee()
+            a = 0
+
+        if c.hash != c.canonical.hash:
+            extra = f'[{c.canonical.hash}]'
+
+        if c.kind == cindex.CursorKind.ENUM_DECL:
+            go_children = False
+        if c.kind == cindex.CursorKind.TYPE_REF:
+            extra = f'({c.referenced.hash})'
+        else:
+            if c.kind == cindex.CursorKind.FUNCTION_DECL:
+                # https://clang.llvm.org/doxygen/Index_8h_source.html
+                calling_convention = cindex.conf.lib.clang_getFunctionTypeCallingConv(
+                    c.type)
+                calling_convention = {
+                    1: '',
+                    2: '(stdcall)',  # 64bit ignored
+                    100: '# invalid #'
+                }[calling_convention]
+                extra = f'({c.result_type.kind}){calling_convention}'
+        text = f'{level}({c.hash}){c.kind}=>{extra}{c.spelling}: {c.type.kind}=>{display}'
         print(text)
-        for child in c.get_children():
-            debug_print(child, files, level + '  ')
+
+        if go_children:
+            for child in c.get_children():
+                debug_print(child, files, level + '  ')
 
 
 def parse_param(parser: TypeParser, c: cindex.Cursor) -> Param:
