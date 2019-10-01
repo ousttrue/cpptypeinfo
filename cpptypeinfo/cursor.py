@@ -17,6 +17,7 @@ def debug_print(c, files: List[pathlib.Path], level=''):
         if c.kind == cindex.CursorKind.UNEXPOSED_DECL:
             tokens = [x.spelling for x in c.get_tokens()]
             if tokens and tokens[0] == 'extern':
+                # https://stackoverflow.com/questions/11865486/clang-ast-extern-linkagespec-issue/12526555#12526555
                 display = 'extern "C"'
 
     if c.kind == cindex.CursorKind.TYPEDEF_DECL:
