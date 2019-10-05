@@ -13,7 +13,7 @@ def parse_param(parser: cpptypeinfo.TypeParser, c: cindex.Cursor) -> Param:
     #         default_value = ''.join(tokens[i + 1:])
     #         break
 
-    parsed = cindex_type_to_cpptypeinfo(c.type)
+    parsed = cindex_type_to_cpptypeinfo(c.type, c)
     # ToDo:
     default_value = ''
     return Param(parsed, c.spelling, default_value)
@@ -21,7 +21,7 @@ def parse_param(parser: cpptypeinfo.TypeParser, c: cindex.Cursor) -> Param:
 
 def parse_function(parser: cpptypeinfo.TypeParser, c: cindex.Cursor,
                    extern_c: bool) -> Function:
-    result = cindex_type_to_cpptypeinfo(c.result_type)
+    result = cindex_type_to_cpptypeinfo(c.result_type, c)
 
     params = []
     for child in c.get_children():
@@ -38,9 +38,10 @@ def parse_function(parser: cpptypeinfo.TypeParser, c: cindex.Cursor,
         # elif child.kind == cindex.CursorKind.UNEXPOSED_EXPR:
         #     pass
 
-        # elif child.kind == cindex.CursorKind.COMPOUND_STMT:
-        #     # function body
-        #     pass
+        elif child.kind == cindex.CursorKind.COMPOUND_STMT:
+            # function body
+            pass
+
         # elif child.kind == cindex.CursorKind.DLLEXPORT_ATTR:
         #     # __declspec(dllexport)
         #     pass

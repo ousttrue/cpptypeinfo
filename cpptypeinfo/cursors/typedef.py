@@ -8,7 +8,7 @@ from .type_kind import cindex_type_to_cpptypeinfo
 
 def parse_typedef(parser: cpptypeinfo.TypeParser,
                   c: cindex.Cursor) -> Optional[Typedef]:
-    t = cindex_type_to_cpptypeinfo(c.underlying_typedef_type)
+    t = cindex_type_to_cpptypeinfo(c.underlying_typedef_type, c)
     if not t:
         tokens = [t.spelling for t in c.get_tokens()]
         raise Exception(
