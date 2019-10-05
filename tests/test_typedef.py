@@ -17,13 +17,14 @@ class TypedefTest(unittest.TestCase):
             raise Exception()
         self.assertEqual(typedef.typeref.ref, cpptypeinfo.Int8())
 
-    # def test_int8_ptr(self) -> None:
-    #     parser = cpptypeinfo.TypeParser()
-    #     cpptypeinfo.parse_source(parser, 'typedef char* T;', debug=True)
-    #     typedef = parser.root_namespace.user_type_map['T']
-    #     if not isinstance(typedef, cpptypeinfo.usertype.Typedef):
-    #         raise Exception()
-    #     self.assertEqual(typedef.typeref.ref, cpptypeinfo.Int8())
+    def test_int8_ptr(self) -> None:
+        parser = cpptypeinfo.TypeParser()
+        cpptypeinfo.parse_source(parser, 'typedef char* T;', debug=True)
+        typedef = parser.root_namespace.user_type_map['T']
+        if not isinstance(typedef, cpptypeinfo.usertype.Typedef):
+            raise Exception()
+        self.assertEqual(typedef.typeref.ref,
+                         cpptypeinfo.usertype.Pointer(cpptypeinfo.Int8()))
 
     def test_int16(self) -> None:
         parser = cpptypeinfo.TypeParser()
@@ -51,7 +52,9 @@ class TypedefTest(unittest.TestCase):
 
     def test_uint64(self) -> None:
         parser = cpptypeinfo.TypeParser()
-        cpptypeinfo.parse_source(parser, 'typedef unsigned __int64 T;', debug=True)
+        cpptypeinfo.parse_source(parser,
+                                 'typedef unsigned __int64 T;',
+                                 debug=True)
         typedef = parser.root_namespace.user_type_map['T']
         if not isinstance(typedef, cpptypeinfo.usertype.Typedef):
             raise Exception()
