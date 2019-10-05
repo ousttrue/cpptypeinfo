@@ -1,5 +1,6 @@
 import unittest
 import cpptypeinfo
+
 SOURCE = '''
 struct B;
 struct B;
@@ -29,9 +30,7 @@ void func ()
 class StructTests(unittest.TestCase):
     def test_struct(self) -> None:
         parser = cpptypeinfo.TypeParser()
-        cpptypeinfo.parse_source(parser,
-                                 SOURCE,
-                                 debug=True)
+        cpptypeinfo.parse_source(parser, SOURCE, debug=True)
 
 
 if __name__ == '__main__':

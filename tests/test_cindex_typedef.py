@@ -3,7 +3,7 @@ import cpptypeinfo
 import cpptypeinfo.usertype
 
 
-class TypedefTest(unittest.TestCase):
+class CIndexTypedefTest(unittest.TestCase):
     def test_resolve_function(self) -> None:
         parser = cpptypeinfo.TypeParser()
         typedef = parser.typedef('uint8_t', 'unsigned char')
