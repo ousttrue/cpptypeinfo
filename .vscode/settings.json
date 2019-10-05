@@ -9,6 +9,7 @@
         "STRUCTS",
         "Struct",
         "UCHAR",
+        "ULONG",
         "USHORT",
         "Wchar",
         "cimgui",

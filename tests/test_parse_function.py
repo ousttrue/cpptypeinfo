@@ -1,5 +1,6 @@
 import unittest
 import cpptypeinfo
+from cpptypeinfo.usertype import TypeRef
 
 SOURCE = '''
 namespace A
@@ -19,9 +20,16 @@ namespace A
 
 
 class FunctionTests(unittest.TestCase):
-    def test_function(self) -> None:
+    # def test_function(self) -> None:
+    #     parser = cpptypeinfo.TypeParser()
+    #     cpptypeinfo.parse_source(parser, SOURCE, debug=True)
+
+    def test_void_void(self) -> None:
         parser = cpptypeinfo.TypeParser()
-        cpptypeinfo.parse_source(parser, SOURCE, debug=True)
+        cpptypeinfo.parse_source(parser, 'void func();', debug=True)
+        func = parser.root_namespace.functions[0]
+        self.assertEqual(TypeRef(cpptypeinfo.Void(), False), func.result)
+        self.assertEqual(0, len(func.params))
 
 
 if __name__ == '__main__':

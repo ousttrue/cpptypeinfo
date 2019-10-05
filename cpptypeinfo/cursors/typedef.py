@@ -1,40 +1,14 @@
 from typing import Optional
 import pathlib
-import cpptypeinfo
-from cpptypeinfo.usertype import Typedef, Pointer
 from clang import cindex
-
-
-def get_type_from_kind(t: cindex.Type):
-    if t.kind == cindex.TypeKind.POINTER:
-        p = get_type_from_kind(t.get_pointee())
-        return Pointer(p)
-    elif t.kind == cindex.TypeKind.CHAR_S:  # char
-        return cpptypeinfo.Int8()
-    elif t.kind == cindex.TypeKind.SCHAR:  # signed char
-        return cpptypeinfo.Int8()
-    elif t.kind == cindex.TypeKind.SHORT:  # short
-        return cpptypeinfo.Int16()
-    elif t.kind == cindex.TypeKind.INT:  # int
-        return cpptypeinfo.Int32()
-    elif t.kind == cindex.TypeKind.LONGLONG:  # long long
-        return cpptypeinfo.Int64()
-    # unsigned
-    elif t.kind == cindex.TypeKind.UCHAR:  # unsigned char
-        return cpptypeinfo.UInt8()
-    elif t.kind == cindex.TypeKind.USHORT:  # unsigned short
-        return cpptypeinfo.UInt16()
-    elif t.kind == cindex.TypeKind.UINT:  # unsigned int
-        return cpptypeinfo.UInt32()
-    elif t.kind == cindex.TypeKind.ULONGLONG:  # unsigned __int64
-        return cpptypeinfo.UInt64()
-
-    return None
+import cpptypeinfo
+from cpptypeinfo.usertype import Typedef
+from .type_kind import cindex_type_to_cpptypeinfo
 
 
 def parse_typedef(parser: cpptypeinfo.TypeParser,
                   c: cindex.Cursor) -> Optional[Typedef]:
-    t = get_type_from_kind(c.underlying_typedef_type)
+    t = cindex_type_to_cpptypeinfo(c.underlying_typedef_type)
     if not t:
         tokens = [t.spelling for t in c.get_tokens()]
         raise Exception(
