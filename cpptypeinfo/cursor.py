@@ -80,7 +80,8 @@ def parse_enum(parser: TypeParser, c: cindex.Cursor) -> Enum:
     return decl
 
 
-def parse_cursor(parser: TypeParser,
+def parse_cursor(decl_map: cursors.DeclMap,
+                 parser: TypeParser,
                  c: cindex.Cursor,
                  files: List[pathlib.Path],
                  used: Set[int],
@@ -105,7 +106,8 @@ def parse_cursor(parser: TypeParser,
         # if 'dllexport' in tokens:
         #     a = 0
         for child in c.get_children():
-            parse_cursor(parser,
+            parse_cursor(decl_map,
+                         parser,
                          child,
                          files=files,
                          used=used,
@@ -115,19 +117,16 @@ def parse_cursor(parser: TypeParser,
     #     parse_struct(parser, c)
 
     elif c.kind == cindex.CursorKind.STRUCT_DECL:
-        cursors.parse_struct(parser, c)
+        cursors.parse_struct(decl_map, parser, c)
 
     # elif c.kind == cindex.CursorKind.CLASS_DECL:
     #     parse_struct(parser, c)
 
     elif c.kind == cindex.CursorKind.TYPEDEF_DECL:
-        if c.underlying_typedef_type.kind == cindex.TypeKind.ELABORATED:
-            raise NotImplementedError(str(c.kind))
-        else:
-            cursors.parse_typedef(parser, c)
+        cursors.parse_typedef(decl_map, parser, c)
 
     elif c.kind == cindex.CursorKind.FUNCTION_DECL:
-        cursors.parse_function(parser, c, extern_c)
+        cursors.parse_function(decl_map, parser, c, extern_c)
 
     # elif c.kind == cindex.CursorKind.ENUM_DECL:
     #     parse_enum(parser, c)
@@ -149,7 +148,8 @@ def parse_cursor(parser: TypeParser,
         raise NotImplementedError(str(c.kind))
 
 
-def parse_namespace(parser: TypeParser,
+def parse_namespace(decl_map: cursors.DeclMap,
+                    parser: TypeParser,
                     c: cindex.Cursor,
                     files: List[pathlib.Path],
                     used=None):
@@ -160,17 +160,18 @@ def parse_namespace(parser: TypeParser,
         if child.kind == cindex.CursorKind.NAMESPACE:
             # nested
             parser.push_namespace(child.spelling)
-            parse_namespace(parser, child, files)
+            parse_namespace(decl_map, parser, child, files)
             parser.pop_namespace()
         else:
 
-            parse_cursor(parser, child, files, used)
+            parse_cursor(decl_map, parser, child, files, used)
 
 
 def parse_files(parser: TypeParser,
                 *paths: pathlib.Path,
                 cpp_flags=None,
-                debug=False):
+                debug=False) -> cursors.DeclMap:
+    decl_map = cursors.DeclMap()
     if cpp_flags is None:
         cpp_flags = []
     cpp_flags += [f'-I{x.parent}' for x in paths]
@@ -182,14 +183,20 @@ def parse_files(parser: TypeParser,
         if debug:
             debug_print(tu.cursor, include_path_list)
         else:
-            parse_namespace(parser, tu.cursor, include_path_list)
+            parse_namespace(decl_map, parser, tu.cursor, include_path_list)
+    return decl_map
 
 
-def parse_source(parser: TypeParser, source: str, cpp_flags=None, debug=False):
+def parse_source(parser: TypeParser, source: str, cpp_flags=None,
+                 debug=False) -> cursors.DeclMap:
+    decl_map = cursors.DeclMap()
+
     if cpp_flags is None:
         cpp_flags = []
     with tmp_from_source(source) as path:
         tu = get_tu(path, cpp_flags=cpp_flags)
         if debug:
             debug_print(tu.cursor, [])
-        parse_namespace(parser, tu.cursor, [])
+        parse_namespace(decl_map, parser, tu.cursor, [])
+
+    return decl_map

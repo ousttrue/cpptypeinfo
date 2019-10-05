@@ -60,7 +60,19 @@ class CIndexTypedefTest(unittest.TestCase):
             raise Exception()
         self.assertEqual(typedef.typeref.ref, cpptypeinfo.UInt64())
 
-    # ToDo: struct tag typedef
+    def test_struct(self) -> None:
+        parser = cpptypeinfo.TypeParser()
+        cpptypeinfo.parse_source(parser,
+                                 '''
+typedef struct Tag {
+} T;
+''',
+                                 debug=True)
+        typedef = parser.root_namespace.user_type_map['T']
+        if not isinstance(typedef, cpptypeinfo.usertype.Typedef):
+            raise Exception()
+        self.assertEqual(typedef.typeref.ref,
+                         cpptypeinfo.usertype.Struct('Tag'))
 
 
 if __name__ == '__main__':

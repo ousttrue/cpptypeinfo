@@ -3,9 +3,10 @@ import pathlib
 from clang import cindex
 import cpptypeinfo
 from cpptypeinfo.usertype import Struct
+from .decl_map import DeclMap
 
 
-def parse_struct(parser: cpptypeinfo.TypeParser,
+def parse_struct(decl_map: DeclMap, parser: cpptypeinfo.TypeParser,
                  c: cindex.Cursor) -> Optional[Struct]:
     name = c.spelling
     if not name:
@@ -63,4 +64,5 @@ def parse_struct(parser: cpptypeinfo.TypeParser,
         else:
             raise NotImplementedError(f'{child.kind}')
     parser.pop_namespace()
+    decl_map.add(c.hash, decl)
     return decl

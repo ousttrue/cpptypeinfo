@@ -1,14 +1,17 @@
 from clang import cindex
 import cpptypeinfo
 from cpptypeinfo.usertype import Pointer, TypeRef
+from .decl_map import DeclMap
 
 
-def cindex_type_to_cpptypeinfo(t: cindex.Type, c: cindex.Cursor) -> TypeRef:
+def cindex_type_to_cpptypeinfo(decl_map: DeclMap, t: cindex.Type,
+                               c: cindex.Cursor) -> TypeRef:
     if t.kind == cindex.TypeKind.POINTER:
-        p = cindex_type_to_cpptypeinfo(t.get_pointee(), c)
+        p = cindex_type_to_cpptypeinfo(decl_map, t.get_pointee(), c)
         if not p:
             raise Exception(f'unknown type: {t}')
         return TypeRef(Pointer(p), t.is_const_qualified())
+
     elif t.kind == cindex.TypeKind.TYPEDEF:
         children = [child for child in c.get_children()]
         if len(children) != 1:
@@ -16,8 +19,18 @@ def cindex_type_to_cpptypeinfo(t: cindex.Type, c: cindex.Cursor) -> TypeRef:
         ref_c = children[0]
         if ref_c.kind != cindex.CursorKind.TYPE_REF:
             raise Exception('not TYPE_REF')
-        ref = ref_c.referenced
-        return cindex_type_to_cpptypeinfo(ref.underlying_typedef_type, ref)
+        # ref = ref_c.referenced
+        # return cindex_type_to_cpptypeinfo(ref.underlying_typedef_type, ref)
+        return decl_map.get(ref_c.referenced.hash)
+
+    elif t.kind == cindex.TypeKind.ELABORATED:
+        children = [child for child in c.get_children()]
+        if len(children) != 1:
+            raise Exception(f'unknown children: {children}')
+        ref_c = children[0]
+        if ref_c.kind != cindex.CursorKind.STRUCT_DECL:
+            raise Exception('not STRUCT_DECL')
+        return decl_map.get(ref_c.referenced.hash)
 
     # void
     elif t.kind == cindex.TypeKind.VOID:  # void

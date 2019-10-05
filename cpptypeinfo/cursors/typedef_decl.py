@@ -4,11 +4,12 @@ from clang import cindex
 import cpptypeinfo
 from cpptypeinfo.usertype import Typedef
 from .type_kind import cindex_type_to_cpptypeinfo
+from .decl_map import DeclMap
 
 
-def parse_typedef(parser: cpptypeinfo.TypeParser,
+def parse_typedef(decl_map: DeclMap, parser: cpptypeinfo.TypeParser,
                   c: cindex.Cursor) -> Optional[Typedef]:
-    t = cindex_type_to_cpptypeinfo(c.underlying_typedef_type, c)
+    t = cindex_type_to_cpptypeinfo(decl_map, c.underlying_typedef_type, c)
     if not t:
         tokens = [t.spelling for t in c.get_tokens()]
         raise Exception(
@@ -17,6 +18,7 @@ def parse_typedef(parser: cpptypeinfo.TypeParser,
     decl = parser.typedef(c.spelling, t)
     decl.file = pathlib.Path(c.location.file.name)
     decl.line = c.location.line
+    decl_map.add(c.hash, decl)
     return decl
 
     # tokens = [t.spelling for t in c.get_tokens()]

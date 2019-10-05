@@ -3,9 +3,11 @@ from clang import cindex
 import cpptypeinfo
 from cpptypeinfo.usertype import Param, Function
 from .type_kind import cindex_type_to_cpptypeinfo
+from .decl_map import DeclMap
 
 
-def parse_param(parser: cpptypeinfo.TypeParser, c: cindex.Cursor) -> Param:
+def parse_param(decl_map: DeclMap, parser: cpptypeinfo.TypeParser,
+                c: cindex.Cursor) -> Param:
     # tokens = [x.spelling for x in c.get_tokens()]
     # default_value = ''
     # for i, token in enumerate(tokens):
@@ -13,7 +15,7 @@ def parse_param(parser: cpptypeinfo.TypeParser, c: cindex.Cursor) -> Param:
     #         default_value = ''.join(tokens[i + 1:])
     #         break
 
-    parsed = cindex_type_to_cpptypeinfo(c.type, c)
+    parsed = cindex_type_to_cpptypeinfo(decl_map, c.type, c)
     # ToDo:
     default_value = ''
     return Param(parsed, c.spelling, default_value)
@@ -21,7 +23,7 @@ def parse_param(parser: cpptypeinfo.TypeParser, c: cindex.Cursor) -> Param:
 
 def parse_function(parser: cpptypeinfo.TypeParser, c: cindex.Cursor,
                    extern_c: bool) -> Function:
-    result = cindex_type_to_cpptypeinfo(c.result_type, c)
+    result = cindex_type_to_cpptypeinfo(decl_map, c.result_type, c)
 
     params = []
     for child in c.get_children():
