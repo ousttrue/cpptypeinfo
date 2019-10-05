@@ -5,6 +5,7 @@ from .usertype import (Param, Field, Struct, Function, EnumValue, Enum,
                        Typedef)
 from .typeparser import TypeParser
 from .get_tu import get_tu, tmp_from_source
+from . import cursors
 
 
 def debug_print(c, files: List[pathlib.Path], level=''):
@@ -21,7 +22,11 @@ def debug_print(c, files: List[pathlib.Path], level=''):
                 display = 'extern "C"'
 
     if c.kind == cindex.CursorKind.TYPEDEF_DECL:
-        text = f'{level}({c.hash}){c.kind}=>{c.spelling}: {c.underlying_typedef_type.kind}=>{next(c.get_children()).hash}'
+        children = [child for child in c.get_children()]
+        if children:
+            text = f'{level}({c.hash}){c.kind}=>{c.spelling}: {c.underlying_typedef_type.kind}=>{children[0].hash}'
+        else:
+            text = f'{level}({c.hash}){c.kind}=>{c.spelling}: {c.underlying_typedef_type.kind}'
         print(text)
 
     else:
@@ -189,30 +194,6 @@ def parse_struct(parser: TypeParser, c: cindex.Cursor) -> Optional[Struct]:
     return decl
 
 
-def parse_typedef(parser: TypeParser, c: cindex.Cursor) -> Optional[Typedef]:
-    tokens = [t.spelling for t in c.get_tokens()]
-    if not tokens:
-        return None
-    elif tokens[-1] == ')' or c.underlying_typedef_type.spelling != 'int':
-        parsed = parser.parse(c.underlying_typedef_type.spelling)
-    else:
-        # int type may be wrong.
-        # workaround
-        end = -1
-        for i, t in enumerate(tokens):
-            if t == '{':
-                end = i
-                break
-        parsed = parser.parse(' '.join(tokens[1:end]))
-    if not parsed:
-        return
-
-    decl = parser.typedef(c.spelling, parsed)
-    decl.file = pathlib.Path(c.location.file.name)
-    decl.line = c.location.line
-    return decl
-
-
 def parse_cursor(parser: TypeParser,
                  c: cindex.Cursor,
                  files: List[pathlib.Path],
@@ -225,14 +206,14 @@ def parse_cursor(parser: TypeParser,
         return
 
     if c.kind == cindex.CursorKind.UNEXPOSED_DECL:
-        # try:
-        #     it = c.get_tokens()
-        #     t0 = next(it)
-        #     t1 = next(it)
-        #     if t0.spelling == 'extern' and t1.spelling == '"C"':
-        #         extern_c = True
-        # except StopIteration:
-        #     pass
+        try:
+            it = c.get_tokens()
+            t0 = next(it)
+            t1 = next(it)
+            if t0.spelling == 'extern' and t1.spelling == '"C"':
+                extern_c = True
+        except StopIteration:
+            pass
         # tokens = [t.spelling for t in ]
         # if len(tokens) >= 2 and tokens[0] == 'extern' and tokens[1] == '"C"':
         # if 'dllexport' in tokens:
@@ -244,36 +225,36 @@ def parse_cursor(parser: TypeParser,
                          used=used,
                          extern_c=extern_c)
 
-    elif c.kind == cindex.CursorKind.UNION_DECL:
-        parse_struct(parser, c)
+    # elif c.kind == cindex.CursorKind.UNION_DECL:
+    #     parse_struct(parser, c)
 
-    elif c.kind == cindex.CursorKind.STRUCT_DECL:
-        parse_struct(parser, c)
+    # elif c.kind == cindex.CursorKind.STRUCT_DECL:
+    #     parse_struct(parser, c)
 
-    elif c.kind == cindex.CursorKind.CLASS_DECL:
-        parse_struct(parser, c)
+    # elif c.kind == cindex.CursorKind.CLASS_DECL:
+    #     parse_struct(parser, c)
 
     elif c.kind == cindex.CursorKind.TYPEDEF_DECL:
-        parse_typedef(parser, c)
+        cursors.parse_typedef(parser, c)
 
-    elif c.kind == cindex.CursorKind.FUNCTION_DECL:
-        parse_function(parser, c, extern_c)
+    # elif c.kind == cindex.CursorKind.FUNCTION_DECL:
+    #     parse_function(parser, c, extern_c)
 
-    elif c.kind == cindex.CursorKind.ENUM_DECL:
-        parse_enum(parser, c)
+    # elif c.kind == cindex.CursorKind.ENUM_DECL:
+    #     parse_enum(parser, c)
 
-    elif c.kind == cindex.CursorKind.VAR_DECL:
-        # static variable
-        pass
+    # elif c.kind == cindex.CursorKind.VAR_DECL:
+    #     # static variable
+    #     pass
 
-    elif c.kind == cindex.CursorKind.CONSTRUCTOR:
-        pass
+    # elif c.kind == cindex.CursorKind.CONSTRUCTOR:
+    #     pass
 
-    elif c.kind == cindex.CursorKind.FUNCTION_TEMPLATE:
-        pass
+    # elif c.kind == cindex.CursorKind.FUNCTION_TEMPLATE:
+    #     pass
 
-    elif c.kind == cindex.CursorKind.CLASS_TEMPLATE:
-        parse_struct(parser, c)
+    # elif c.kind == cindex.CursorKind.CLASS_TEMPLATE:
+    #     parse_struct(parser, c)
 
     else:
         raise NotImplementedError(str(c.kind))
