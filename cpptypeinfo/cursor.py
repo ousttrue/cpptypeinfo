@@ -1,8 +1,6 @@
 import pathlib
-from typing import List, Set, Optional
+from typing import List
 from clang import cindex
-from .usertype import (Param, Field, Struct, Function, EnumValue, Enum,
-                       Typedef)
 from .typeparser import TypeParser
 from .get_tu import get_tu, tmp_from_source
 from . import cursors
@@ -71,8 +69,6 @@ def debug_print(c, files: List[pathlib.Path], level=''):
         if go_children:
             for child in c.get_children():
                 debug_print(child, files, level + '  ')
-
-
 
 
 def parse_files(parser: TypeParser,
