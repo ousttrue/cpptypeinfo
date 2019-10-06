@@ -7,6 +7,63 @@ from cpptypeinfo.usertype import (TypeRef, Typedef, Pointer, Array, UserType,
                                   EnumValue)
 
 
+def get_primitive_type(t: cindex.Type) -> Optional[TypeRef]:
+    # void
+    if t.kind == cindex.TypeKind.VOID:  # void
+        return TypeRef(cpptypeinfo.Void(), t.is_const_qualified())
+    # bool
+    elif t.kind == cindex.TypeKind.BOOL:  # void
+        assert (t.get_size() == 1)
+        return TypeRef(cpptypeinfo.Bool(), t.is_const_qualified())
+    # int
+    elif t.kind == cindex.TypeKind.CHAR_S:  # char
+        assert (t.get_size() == 1)
+        return TypeRef(cpptypeinfo.Int8(), t.is_const_qualified())
+    elif t.kind == cindex.TypeKind.SCHAR:  # signed char
+        assert (t.get_size() == 1)
+        return TypeRef(cpptypeinfo.Int8(), t.is_const_qualified())
+    elif t.kind == cindex.TypeKind.SHORT:  # short
+        assert (t.get_size() == 2)
+        return TypeRef(cpptypeinfo.Int16(), t.is_const_qualified())
+    elif t.kind == cindex.TypeKind.INT:  # int
+        assert (t.get_size() == 4)
+        return TypeRef(cpptypeinfo.Int32(), t.is_const_qualified())
+    elif t.kind == cindex.TypeKind.LONG:  # long
+        assert (t.get_size() == 4)
+        return TypeRef(cpptypeinfo.Int32(), t.is_const_qualified())
+    elif t.kind == cindex.TypeKind.LONGLONG:  # long long
+        assert (t.get_size() == 8)
+        return TypeRef(cpptypeinfo.Int64(), t.is_const_qualified())
+    # unsigned
+    elif t.kind == cindex.TypeKind.UCHAR:  # unsigned char
+        assert (t.get_size() == 1)
+        return TypeRef(cpptypeinfo.UInt8(), t.is_const_qualified())
+    elif t.kind == cindex.TypeKind.WCHAR:  # wchar_t
+        assert (t.get_size() == 2)
+        return TypeRef(cpptypeinfo.UInt16(), t.is_const_qualified())
+    elif t.kind == cindex.TypeKind.USHORT:  # unsigned short
+        assert (t.get_size() == 2)
+        return TypeRef(cpptypeinfo.UInt16(), t.is_const_qualified())
+    elif t.kind == cindex.TypeKind.UINT:  # unsigned int
+        assert (t.get_size() == 4)
+        return TypeRef(cpptypeinfo.UInt32(), t.is_const_qualified())
+    elif t.kind == cindex.TypeKind.ULONG:  # unsigned long
+        assert (t.get_size() == 4)
+        return TypeRef(cpptypeinfo.UInt32(), t.is_const_qualified())
+    elif t.kind == cindex.TypeKind.ULONGLONG:  # unsigned __int64
+        assert (t.get_size() == 8)
+        return TypeRef(cpptypeinfo.UInt64(), t.is_const_qualified())
+    # float
+    elif t.kind == cindex.TypeKind.FLOAT:  # float
+        assert (t.get_size() == 4)
+        return TypeRef(cpptypeinfo.Float(), t.is_const_qualified())
+    elif t.kind == cindex.TypeKind.DOUBLE:  # double
+        assert (t.get_size() == 8)
+        return TypeRef(cpptypeinfo.Double(), t.is_const_qualified())
+
+    return None
+
+
 class DeclMap:
     def __init__(self):
         self.decl_map: Dict[int, UserType] = {}
@@ -16,27 +73,6 @@ class DeclMap:
 
     def add(self, hash: int, usertype: UserType) -> None:
         self.decl_map[hash] = usertype
-
-    def get_basetype(self, t: cindex.Type, c: cindex.Cursor) -> TypeRef:
-        p = self.cindex_type_to_cpptypeinfo(t.get_pointee(), c)
-        if p:
-            return p
-
-        children = [child for child in c.get_children()]
-        for child in children:
-            if child.kind == cindex.CursorKind.TYPE_REF:
-                ref = child.referenced
-                p = self.get(ref.hash)
-                if p:
-                    return p
-                if ref.kind == cindex.CursorKind.STRUCT_DECL:
-                    decl = Struct(ref.spelling)
-                    self.add(ref.hash, decl)
-                    return decl
-                else:
-                    raise Exception()
-
-        raise Exception()
 
     def parse_namespace(self,
                         parser: cpptypeinfo.TypeParser,
@@ -128,14 +164,13 @@ class DeclMap:
 
     def cindex_type_to_cpptypeinfo(self, t: cindex.Type,
                                    c: cindex.Cursor) -> TypeRef:
-        if t.kind == cindex.TypeKind.POINTER:
-            p = self.get_basetype(t, c)
-            if p:
-                return TypeRef(Pointer(p), t.is_const_qualified())
-            raise Exception()
+        ref = get_primitive_type(t)
+        if ref:
+            return ref
 
-        elif t.kind == cindex.TypeKind.LVALUEREFERENCE:
-            p = self.get_basetype(t, c)
+        if (t.kind == cindex.TypeKind.POINTER
+                or t.kind == cindex.TypeKind.LVALUEREFERENCE):
+            p = self.cindex_type_to_cpptypeinfo(t.get_pointee(), c)
             if p:
                 return TypeRef(Pointer(p), t.is_const_qualified())
             raise Exception()
@@ -190,59 +225,6 @@ class DeclMap:
 
             params = [to_param(child) for child in children[1:]]
             return TypeRef(Function(result, params))
-
-        # void
-        elif t.kind == cindex.TypeKind.VOID:  # void
-            return TypeRef(cpptypeinfo.Void(), t.is_const_qualified())
-        # bool
-        elif t.kind == cindex.TypeKind.BOOL:  # void
-            assert (t.get_size() == 1)
-            return TypeRef(cpptypeinfo.Bool(), t.is_const_qualified())
-        # int
-        elif t.kind == cindex.TypeKind.CHAR_S:  # char
-            assert (t.get_size() == 1)
-            return TypeRef(cpptypeinfo.Int8(), t.is_const_qualified())
-        elif t.kind == cindex.TypeKind.SCHAR:  # signed char
-            assert (t.get_size() == 1)
-            return TypeRef(cpptypeinfo.Int8(), t.is_const_qualified())
-        elif t.kind == cindex.TypeKind.SHORT:  # short
-            assert (t.get_size() == 2)
-            return TypeRef(cpptypeinfo.Int16(), t.is_const_qualified())
-        elif t.kind == cindex.TypeKind.INT:  # int
-            assert (t.get_size() == 4)
-            return TypeRef(cpptypeinfo.Int32(), t.is_const_qualified())
-        elif t.kind == cindex.TypeKind.LONG:  # long
-            assert (t.get_size() == 4)
-            return TypeRef(cpptypeinfo.Int32(), t.is_const_qualified())
-        elif t.kind == cindex.TypeKind.LONGLONG:  # long long
-            assert (t.get_size() == 8)
-            return TypeRef(cpptypeinfo.Int64(), t.is_const_qualified())
-        # unsigned
-        elif t.kind == cindex.TypeKind.UCHAR:  # unsigned char
-            assert (t.get_size() == 1)
-            return TypeRef(cpptypeinfo.UInt8(), t.is_const_qualified())
-        elif t.kind == cindex.TypeKind.WCHAR:  # wchar_t
-            assert (t.get_size() == 2)
-            return TypeRef(cpptypeinfo.UInt16(), t.is_const_qualified())
-        elif t.kind == cindex.TypeKind.USHORT:  # unsigned short
-            assert (t.get_size() == 2)
-            return TypeRef(cpptypeinfo.UInt16(), t.is_const_qualified())
-        elif t.kind == cindex.TypeKind.UINT:  # unsigned int
-            assert (t.get_size() == 4)
-            return TypeRef(cpptypeinfo.UInt32(), t.is_const_qualified())
-        elif t.kind == cindex.TypeKind.ULONG:  # unsigned long
-            assert (t.get_size() == 4)
-            return TypeRef(cpptypeinfo.UInt32(), t.is_const_qualified())
-        elif t.kind == cindex.TypeKind.ULONGLONG:  # unsigned __int64
-            assert (t.get_size() == 8)
-            return TypeRef(cpptypeinfo.UInt64(), t.is_const_qualified())
-        # float
-        elif t.kind == cindex.TypeKind.FLOAT:  # float
-            assert (t.get_size() == 4)
-            return TypeRef(cpptypeinfo.Float(), t.is_const_qualified())
-        elif t.kind == cindex.TypeKind.DOUBLE:  # double
-            assert (t.get_size() == 8)
-            return TypeRef(cpptypeinfo.Double(), t.is_const_qualified())
 
         raise Exception(f'unknown type: {t.kind}')
         return None
