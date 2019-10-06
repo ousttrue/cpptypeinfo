@@ -75,7 +75,7 @@ def parse_files(parser: TypeParser,
                 *paths: pathlib.Path,
                 cpp_flags=None,
                 debug=False) -> cursors.DeclMap:
-    decl_map = cursors.DeclMap()
+    decl_map = cursors.DeclMap(parser)
     if cpp_flags is None:
         cpp_flags = []
     cpp_flags += [f'-I{x.parent}' for x in paths]
@@ -87,13 +87,13 @@ def parse_files(parser: TypeParser,
         if debug:
             debug_print(tu.cursor, include_path_list)
         else:
-            decl_map.parse_namespace(parser, tu.cursor, include_path_list)
+            decl_map.parse_namespace(tu.cursor, include_path_list)
     return decl_map
 
 
 def parse_source(parser: TypeParser, source: str, cpp_flags=None,
                  debug=False) -> cursors.DeclMap:
-    decl_map = cursors.DeclMap()
+    decl_map = cursors.DeclMap(parser)
 
     if cpp_flags is None:
         cpp_flags = []
@@ -101,6 +101,6 @@ def parse_source(parser: TypeParser, source: str, cpp_flags=None,
         tu = get_tu(path, cpp_flags=cpp_flags)
         if debug:
             debug_print(tu.cursor, [])
-        decl_map.parse_namespace(parser, tu.cursor, [])
+        decl_map.parse_namespace(tu.cursor, [])
 
     return decl_map

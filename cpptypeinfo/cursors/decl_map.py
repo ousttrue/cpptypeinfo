@@ -65,7 +65,8 @@ def get_primitive_type(t: cindex.Type) -> Optional[TypeRef]:
 
 
 class DeclMap:
-    def __init__(self):
+    def __init__(self, parser: cpptypeinfo.TypeParser):
+        self.parser = parser
         self.decl_map: Dict[int, UserType] = {}
 
     def get(self, hash: int):
@@ -75,7 +76,6 @@ class DeclMap:
         self.decl_map[hash] = usertype
 
     def parse_namespace(self,
-                        parser: cpptypeinfo.TypeParser,
                         c: cindex.Cursor,
                         files: List[pathlib.Path],
                         used=None):
@@ -85,15 +85,14 @@ class DeclMap:
         for i, child in enumerate(c.get_children()):
             if child.kind == cindex.CursorKind.NAMESPACE:
                 # nested
-                parser.push_namespace(child.spelling)
-                self.parse_namespace(parser, child, files)
-                parser.pop_namespace()
+                self.parser.push_namespace(child.spelling)
+                self.parse_namespace(child, files)
+                self.parser.pop_namespace()
             else:
 
-                self.parse_cursor(parser, child, files, used)
+                self.parse_cursor(child, files, used)
 
     def parse_cursor(self,
-                     parser: cpptypeinfo.TypeParser,
                      c: cindex.Cursor,
                      files: List[pathlib.Path],
                      used: Set[int],
@@ -118,29 +117,29 @@ class DeclMap:
             # if 'dllexport' in tokens:
             #     a = 0
             for child in c.get_children():
-                self.parse_cursor(parser,
+                self.parse_cursor(
                                   child,
                                   files=files,
                                   used=used,
                                   extern_c=extern_c)
 
         elif c.kind == cindex.CursorKind.UNION_DECL:
-            self.parse_struct(parser, c)
+            self.parse_struct(c)
 
         elif c.kind == cindex.CursorKind.STRUCT_DECL:
-            self.parse_struct(parser, c)
+            self.parse_struct(c)
 
         elif c.kind == cindex.CursorKind.CLASS_DECL:
-            self.parse_struct(parser, c)
+            self.parse_struct(c)
 
         elif c.kind == cindex.CursorKind.TYPEDEF_DECL:
-            self.parse_typedef(parser, c)
+            self.parse_typedef(c)
 
         elif c.kind == cindex.CursorKind.FUNCTION_DECL:
-            self.parse_function(parser, c, extern_c)
+            self.parse_function(c, extern_c)
 
         elif c.kind == cindex.CursorKind.ENUM_DECL:
-            self.parse_enum(parser, c)
+            self.parse_enum(c)
 
         elif c.kind == cindex.CursorKind.VAR_DECL:
             # static variable
@@ -154,7 +153,7 @@ class DeclMap:
 
         elif c.kind == cindex.CursorKind.CLASS_TEMPLATE:
             pass
-            # parse_struct(parser, c)
+            # parse_struct(c)
 
         elif c.kind == cindex.CursorKind.CLASS_TEMPLATE_PARTIAL_SPECIALIZATION:
             pass
@@ -229,7 +228,7 @@ class DeclMap:
         raise Exception(f'unknown type: {t.kind}')
         return None
 
-    def parse_typedef(self, parser: cpptypeinfo.TypeParser,
+    def parse_typedef(self, 
                       c: cindex.Cursor) -> Optional[Typedef]:
         t = self.cindex_type_to_cpptypeinfo(c.underlying_typedef_type, c)
         if not t:
@@ -237,7 +236,7 @@ class DeclMap:
             raise Exception(
                 f'unknown type: {c.underlying_typedef_type.kind}: {tokens}')
 
-        decl = parser.typedef(c.spelling, t)
+        decl = self.parser.typedef(c.spelling, t)
         decl.file = pathlib.Path(c.location.file.name)
         decl.line = c.location.line
         self.add(c.hash, decl)
@@ -247,7 +246,7 @@ class DeclMap:
         # if not tokens:
         #     return None
         # elif tokens[-1] == ')' or c.underlying_typedef_type.spelling != 'int':
-        #     parsed = parser.parse(c.underlying_typedef_type.spelling)
+        #     parsed = self.parser.parse(c.underlying_typedef_type.spelling)
         # else:
         #     # int type may be wrong.
         #     # workaround
@@ -256,11 +255,11 @@ class DeclMap:
         #         if t == '{':
         #             end = i
         #             break
-        #     parsed = parser.parse(' '.join(tokens[1:end]))
+        #     parsed = self.parser.parse(' '.join(tokens[1:end]))
         # if not parsed:
         #     return
 
-    def parse_enum(self, parser: cpptypeinfo.TypeParser,
+    def parse_enum(self, 
                    c: cindex.Cursor) -> Enum:
         name = c.type.spelling
         if not name:
@@ -272,13 +271,13 @@ class DeclMap:
             else:
                 raise Exception(f'{child.kind}')
         decl = Enum(name, values)
-        parser.get_current_namespace().register_type(name, decl)
+        self.parser.get_current_namespace().register_type(name, decl)
         decl.file = pathlib.Path(c.location.file.name)
         decl.line = c.location.line
         self.add(c.hash, decl)
         return decl
 
-    def parse_function(self, parser: cpptypeinfo.TypeParser, c: cindex.Cursor,
+    def parse_function(self, c: cindex.Cursor,
                        extern_c: bool) -> Function:
         result = self.cindex_type_to_cpptypeinfo(c.result_type, c)
 
@@ -318,7 +317,7 @@ class DeclMap:
                 raise NotImplementedError(f'{child.kind}')
 
         decl = Function(result, params)
-        parser.get_current_namespace().functions.append(decl)
+        self.parser.get_current_namespace().functions.append(decl)
         decl.name = c.spelling
         decl.mangled_name = c.mangled_name
         decl.extern_c = extern_c
@@ -326,14 +325,14 @@ class DeclMap:
         decl.line = c.location.line
         return decl
 
-    def parse_struct(self, parser: cpptypeinfo.TypeParser,
+    def parse_struct(self, 
                      c: cindex.Cursor) -> Optional[Struct]:
         name = c.spelling
         decl = Struct(name)
         self.add(c.hash, decl)
         decl.file = pathlib.Path(c.location.file.name)
         decl.line = c.location.line
-        parser.push_namespace(decl.namespace)
+        self.parser.push_namespace(decl.namespace)
         for child in c.get_children():
             if child.kind == cindex.CursorKind.FIELD_DECL:
                 field = self.cindex_type_to_cpptypeinfo(child.type, child)
@@ -352,7 +351,7 @@ class DeclMap:
                     cindex.CursorKind.STRUCT_DECL,
                     cindex.CursorKind.UNION_DECL, cindex.CursorKind.ENUM_DECL
             ]:
-                self.parse_struct(parser, child)
+                self.parse_struct(child)
             #     elif child.kind == cindex.CursorKind.CONSTRUCTOR:
             #         pass
             #     elif child.kind == cindex.CursorKind.DESTRUCTOR:
@@ -363,15 +362,15 @@ class DeclMap:
             #         pass
             #     elif child.kind == cindex.CursorKind.TEMPLATE_TYPE_PARAMETER:
             #         t = child.spelling
-            #         parser.parse(f'struct {t}')
+            #         self.parser.parse(f'struct {t}')
             #         decl.add_template_parameter(t)
             #     elif child.kind == cindex.CursorKind.VAR_DECL:
             #         # static variable
             #         pass
             #     elif child.kind == cindex.CursorKind.STRUCT_DECL:
-            #         parse_struct(parser, child)
+            #         parse_struct(child)
             elif child.kind == cindex.CursorKind.TYPEDEF_DECL:
-                self.parse_typedef(parser, child)
+                self.parse_typedef(child)
             elif child.kind == cindex.CursorKind.UNEXPOSED_ATTR:
                 pass
             elif child.kind == cindex.CursorKind.UNEXPOSED_EXPR:
@@ -382,5 +381,5 @@ class DeclMap:
                 pass
             else:
                 raise NotImplementedError(f'{child.kind}')
-        parser.pop_namespace()
+        self.parser.pop_namespace()
         return decl
