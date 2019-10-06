@@ -7,7 +7,7 @@ class DeclMap:
         self.decl_map: Dict[int, UserType] = {}
 
     def get(self, hash: int):
-        return self.decl_map[hash]
+        return self.decl_map.get(hash)
 
     def add(self, hash: int, usertype: UserType) -> None:
         self.decl_map[hash] = usertype

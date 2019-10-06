@@ -21,22 +21,22 @@ def parse_param(decl_map: DeclMap, parser: cpptypeinfo.TypeParser,
     return Param(parsed, c.spelling, default_value)
 
 
-def parse_function(parser: cpptypeinfo.TypeParser, c: cindex.Cursor,
-                   extern_c: bool) -> Function:
+def parse_function(decl_map: DeclMap, parser: cpptypeinfo.TypeParser,
+                   c: cindex.Cursor, extern_c: bool) -> Function:
     result = cindex_type_to_cpptypeinfo(decl_map, c.result_type, c)
 
     params = []
     for child in c.get_children():
         if child.kind == cindex.CursorKind.PARM_DECL:
-            params.append(parse_param(parser, child))
+            params.append(parse_param(decl_map, parser, child))
             pass
 
-        # if child.kind == cindex.CursorKind.TYPE_REF:
-        #     pass
-        # elif child.kind == cindex.CursorKind.UNEXPOSED_ATTR:
-        #     # macro
-        #     # tokens = [token.spelling for token in child.get_tokens()]
-        #     pass
+        elif child.kind == cindex.CursorKind.TYPE_REF:
+            pass
+        elif child.kind == cindex.CursorKind.UNEXPOSED_ATTR:
+            # macro
+            # tokens = [token.spelling for token in child.get_tokens()]
+            pass
         # elif child.kind == cindex.CursorKind.UNEXPOSED_EXPR:
         #     pass
 

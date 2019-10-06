@@ -60,12 +60,22 @@ class CIndexTypedefTest(unittest.TestCase):
             raise Exception()
         self.assertEqual(typedef.typeref.ref, cpptypeinfo.UInt64())
 
+    def test_function(self) -> None:
+        parser = cpptypeinfo.TypeParser()
+        cpptypeinfo.parse_source(parser, 'typedef void (*T)();', debug=True)
+        typedef = parser.root_namespace.user_type_map['T']
+        if not isinstance(typedef, cpptypeinfo.usertype.Typedef):
+            raise Exception()
+        self.assertEqual(typedef.typeref.ref, cpptypeinfo.UInt64())
+
     def test_struct(self) -> None:
         parser = cpptypeinfo.TypeParser()
         cpptypeinfo.parse_source(parser,
                                  '''
 typedef struct Tag {
 } T;
+
+typedef T* TP;
 ''',
                                  debug=True)
         typedef = parser.root_namespace.user_type_map['T']
@@ -74,6 +84,18 @@ typedef struct Tag {
         self.assertEqual(typedef.typeref.ref,
                          cpptypeinfo.usertype.Struct('Tag'))
 
+    def test_struct_forward(self) -> None:
+        parser = cpptypeinfo.TypeParser()
+        cpptypeinfo.parse_source(parser,
+                                 '''
+typedef struct Forward T;
+''',
+                                 debug=True)
+        typedef = parser.root_namespace.user_type_map['T']
+        if not isinstance(typedef, cpptypeinfo.usertype.Typedef):
+            raise Exception()
+
 
 if __name__ == '__main__':
-    unittest.main()
+    # unittest.main()
+    CIndexTypedefTest().test_struct_forward()

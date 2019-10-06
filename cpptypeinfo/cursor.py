@@ -23,8 +23,17 @@ def debug_print(c, files: List[pathlib.Path], level=''):
 
     if c.kind == cindex.CursorKind.TYPEDEF_DECL:
         children = [child for child in c.get_children()]
+        # if c.underlying_typedef_type.kind == cindex.TypeKind.POINTER:
+        #     p = c.underlying_typedef_type.get_pointee()
+        #     text = f'{level}({c.hash}){c.kind}=>{c.spelling}: {c.underlying_typedef_type.kind}=>{p.spelling}'
         if children:
-            text = f'{level}({c.hash}){c.kind}=>{c.spelling}: {c.underlying_typedef_type.kind}=>{children[0].hash}'
+            if c.underlying_typedef_type.kind == cindex.TypeKind.POINTER:
+                p = c.underlying_typedef_type.get_pointee()
+                child = children[0]
+                ref = child.referenced
+                text = f'{level}({c.hash}){c.kind}=>{c.spelling}: {c.underlying_typedef_type.kind}=>{children[0].hash}'
+            else:
+                text = f'{level}({c.hash}){c.kind}=>{c.spelling}: {c.underlying_typedef_type.kind}=>{children[0].hash}'
         else:
             text = f'{level}({c.hash}){c.kind}=>{c.spelling}: {c.underlying_typedef_type.kind}'
         print(text)
@@ -36,6 +45,7 @@ def debug_print(c, files: List[pathlib.Path], level=''):
         if c.type.kind == cindex.TypeKind.POINTER:
             p = c.type.get_pointee()
             a = 0
+            extra = f'=>({p.spelling})'
 
         if c.hash != c.canonical.hash:
             extra = f'[{c.canonical.hash}]'
@@ -63,23 +73,6 @@ def debug_print(c, files: List[pathlib.Path], level=''):
                 debug_print(child, files, level + '  ')
 
 
-def parse_enum(parser: TypeParser, c: cindex.Cursor) -> Enum:
-    name = c.type.spelling
-    if not name:
-        raise Exception(f'no name')
-    values = []
-    for child in c.get_children():
-        if child.kind == cindex.CursorKind.ENUM_CONSTANT_DECL:
-            values.append(EnumValue(child.spelling, child.enum_value))
-        else:
-            raise Exception(f'{child.kind}')
-    decl = Enum(name, values)
-    parser.get_current_namespace().register_type(name, decl)
-    decl.file = pathlib.Path(c.location.file.name)
-    decl.line = c.location.line
-    return decl
-
-
 def parse_cursor(decl_map: cursors.DeclMap,
                  parser: TypeParser,
                  c: cindex.Cursor,
@@ -89,8 +82,8 @@ def parse_cursor(decl_map: cursors.DeclMap,
     if c.hash in used:
         return
     used.add(c.hash)
-    if files and pathlib.Path(c.location.file.name) not in files:
-        return
+    # if files and pathlib.Path(c.location.file.name) not in files:
+    #     return
 
     if c.kind == cindex.CursorKind.UNEXPOSED_DECL:
         try:
@@ -113,14 +106,14 @@ def parse_cursor(decl_map: cursors.DeclMap,
                          used=used,
                          extern_c=extern_c)
 
-    # elif c.kind == cindex.CursorKind.UNION_DECL:
-    #     parse_struct(parser, c)
+    elif c.kind == cindex.CursorKind.UNION_DECL:
+        cursors.parse_struct(decl_map, parser, c)
 
     elif c.kind == cindex.CursorKind.STRUCT_DECL:
         cursors.parse_struct(decl_map, parser, c)
 
-    # elif c.kind == cindex.CursorKind.CLASS_DECL:
-    #     parse_struct(parser, c)
+    elif c.kind == cindex.CursorKind.CLASS_DECL:
+        cursors.parse_struct(decl_map, parser, c)
 
     elif c.kind == cindex.CursorKind.TYPEDEF_DECL:
         cursors.parse_typedef(decl_map, parser, c)
@@ -128,21 +121,25 @@ def parse_cursor(decl_map: cursors.DeclMap,
     elif c.kind == cindex.CursorKind.FUNCTION_DECL:
         cursors.parse_function(decl_map, parser, c, extern_c)
 
-    # elif c.kind == cindex.CursorKind.ENUM_DECL:
-    #     parse_enum(parser, c)
+    elif c.kind == cindex.CursorKind.ENUM_DECL:
+        cursors.parse_enum(decl_map, parser, c)
 
-    # elif c.kind == cindex.CursorKind.VAR_DECL:
-    #     # static variable
-    #     pass
+    elif c.kind == cindex.CursorKind.VAR_DECL:
+        # static variable
+        pass
 
     # elif c.kind == cindex.CursorKind.CONSTRUCTOR:
     #     pass
 
-    # elif c.kind == cindex.CursorKind.FUNCTION_TEMPLATE:
-    #     pass
+    elif c.kind == cindex.CursorKind.FUNCTION_TEMPLATE:
+        pass
 
-    # elif c.kind == cindex.CursorKind.CLASS_TEMPLATE:
-    #     parse_struct(parser, c)
+    elif c.kind == cindex.CursorKind.CLASS_TEMPLATE:
+        pass
+        # parse_struct(parser, c)
+
+    elif c.kind == cindex.CursorKind.CLASS_TEMPLATE_PARTIAL_SPECIALIZATION:
+        pass
 
     else:
         raise NotImplementedError(str(c.kind))
