@@ -329,16 +329,10 @@ class DeclMap:
     def parse_struct(self, parser: cpptypeinfo.TypeParser,
                      c: cindex.Cursor) -> Optional[Struct]:
         name = c.spelling
-        if name:
-            decl = parser.parse(f'struct {name}').ref
-        else:
-            # anonymous
-            decl = Struct('')
+        decl = Struct(name)
         self.add(c.hash, decl)
         decl.file = pathlib.Path(c.location.file.name)
         decl.line = c.location.line
-        # if isinstance(decl, Typedef):
-        #     decl = decl.src
         parser.push_namespace(decl.namespace)
         for child in c.get_children():
             if child.kind == cindex.CursorKind.FIELD_DECL:
@@ -377,10 +371,7 @@ class DeclMap:
             #     elif child.kind == cindex.CursorKind.STRUCT_DECL:
             #         parse_struct(parser, child)
             elif child.kind == cindex.CursorKind.TYPEDEF_DECL:
-                typedef = self.cindex_type_to_cpptypeinfo(
-                    child.underlying_typedef_type, child)
-                self.add(child.hash, typedef)
-            #         parser.typedef(child.spelling, typedef_decl)
+                self.parse_typedef(parser, child)
             elif child.kind == cindex.CursorKind.UNEXPOSED_ATTR:
                 pass
             elif child.kind == cindex.CursorKind.UNEXPOSED_EXPR:
