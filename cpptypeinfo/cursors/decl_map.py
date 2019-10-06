@@ -343,15 +343,13 @@ class DeclMap:
             self.add(c.hash, decl)
             return
 
-        if c.underlying_typedef_type.kind in (cindex.TypeKind.POINTER,
-                                              cindex.TypeKind.LVALUEREFERENCE):
-            primitive = self.get_pointer_type(c.underlying_typedef_type, c)
-            if primitive:
-                decl = self.parser.typedef(c.spelling, primitive)
-                decl.file = pathlib.Path(c.location.file.name)
-                decl.line = c.location.line
-                self.add(c.hash, decl)
-                return
+        pointer = self.get_pointer_type(c.underlying_typedef_type, c)
+        if pointer:
+            decl = self.parser.typedef(c.spelling, pointer)
+            decl.file = pathlib.Path(c.location.file.name)
+            decl.line = c.location.line
+            self.add(c.hash, decl)
+            return
 
         a = self.get_array_type(c.underlying_typedef_type, c)
         if a:
