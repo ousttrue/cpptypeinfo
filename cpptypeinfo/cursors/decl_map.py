@@ -234,7 +234,7 @@ class DeclMap:
             children = [child for child in c.get_children()]
             for child in children:
                 if child.kind == cindex.CursorKind.TYPE_REF:
-                    decl = self.get(child.referenced.hash)
+                    decl = self.get(child.referenced.canonical.hash)
                     if decl:
                         return decl
 
@@ -439,9 +439,7 @@ class DeclMap:
 
     def parse_struct(self, c: cindex.Cursor) -> Struct:
         name = c.spelling
-        if name == '_EXCEPTION_RECORD':
-            a = 0
-            print(c.hash)
+        # print(f'{name}: {c.hash}')
         decl = Struct(name)
         self.add(c.hash, decl)
         decl.file = pathlib.Path(c.location.file.name)
