@@ -95,7 +95,32 @@ typedef struct Forward T;
         if not isinstance(typedef, cpptypeinfo.usertype.Typedef):
             raise Exception()
 
+    def test_struct_forward_pointer(self) -> None:
+        parser = cpptypeinfo.TypeParser()
+        cpptypeinfo.parse_source(parser,
+                                 '''
+typedef struct Forward *T;
+''',
+                                 debug=True)
+        typedef = parser.root_namespace.user_type_map['T']
+        if not isinstance(typedef, cpptypeinfo.usertype.Typedef):
+            raise Exception()
+
+    def test_elaborated(self) -> None:
+        parser = cpptypeinfo.TypeParser()
+        cpptypeinfo.parse_source(parser,
+                                 '''
+typedef struct _LIST_ENTRY {
+   struct _LIST_ENTRY *Flink;
+   struct _LIST_ENTRY *Blink;
+} LIST_ENTRY;
+''',
+                                 debug=True)
+        typedef = parser.root_namespace.user_type_map['T']
+        if not isinstance(typedef, cpptypeinfo.usertype.Typedef):
+            raise Exception()
+
 
 if __name__ == '__main__':
     # unittest.main()
-    CIndexTypedefTest().test_struct_forward()
+    CIndexTypedefTest().test_elaborated()

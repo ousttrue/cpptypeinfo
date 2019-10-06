@@ -20,18 +20,26 @@ def debug_print(c, files: List[pathlib.Path], level=''):
                 display = 'extern "C"'
 
     if c.kind == cindex.CursorKind.TYPEDEF_DECL:
-        children = [child for child in c.get_children()]
+        # children = [child for child in c.get_children()]
         # if c.underlying_typedef_type.kind == cindex.TypeKind.POINTER:
         #     p = c.underlying_typedef_type.get_pointee()
         #     text = f'{level}({c.hash}){c.kind}=>{c.spelling}: {c.underlying_typedef_type.kind}=>{p.spelling}'
-        if children:
-            if c.underlying_typedef_type.kind == cindex.TypeKind.POINTER:
-                p = c.underlying_typedef_type.get_pointee()
-                child = children[0]
-                ref = child.referenced
-                text = f'{level}({c.hash}){c.kind}=>{c.spelling}: {c.underlying_typedef_type.kind}=>{children[0].hash}'
-            else:
-                text = f'{level}({c.hash}){c.kind}=>{c.spelling}: {c.underlying_typedef_type.kind}=>{children[0].hash}'
+        # if children:
+        #     if c.underlying_typedef_type.kind == cindex.TypeKind.POINTER:
+        #         p = c.underlying_typedef_type.get_pointee()
+        #         child = children[0]
+        #         ref = child.referenced
+        #         text = f'{level}({c.hash}){c.kind}=>{c.spelling}: {c.underlying_typedef_type.kind}=>{children[0].hash}'
+        #     else:
+        #         text = f'{level}({c.hash}){c.kind}=>{c.spelling}: {c.underlying_typedef_type.kind}=>{children[0].hash}'
+        # else:
+        #     text = f'{level}({c.hash}){c.kind}=>{c.spelling}: {c.underlying_typedef_type.kind}'
+        # print(text)
+        children = [child for child in c.get_children()]
+        if c.underlying_typedef_type.kind == cindex.TypeKind.POINTER:
+            child = children[0]
+            ref = child.referenced
+            text = f'{level}({c.hash}){c.kind}=>{c.spelling}: {c.underlying_typedef_type.kind} => {ref.hash}'
         else:
             text = f'{level}({c.hash}){c.kind}=>{c.spelling}: {c.underlying_typedef_type.kind}'
         print(text)
@@ -75,7 +83,6 @@ def parse_files(parser: TypeParser,
                 *paths: pathlib.Path,
                 cpp_flags=None,
                 debug=False) -> cursors.DeclMap:
-    decl_map = cursors.DeclMap(parser)
     if cpp_flags is None:
         cpp_flags = []
     cpp_flags += [f'-I{x.parent}' for x in paths]
@@ -84,16 +91,17 @@ def parse_files(parser: TypeParser,
         tu = get_tu(path, cpp_flags=cpp_flags)
         include_path_list = [x for x in paths]
         include_path_list.append(path)
+        decl_map = cursors.DeclMap(parser, include_path_list)
         if debug:
             debug_print(tu.cursor, include_path_list)
         else:
-            decl_map.parse_namespace(tu.cursor, include_path_list)
-    return decl_map
+            decl_map.parse_namespace(tu.cursor)
+        return decl_map
 
 
 def parse_source(parser: TypeParser, source: str, cpp_flags=None,
                  debug=False) -> cursors.DeclMap:
-    decl_map = cursors.DeclMap(parser)
+    decl_map = cursors.DeclMap(parser, [])
 
     if cpp_flags is None:
         cpp_flags = []
@@ -101,6 +109,6 @@ def parse_source(parser: TypeParser, source: str, cpp_flags=None,
         tu = get_tu(path, cpp_flags=cpp_flags)
         if debug:
             debug_print(tu.cursor, [])
-        decl_map.parse_namespace(tu.cursor, [])
+        decl_map.parse_namespace(tu.cursor)
 
     return decl_map

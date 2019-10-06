@@ -65,9 +65,11 @@ def get_primitive_type(t: cindex.Type) -> Optional[TypeRef]:
 
 
 class DeclMap:
-    def __init__(self, parser: cpptypeinfo.TypeParser):
+    def __init__(self, parser: cpptypeinfo.TypeParser, files):
         self.parser = parser
         self.decl_map: Dict[int, UserType] = {}
+        self.used: Set[int] = set()
+        self.files = files
 
     def get(self, hash: int):
         return self.decl_map.get(hash)
@@ -75,31 +77,21 @@ class DeclMap:
     def add(self, hash: int, usertype: UserType) -> None:
         self.decl_map[hash] = usertype
 
-    def parse_namespace(self,
-                        c: cindex.Cursor,
-                        files: List[pathlib.Path],
-                        used=None):
-        if not used:
-            used = set()
-
+    def parse_namespace(self, c: cindex.Cursor, extern_c=False):
         for i, child in enumerate(c.get_children()):
             if child.kind == cindex.CursorKind.NAMESPACE:
                 # nested
                 self.parser.push_namespace(child.spelling)
-                self.parse_namespace(child, files)
+                self.parse_namespace(child, extern_c)
                 self.parser.pop_namespace()
             else:
 
-                self.parse_cursor(child, files, used)
+                self.parse_cursor(child, extern_c)
 
-    def parse_cursor(self,
-                     c: cindex.Cursor,
-                     files: List[pathlib.Path],
-                     used: Set[int],
-                     extern_c=False):
-        if c.hash in used:
+    def parse_cursor(self, c: cindex.Cursor, extern_c: bool):
+        if c.hash in self.used:
             return
-        used.add(c.hash)
+        self.used.add(c.hash)
         # if files and pathlib.Path(c.location.file.name) not in files:
         #     return
 
@@ -117,23 +109,19 @@ class DeclMap:
             # if 'dllexport' in tokens:
             #     a = 0
             for child in c.get_children():
-                self.parse_cursor(
-                                  child,
-                                  files=files,
-                                  used=used,
-                                  extern_c=extern_c)
+                self.parse_cursor(child, extern_c)
 
         elif c.kind == cindex.CursorKind.UNION_DECL:
-            self.parse_struct(c)
+            self.parse_struct(c, extern_c)
 
         elif c.kind == cindex.CursorKind.STRUCT_DECL:
-            self.parse_struct(c)
+            self.parse_struct(c, extern_c)
 
         elif c.kind == cindex.CursorKind.CLASS_DECL:
-            self.parse_struct(c)
+            self.parse_struct(c, extern_c)
 
         elif c.kind == cindex.CursorKind.TYPEDEF_DECL:
-            self.parse_typedef(c)
+            self.parse_typedef(c, extern_c)
 
         elif c.kind == cindex.CursorKind.FUNCTION_DECL:
             self.parse_function(c, extern_c)
@@ -143,6 +131,13 @@ class DeclMap:
 
         elif c.kind == cindex.CursorKind.VAR_DECL:
             # static variable
+            pass
+
+        elif c.kind == cindex.CursorKind.ENUM_CONSTANT_DECL:
+            # enum_type hoge = 0;
+            pass
+
+        elif c.kind == cindex.CursorKind.CXX_UNARY_EXPR:
             pass
 
         # elif c.kind == cindex.CursorKind.CONSTRUCTOR:
@@ -159,26 +154,29 @@ class DeclMap:
             pass
 
         else:
-            raise NotImplementedError(str(c.kind))
+            tokens = [x.spelling for x in c.get_tokens()]
+            raise NotImplementedError(f'{c.kind}: {tokens}')
 
-    def cindex_type_to_cpptypeinfo(self, t: cindex.Type,
-                                   c: cindex.Cursor) -> TypeRef:
+    def cindex_type_to_cpptypeinfo(self, t: cindex.Type, c: cindex.Cursor,
+                                   extern_c: bool) -> TypeRef:
         ref = get_primitive_type(t)
         if ref:
             return ref
 
         if (t.kind == cindex.TypeKind.POINTER
                 or t.kind == cindex.TypeKind.LVALUEREFERENCE):
-            p = self.cindex_type_to_cpptypeinfo(t.get_pointee(), c)
+            p = self.cindex_type_to_cpptypeinfo(t.get_pointee(), c, extern_c)
             if p:
                 return TypeRef(Pointer(p), t.is_const_qualified())
             raise Exception()
 
         elif t.kind == cindex.TypeKind.CONSTANTARRAY:
-            element = self.cindex_type_to_cpptypeinfo(
-                t.get_array_element_type(), c)
-            return TypeRef(Array(element, t.get_array_size()),
-                           t.is_const_qualified())
+            p = self.cindex_type_to_cpptypeinfo(t.get_array_element_type(), c,
+                                                extern_c)
+            if p:
+                return TypeRef(Array(p, t.get_array_size()),
+                               t.is_const_qualified())
+            raise Exception()
 
         elif t.kind == cindex.TypeKind.TYPEDEF:
             children = [child for child in c.get_children()]
@@ -198,16 +196,18 @@ class DeclMap:
                 if child.kind in [
                         cindex.CursorKind.STRUCT_DECL,
                         cindex.CursorKind.UNION_DECL,
-                        cindex.CursorKind.ENUM_DECL
                 ]:
+                    return TypeRef(self.parse_struct(child, extern_c),
+                                   t.is_const_qualified())
+                if child.kind == cindex.CursorKind.ENUM_DECL:
+                    return TypeRef(self.parse_enum(child),
+                                   t.is_const_qualified())
+                if child.kind == cindex.CursorKind.TYPE_REF:
                     decl = self.get(child.referenced.hash)
                     if decl:
                         return decl
-                elif child.kind == cindex.CursorKind.TYPE_REF:
-                    decl = self.get(child.referenced.hash)
-                    if decl:
-                        return decl
-                raise Exception(f'unknown type: {child.kind}')
+                    raise Exception()
+
             raise Exception()
 
         elif t.kind == cindex.TypeKind.FUNCTIONPROTO:
@@ -228,9 +228,10 @@ class DeclMap:
         raise Exception(f'unknown type: {t.kind}')
         return None
 
-    def parse_typedef(self, 
-                      c: cindex.Cursor) -> Optional[Typedef]:
-        t = self.cindex_type_to_cpptypeinfo(c.underlying_typedef_type, c)
+    def parse_typedef(self, c: cindex.Cursor,
+                      extern_c: bool) -> Optional[Typedef]:
+        t = self.cindex_type_to_cpptypeinfo(c.underlying_typedef_type, c,
+                                            extern_c)
         if not t:
             tokens = [t.spelling for t in c.get_tokens()]
             raise Exception(
@@ -259,8 +260,7 @@ class DeclMap:
         # if not parsed:
         #     return
 
-    def parse_enum(self, 
-                   c: cindex.Cursor) -> Enum:
+    def parse_enum(self, c: cindex.Cursor) -> Enum:
         name = c.type.spelling
         if not name:
             raise Exception(f'no name')
@@ -277,14 +277,14 @@ class DeclMap:
         self.add(c.hash, decl)
         return decl
 
-    def parse_function(self, c: cindex.Cursor,
-                       extern_c: bool) -> Function:
-        result = self.cindex_type_to_cpptypeinfo(c.result_type, c)
+    def parse_function(self, c: cindex.Cursor, extern_c: bool) -> Function:
+        result = self.cindex_type_to_cpptypeinfo(c.result_type, c, extern_c)
 
         params = []
         for child in c.get_children():
             if child.kind == cindex.CursorKind.PARM_DECL:
-                param = self.cindex_type_to_cpptypeinfo(child.type, child)
+                param = self.cindex_type_to_cpptypeinfo(
+                    child.type, child, extern_c)
                 # ToDo:
                 default_value = ''
                 params.append(Param(param, c.spelling, default_value))
@@ -325,8 +325,7 @@ class DeclMap:
         decl.line = c.location.line
         return decl
 
-    def parse_struct(self, 
-                     c: cindex.Cursor) -> Optional[Struct]:
+    def parse_struct(self, c: cindex.Cursor, extern_c) -> Struct:
         name = c.spelling
         decl = Struct(name)
         self.add(c.hash, decl)
@@ -335,7 +334,8 @@ class DeclMap:
         self.parser.push_namespace(decl.namespace)
         for child in c.get_children():
             if child.kind == cindex.CursorKind.FIELD_DECL:
-                field = self.cindex_type_to_cpptypeinfo(child.type, child)
+                field = self.cindex_type_to_cpptypeinfo(
+                    child.type, child, extern_c)
                 if not field:
                     raise Exception()
                 offset = child.get_field_offsetof() // 8
@@ -347,39 +347,10 @@ class DeclMap:
                     raise Exception(f'struct {c.spelling}: offset error')
                 decl.add_field(Field(field, child.spelling, offset))
 
-            elif child.kind in [
-                    cindex.CursorKind.STRUCT_DECL,
-                    cindex.CursorKind.UNION_DECL, cindex.CursorKind.ENUM_DECL
-            ]:
-                self.parse_struct(child)
-            #     elif child.kind == cindex.CursorKind.CONSTRUCTOR:
-            #         pass
-            #     elif child.kind == cindex.CursorKind.DESTRUCTOR:
-            #         pass
-            #     elif child.kind == cindex.CursorKind.CXX_METHOD:
-            #         pass
-            #     elif child.kind == cindex.CursorKind.CONVERSION_FUNCTION:
-            #         pass
-            #     elif child.kind == cindex.CursorKind.TEMPLATE_TYPE_PARAMETER:
-            #         t = child.spelling
-            #         self.parser.parse(f'struct {t}')
-            #         decl.add_template_parameter(t)
-            #     elif child.kind == cindex.CursorKind.VAR_DECL:
-            #         # static variable
-            #         pass
-            #     elif child.kind == cindex.CursorKind.STRUCT_DECL:
-            #         parse_struct(child)
-            elif child.kind == cindex.CursorKind.TYPEDEF_DECL:
-                self.parse_typedef(child)
-            elif child.kind == cindex.CursorKind.UNEXPOSED_ATTR:
-                pass
-            elif child.kind == cindex.CursorKind.UNEXPOSED_EXPR:
-                pass
             elif child.kind == cindex.CursorKind.CXX_ACCESS_SPEC_DECL:
                 pass
-            elif child.kind == cindex.CursorKind.CXX_UNARY_EXPR:
-                pass
+
             else:
-                raise NotImplementedError(f'{child.kind}')
+                self.parse_cursor(child, extern_c)
         self.parser.pop_namespace()
         return decl

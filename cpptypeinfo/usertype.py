@@ -285,7 +285,10 @@ class Struct(UserType):
         return True
 
     def __str__(self) -> str:
-        return f'{self.type_name}'
+        if self.type_name:
+            return f'struct {self.type_name}'
+        else:
+            return f'struct (anonymous)'
 
 
 class Param(NamedTuple):
