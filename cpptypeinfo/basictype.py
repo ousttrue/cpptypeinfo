@@ -98,6 +98,11 @@ class VaList(PrimitiveType):
         return 13
 
 
+class LongDouble(PrimitiveType):
+    def __hash__(self) -> int:
+        return 14
+
+
 class TypeRef(NamedTuple):
     ref: Type
     is_const: bool = False

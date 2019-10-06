@@ -106,7 +106,7 @@ typedef struct Forward *T;
         if not isinstance(typedef, cpptypeinfo.usertype.Typedef):
             raise Exception()
 
-    def test_elaborated(self) -> None:
+    def test_linklist(self) -> None:
         parser = cpptypeinfo.TypeParser()
         cpptypeinfo.parse_source(parser,
                                  '''
@@ -116,11 +116,32 @@ typedef struct _LIST_ENTRY {
 } LIST_ENTRY;
 ''',
                                  debug=True)
-        typedef = parser.root_namespace.user_type_map['T']
-        if not isinstance(typedef, cpptypeinfo.usertype.Typedef):
-            raise Exception()
+        # typedef = parser.root_namespace.user_type_map['T']
+        # if not isinstance(typedef, cpptypeinfo.usertype.Typedef):
+        #     raise Exception()
 
+    def test_elaborated(self) -> None:
+        parser = cpptypeinfo.TypeParser()
+        cpptypeinfo.parse_source(parser,
+                                 '''
+typedef struct __crt_locale_pointers
+{
+    struct __crt_locale_data*    locinfo;
+    struct __crt_multibyte_data* mbcinfo;
+} __crt_locale_pointers
+''',
+                                 debug=True)
+
+    def test_callback(self) -> None:
+        parser = cpptypeinfo.TypeParser()
+        cpptypeinfo.parse_source(parser,
+                                 '''
+typedef struct _NCB {
+    void (*ncb_post)( struct _NCB * ); /* POST routine address        */
+} NCB, *PNCB;
+''',
+                                 debug=True)
 
 if __name__ == '__main__':
     # unittest.main()
-    CIndexTypedefTest().test_elaborated()
+    CIndexTypedefTest().test_callback()

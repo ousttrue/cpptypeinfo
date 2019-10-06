@@ -95,7 +95,7 @@ def parse_files(parser: TypeParser,
         if debug:
             debug_print(tu.cursor, include_path_list)
         else:
-            decl_map.parse_namespace(tu.cursor)
+            decl_map.parse_cursor(tu.cursor)
         return decl_map
 
 
@@ -109,6 +109,6 @@ def parse_source(parser: TypeParser, source: str, cpp_flags=None,
         tu = get_tu(path, cpp_flags=cpp_flags)
         if debug:
             debug_print(tu.cursor, [])
-        decl_map.parse_namespace(tu.cursor)
+        decl_map.parse_cursor(tu.cursor)
 
     return decl_map

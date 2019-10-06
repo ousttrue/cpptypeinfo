@@ -1,13 +1,38 @@
-from typing import Dict, Optional, List, Set
+from typing import Dict, Optional, List, Set, NamedTuple, Union
+from enum import IntEnum, auto
 import pathlib
 from clang import cindex
 import cpptypeinfo
-from cpptypeinfo.usertype import (TypeRef, Typedef, Pointer, Array, UserType,
-                                  Struct, Field, Function, Param, Enum,
-                                  EnumValue)
+from cpptypeinfo.usertype import (TypeRef, Pointer, Array, UserType, Struct,
+                                  Field, Function, Param, Enum, EnumValue)
 
 
 def get_primitive_type(t: cindex.Type) -> Optional[TypeRef]:
+    '''
+    TypeKind.VOID = TypeKind(2)
+    TypeKind.BOOL = TypeKind(3)
+    TypeKind.CHAR_U = TypeKind(4)
+    TypeKind.UCHAR = TypeKind(5)
+    TypeKind.CHAR16 = TypeKind(6)
+    TypeKind.CHAR32 = TypeKind(7)
+    TypeKind.USHORT = TypeKind(8)
+    TypeKind.UINT = TypeKind(9)
+    TypeKind.ULONG = TypeKind(10)
+    TypeKind.ULONGLONG = TypeKind(11)
+    TypeKind.UINT128 = TypeKind(12)
+    TypeKind.CHAR_S = TypeKind(13)
+    TypeKind.SCHAR = TypeKind(14)
+    TypeKind.WCHAR = TypeKind(15)
+    TypeKind.SHORT = TypeKind(16)
+    TypeKind.INT = TypeKind(17)
+    TypeKind.LONG = TypeKind(18)
+    TypeKind.LONGLONG = TypeKind(19)
+    TypeKind.INT128 = TypeKind(20)
+    TypeKind.FLOAT = TypeKind(21)
+    TypeKind.DOUBLE = TypeKind(22)
+    TypeKind.LONGDOUBLE = TypeKind(23)
+    TypeKind.NULLPTR = TypeKind(24)
+    '''
     # void
     if t.kind == cindex.TypeKind.VOID:  # void
         return TypeRef(cpptypeinfo.Void(), t.is_const_qualified())
@@ -60,21 +85,68 @@ def get_primitive_type(t: cindex.Type) -> Optional[TypeRef]:
     elif t.kind == cindex.TypeKind.DOUBLE:  # double
         assert (t.get_size() == 8)
         return TypeRef(cpptypeinfo.Double(), t.is_const_qualified())
-
-    if t.spelling == 'size_t':
-        a = 0
+    elif t.kind == cindex.TypeKind.LONGDOUBLE:  # double
+        size = t.get_size()
+        assert (size == 8)
+        return TypeRef(cpptypeinfo.Double(), t.is_const_qualified())
 
     return None
 
 
-def get_pointer_nest_type(t: cindex.Type):
-    chain = []
+class NestType(IntEnum):
+    POINTER = auto()
+    CONSTANTARRAY = auto()
+
+
+class NestInfo(NamedTuple):
+    type: NestType
+    is_const: bool
+    size: int = 0
+
+
+def strip_nest_type(t: cindex.Type):
+    '''
+    pointer, reference, array の入れ子になった型を取り外す
+    '''
+    stack: List[NestInfo] = []
     current = t
-    while current.kind in (cindex.TypeKind.POINTER,
-                           cindex.TypeKind.LVALUEREFERENCE):
-        chain.append(current.is_const_qualified())
-        current = current.get_pointee()
-    return current, chain
+    while True:
+        if current.kind in (cindex.TypeKind.POINTER,
+                            cindex.TypeKind.LVALUEREFERENCE):
+            stack.append(
+                NestInfo(NestType.POINTER, current.is_const_qualified()))
+            current = current.get_pointee()
+        elif current.kind == cindex.TypeKind.INCOMPLETEARRAY:
+            stack.append(
+                NestInfo(NestType.POINTER, current.is_const_qualified()))
+            current = current.get_array_element_type()
+        elif current.kind == cindex.TypeKind.CONSTANTARRAY:
+            stack.append(
+                NestInfo(NestType.CONSTANTARRAY, current.is_const_qualified(),
+                         current.get_array_size()))
+            current = current.get_array_element_type()
+        else:
+            break
+    return current, stack
+
+
+def restore_nest_type(ref: Union[TypeRef, cpptypeinfo.Type],
+                      stack: List[NestInfo]) -> TypeRef:
+    if isinstance(ref, TypeRef):
+        current = ref
+    elif isinstance(ref, cpptypeinfo.Type):
+        current = TypeRef(ref)
+    else:
+        raise Exception()
+    while stack:
+        info = stack.pop()
+        if info.type == NestType.POINTER:
+            current = TypeRef(Pointer(current), info.is_const)
+        elif info.type == NestType.CONSTANTARRAY:
+            current = TypeRef(Array(current, info.size), info.is_const)
+        else:
+            raise Exception()
+    return current
 
 
 class DeclMap:
@@ -85,11 +157,11 @@ class DeclMap:
         self.files = files
         self.extern_c: List[bool] = [False]
 
-    def get(self, c: cindex.Cursor):
+    def get(self, c: cindex.Cursor) -> UserType:
         hash = c.hash
         while hash != c.canonical.hash:
             hash = c.canonical.hash
-        return self.decl_map.get(hash)
+        return self.decl_map[hash]
 
     def add(self, c: cindex.Cursor, usertype: UserType) -> None:
         hash = c.hash
@@ -97,25 +169,30 @@ class DeclMap:
             hash = c.canonical.hash
         self.decl_map[hash] = usertype
 
-    def parse_namespace(self, c: cindex.Cursor):
-        for i, child in enumerate(c.get_children()):
-            if child.kind == cindex.CursorKind.NAMESPACE:
-                # nested
-                self.parser.push_namespace(child.spelling)
-                self.parse_namespace(child)
-                self.parser.pop_namespace()
-            else:
-
-                self.parse_cursor(child)
-
     def parse_cursor(self, c: cindex.Cursor):
+        '''
+        namespaceレベルの要素。
+        各種宣言が期待される。
+        '''
         if c.hash in self.used:
             return
         self.used.add(c.hash)
         # if files and pathlib.Path(c.location.file.name) not in files:
         #     return
 
-        if c.kind == cindex.CursorKind.UNEXPOSED_DECL:
+        if c.kind == cindex.CursorKind.TRANSLATION_UNIT:
+
+            for child in c.get_children():
+                self.parse_cursor(child)
+
+        elif c.kind == cindex.CursorKind.NAMESPACE:
+            # nested
+            self.parser.push_namespace(c.spelling)
+            for child in c.get_children():
+                self.parse_cursor(child)
+            self.parser.pop_namespace()
+
+        elif c.kind == cindex.CursorKind.UNEXPOSED_DECL:
             extern_c = False
             try:
                 it = c.get_tokens()
@@ -125,10 +202,6 @@ class DeclMap:
                     extern_c = True
             except StopIteration:
                 pass
-            # tokens = [t.spelling for t in ]
-            # if len(tokens) >= 2 and tokens[0] == 'extern' and tokens[1] == '"C"':
-            # if 'dllexport' in tokens:
-            #     a = 0
             if extern_c:
                 self.extern_c.append(True)
             for child in c.get_children():
@@ -171,8 +244,14 @@ class DeclMap:
         elif c.kind == cindex.CursorKind.UNEXPOSED_ATTR:
             pass
 
-        # elif c.kind == cindex.CursorKind.CONSTRUCTOR:
-        #     pass
+        elif c.kind == cindex.CursorKind.USING_DECLARATION:
+            pass
+
+        elif c.kind == cindex.CursorKind.CONSTRUCTOR:
+            pass
+
+        elif c.kind == cindex.CursorKind.DESTRUCTOR:
+            pass
 
         elif c.kind == cindex.CursorKind.FUNCTION_TEMPLATE:
             pass
@@ -184,6 +263,12 @@ class DeclMap:
         elif c.kind == cindex.CursorKind.CXX_BASE_SPECIFIER:
             pass
 
+        elif c.kind == cindex.CursorKind.CXX_METHOD:
+            pass
+
+        elif c.kind == cindex.CursorKind.CONVERSION_FUNCTION:
+            pass
+
         elif c.kind == cindex.CursorKind.CLASS_TEMPLATE_PARTIAL_SPECIALIZATION:
             pass
 
@@ -191,156 +276,56 @@ class DeclMap:
             tokens = [x.spelling for x in c.get_tokens()]
             raise NotImplementedError(f'{c.kind}: {tokens}')
 
-    def cindex_type_to_cpptypeinfo(self, t: cindex.Type,
-                                   c: cindex.Cursor) -> TypeRef:
-        primitive = get_primitive_type(t)
-        if primitive:
-            return primitive
-
-        p = self.get_pointer_type(t, c)
-        if p:
-            return p
-
-        a = self.get_array_type(t, c)
-        if a:
-            return a
-
-        elif t.kind == cindex.TypeKind.TYPEDEF:
-            children = [child for child in c.get_children()]
-            for child in children:
-                if child.kind == cindex.CursorKind.TYPE_REF:
-                    ref = child.referenced
-                    decl = self.get(ref)
-                    if decl:
-                        return decl
-
-                    raise Exception()
-
-            # ref = ref_c.referenced
-            # return cindex_type_to_cpptypeinfo(ref.underlying_typedef_type, ref)
-            raise Exception()
-
-        elif t.kind == cindex.TypeKind.ELABORATED:
+    def get_type_from_hash(self, t: cindex.Type, c: cindex.Cursor) -> TypeRef:
+        '''
+        登録済みの型をhashから取得する
+        '''
+        if t.kind in (cindex.TypeKind.ELABORATED, cindex.TypeKind.RECORD,
+                      cindex.TypeKind.TYPEDEF, cindex.TypeKind.ENUM):
+            # structなど
             children = [child for child in c.get_children()]
             for child in children:
                 if child.kind in (cindex.CursorKind.STRUCT_DECL,
                                   cindex.CursorKind.UNION_DECL):
                     decl = self.get(child)
                     if decl:
-                        return decl
-
-            raise Exception()
-
-        raise Exception(f'unknown type: {t.kind}')
-        return None
-
-    def get_pointer_inner_type(self, p: cindex.Type,
-                               c: cindex.Cursor) -> Optional[TypeRef]:
-        primitive = get_primitive_type(p)
-        if primitive:
-            return primitive
-
-        pointer = self.get_pointer_type(p, c)
-        if pointer:
-            return pointer
-
-        if p.kind == cindex.TypeKind.ELABORATED:
-            children = [child for child in c.get_children()]
-            if c.kind == cindex.CursorKind.TYPEDEF_DECL:
-                c = children[0]
-                if c.kind == cindex.CursorKind.STRUCT_DECL:
-                    # declaration
-                    function = self.parse_struct(c)
-                    decl = self.parser.typedef(
-                        c.spelling,
-                        TypeRef(function, c.type.is_const_qualified()))
-                    decl.file = pathlib.Path(c.location.file.name)
-                    decl.line = c.location.line
-                    self.add(c, decl)
-                    return decl
-
-                raise Exception()
-
-            else:
-                for child in children:
-                    if child.kind == cindex.CursorKind.TYPE_REF:
-                        decl = self.get(child.referenced)
-                        if decl:
-                            return decl
-
-                        raise Exception()
-
-                    elif child.kind in (cindex.CursorKind.STRUCT_DECL,
-                                        cindex.CursorKind.ENUM_DECL):
-                        decl = self.get(child)
-                        if decl:
-                            return decl
-                        raise Exception()
-            raise Exception()
-
-        elif p.kind == cindex.TypeKind.TYPEDEF:
-            children = [child for child in c.get_children()]
-            for child in children:
-                if child.kind == cindex.CursorKind.TYPE_REF:
-                    decl = self.get(child.referenced)
-                    if decl:
-                        return decl
+                        return TypeRef(decl, t.is_const_qualified())
                     raise Exception()
 
+                elif child.kind == cindex.CursorKind.TYPE_REF:
+                    decl = self.get(child.referenced)
+                    if decl:
+                        return TypeRef(decl, t.is_const_qualified())
+                    raise Exception()
+
+                elif child.kind in (cindex.CursorKind.UNEXPOSED_ATTR,
+                                    cindex.CursorKind.DLLIMPORT_ATTR):
+                    pass
+
+                else:
+                    raise Exception()
             raise Exception()
 
-        elif p.kind == cindex.TypeKind.FUNCTIONPROTO:
-            children = [child for child in c.get_children()]
+        if t.kind == cindex.TypeKind.FUNCTIONPROTO:
+            return TypeRef(cpptypeinfo.Void(), t.is_const_qualified())
 
-            if c.kind == cindex.CursorKind.TYPEDEF_DECL:
-                # declaration
-                function = self.parse_functionproto(c)
-                decl = self.parser.typedef(
-                    c.spelling, TypeRef(function, c.type.is_const_qualified()))
-                decl.file = pathlib.Path(c.location.file.name)
-                decl.line = c.location.line
-                self.add(c, decl)
-                return decl
-
-            else:
-                for child in children:
-                    if child.kind == cindex.CursorKind.TYPE_REF:
-                        decl = self.get(child.referenced)
-                        if decl:
-                            return decl
-                        raise Exception()
-
-            raise Exception()
-
-        else:
-            raise Exception()
-
+        children = [child for child in c.get_children()]
         raise Exception()
 
-    def get_pointer_type(self, t: cindex.Type,
-                         c: cindex.Cursor) -> Optional[TypeRef]:
-        if (t.kind == cindex.TypeKind.POINTER
-                or t.kind == cindex.TypeKind.LVALUEREFERENCE):
-            p = self.get_pointer_inner_type(t.get_pointee(), c)
-            if p:
-                return TypeRef(Pointer(p), t.is_const_qualified())
+    def cindex_type_to_cpptypeinfo(self, t: cindex.Type,
+                                   c: cindex.Cursor) -> TypeRef:
+        # remove pointer
+        base_type, stack = strip_nest_type(t)
 
-        if t.kind == cindex.TypeKind.INCOMPLETEARRAY:
-            p = self.get_pointer_inner_type(t.get_array_element_type(), c)
-            if p:
-                return TypeRef(Pointer(p), t.is_const_qualified())
+        primitive = get_primitive_type(base_type)
+        if primitive:
+            return restore_nest_type(primitive, stack)
 
-        return None
+        nest = self.get_type_from_hash(base_type, c)
+        if nest:
+            return restore_nest_type(nest, stack)
 
-    def get_array_type(self, t: cindex.Type,
-                       c: cindex.Cursor) -> Optional[TypeRef]:
-
-        if t.kind == cindex.TypeKind.CONSTANTARRAY:
-            p = self.get_pointer_inner_type(t.get_array_element_type(), c)
-            if p:
-                return TypeRef(Array(p, t.get_array_size()),
-                               t.is_const_qualified())
-
+        raise Exception(f'unknown type: {t.kind}')
         return None
 
     def parse_functionproto(self, c: cindex.Cursor) -> Function:
@@ -352,7 +337,7 @@ class DeclMap:
             return Param(child.spelling, ref)
 
         params = []
-        result = cpptypeinfo.Void()
+        result: cpptypeinfo.Type = cpptypeinfo.Void()
         for child in children:
             if child.kind == cindex.CursorKind.TYPE_REF:
                 result = self.get(child.referenced)
@@ -407,65 +392,61 @@ class DeclMap:
         raise Exception()
 
     def parse_typedef(self, c: cindex.Cursor) -> None:
-        underlying, chain = get_pointer_nest_type(c.underlying_typedef_type)
+        underlying, stack = strip_nest_type(c.underlying_typedef_type)
         primitive = get_primitive_type(underlying)
         if primitive:
-            # pointer
-            current = primitive
-            while chain:
-                current = TypeRef(Pointer(current), chain.pop(0))
-            # typedef
-            decl = self.parser.typedef(c.spelling, current)
-            decl.file = pathlib.Path(c.location.file.name)
-            decl.line = c.location.line
-            self.add(c, decl)
-            return
-
-        a = self.get_array_type(underlying, c)
-        if a:
-            if chain:
-                raise Exception()
-            decl = self.parser.typedef(c.spelling, a)
-            decl.file = pathlib.Path(c.location.file.name)
-            decl.line = c.location.line
-            self.add(c, decl)
+            typedef = self.parser.typedef(c.spelling,
+                                          restore_nest_type(primitive, stack))
+            typedef.file = pathlib.Path(c.location.file.name)
+            typedef.line = c.location.line
+            self.add(c, typedef)
             return
 
         elaborated = self.typedef_elaborated_type(underlying, c)
         if elaborated:
-            # pointer
-            current = elaborated
-            while chain:
-                current = TypeRef(Pointer(current), chain.pop(0))
-            # typedef
-            decl = self.parser.typedef(c.spelling, current)
-            decl.file = pathlib.Path(c.location.file.name)
-            decl.line = c.location.line
-            self.add(c, decl)
+            typedef = self.parser.typedef(c.spelling,
+                                          restore_nest_type(elaborated, stack))
+            typedef.file = pathlib.Path(c.location.file.name)
+            typedef.line = c.location.line
+            self.add(c, typedef)
             return
 
         if underlying.kind == cindex.TypeKind.TYPEDEF:
             children = [child for child in c.get_children()]
             for child in children:
                 if child.kind == cindex.CursorKind.TYPE_REF:
-                    typedef = self.get(child.referenced)
-                    if typedef:
-                        decl = self.parser.typedef(c.spelling, typedef)
-                        decl.file = pathlib.Path(c.location.file.name)
-                        decl.line = c.location.line
-                        self.add(c, decl)
+                    usertype = self.get(child.referenced)
+                    if usertype:
+                        typedef = self.parser.typedef(
+                            c.spelling, restore_nest_type(usertype, stack))
+                        typedef.file = pathlib.Path(c.location.file.name)
+                        typedef.line = c.location.line
+                        self.add(c, typedef)
                         return
 
             raise Exception()
 
         if underlying.kind == cindex.TypeKind.FUNCTIONPROTO:
             function = self.parse_functionproto(c)
-            decl = self.parser.typedef(
+            typedef = self.parser.typedef(
                 c.spelling, TypeRef(function, c.type.is_const_qualified()))
-            decl.file = pathlib.Path(c.location.file.name)
-            decl.line = c.location.line
-            self.add(c, decl)
+            typedef.file = pathlib.Path(c.location.file.name)
+            typedef.line = c.location.line
+            self.add(c, typedef)
             return
+
+        if underlying.kind == cindex.TypeKind.UNEXPOSED:
+            # typedef decltype(__nullptr) nullptr_t;
+            children = [child for child in c.get_children()]
+            if c.spelling == 'nullptr_t':
+                typedef = self.parser.typedef(c.spelling,
+                                              TypeRef(cpptypeinfo.Void()))
+                typedef.file = pathlib.Path(c.location.file.name)
+                typedef.line = c.location.line
+                self.add(c, typedef)
+                return
+
+            raise Exception()
 
         raise Exception()
 
@@ -492,7 +473,13 @@ class DeclMap:
         params = []
         for child in c.get_children():
             if child.kind == cindex.CursorKind.PARM_DECL:
-                param = self.cindex_type_to_cpptypeinfo(child.type, child)
+                if child.type.kind == cindex.TypeKind.CONSTANTARRAY:
+                    param = self.cindex_type_to_cpptypeinfo(
+                        child.type.get_array_element_type(), child)
+                    param = TypeRef(Pointer(param),
+                                    child.type.is_const_qualified())
+                else:
+                    param = self.cindex_type_to_cpptypeinfo(child.type, child)
                 # ToDo:
                 default_value = ''
                 params.append(Param(param, c.spelling, default_value))
@@ -539,20 +526,30 @@ class DeclMap:
         structのfieldを処理する。
         配列の処理に注意。
         '''
-        field_type, chain = get_pointer_nest_type(c.type)
+        field_type, stack = strip_nest_type(c.type)
         primitive = get_primitive_type(field_type)
         if primitive:
             # pointer
             current = primitive
-            while chain:
-                current = TypeRef(Pointer(current), chain.pop(0))
+            while stack:
+                current = TypeRef(Pointer(current), stack.pop(0))
             # field
             return Field(current, c.spelling)
 
-        if field_type != cindex.TypeKind.ELABORATED:
-            decl = self.cindex_type_to_cpptypeinfo(c.type, c)
-            if decl:
-                return Field(decl, c.spelling)
+        if field_type.kind == cindex.TypeKind.CONSTANTARRAY:
+            # 固定長配列
+            p = self.cindex_type_to_cpptypeinfo(
+                field_type.get_array_element_type(), c)
+            if p:
+                array = TypeRef(Array(p, field_type.get_array_size()),
+                                field_type.is_const_qualified())
+                return Field(array, c.spelling)
+
+            raise Exception()
+
+        decl = self.get_type_from_hash(field_type, c)
+        if decl:
+            return Field(decl, c.spelling)
 
         raise Exception()
         field = self.cindex_type_to_cpptypeinfo(child.type, child)
