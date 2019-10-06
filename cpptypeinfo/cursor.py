@@ -73,95 +73,6 @@ def debug_print(c, files: List[pathlib.Path], level=''):
                 debug_print(child, files, level + '  ')
 
 
-def parse_cursor(decl_map: cursors.DeclMap,
-                 parser: TypeParser,
-                 c: cindex.Cursor,
-                 files: List[pathlib.Path],
-                 used: Set[int],
-                 extern_c=False):
-    if c.hash in used:
-        return
-    used.add(c.hash)
-    # if files and pathlib.Path(c.location.file.name) not in files:
-    #     return
-
-    if c.kind == cindex.CursorKind.UNEXPOSED_DECL:
-        try:
-            it = c.get_tokens()
-            t0 = next(it)
-            t1 = next(it)
-            if t0.spelling == 'extern' and t1.spelling == '"C"':
-                extern_c = True
-        except StopIteration:
-            pass
-        # tokens = [t.spelling for t in ]
-        # if len(tokens) >= 2 and tokens[0] == 'extern' and tokens[1] == '"C"':
-        # if 'dllexport' in tokens:
-        #     a = 0
-        for child in c.get_children():
-            parse_cursor(decl_map,
-                         parser,
-                         child,
-                         files=files,
-                         used=used,
-                         extern_c=extern_c)
-
-    elif c.kind == cindex.CursorKind.UNION_DECL:
-        cursors.parse_struct(decl_map, parser, c)
-
-    elif c.kind == cindex.CursorKind.STRUCT_DECL:
-        cursors.parse_struct(decl_map, parser, c)
-
-    elif c.kind == cindex.CursorKind.CLASS_DECL:
-        cursors.parse_struct(decl_map, parser, c)
-
-    elif c.kind == cindex.CursorKind.TYPEDEF_DECL:
-        cursors.parse_typedef(decl_map, parser, c)
-
-    elif c.kind == cindex.CursorKind.FUNCTION_DECL:
-        cursors.parse_function(decl_map, parser, c, extern_c)
-
-    elif c.kind == cindex.CursorKind.ENUM_DECL:
-        cursors.parse_enum(decl_map, parser, c)
-
-    elif c.kind == cindex.CursorKind.VAR_DECL:
-        # static variable
-        pass
-
-    # elif c.kind == cindex.CursorKind.CONSTRUCTOR:
-    #     pass
-
-    elif c.kind == cindex.CursorKind.FUNCTION_TEMPLATE:
-        pass
-
-    elif c.kind == cindex.CursorKind.CLASS_TEMPLATE:
-        pass
-        # parse_struct(parser, c)
-
-    elif c.kind == cindex.CursorKind.CLASS_TEMPLATE_PARTIAL_SPECIALIZATION:
-        pass
-
-    else:
-        raise NotImplementedError(str(c.kind))
-
-
-def parse_namespace(decl_map: cursors.DeclMap,
-                    parser: TypeParser,
-                    c: cindex.Cursor,
-                    files: List[pathlib.Path],
-                    used=None):
-    if not used:
-        used = set()
-
-    for i, child in enumerate(c.get_children()):
-        if child.kind == cindex.CursorKind.NAMESPACE:
-            # nested
-            parser.push_namespace(child.spelling)
-            parse_namespace(decl_map, parser, child, files)
-            parser.pop_namespace()
-        else:
-
-            parse_cursor(decl_map, parser, child, files, used)
 
 
 def parse_files(parser: TypeParser,
@@ -180,7 +91,7 @@ def parse_files(parser: TypeParser,
         if debug:
             debug_print(tu.cursor, include_path_list)
         else:
-            parse_namespace(decl_map, parser, tu.cursor, include_path_list)
+            decl_map.parse_namespace(parser, tu.cursor, include_path_list)
     return decl_map
 
 
@@ -194,6 +105,6 @@ def parse_source(parser: TypeParser, source: str, cpp_flags=None,
         tu = get_tu(path, cpp_flags=cpp_flags)
         if debug:
             debug_print(tu.cursor, [])
-        parse_namespace(decl_map, parser, tu.cursor, [])
+        decl_map.parse_namespace(parser, tu.cursor, [])
 
     return decl_map
