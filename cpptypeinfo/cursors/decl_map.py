@@ -7,16 +7,6 @@ from cpptypeinfo.usertype import (TypeRef, Typedef, Pointer, Array, UserType,
                                   EnumValue)
 
 
-def get_underlying_info(t: cindex.Type):
-    chain = []
-    current = t
-    while current.kind in (cindex.TypeKind.POINTER,
-                           cindex.TypeKind.LVALUEREFERENCE):
-        chain.append(current.is_const_qualified())
-        current = current.get_pointee()
-    return current, chain
-
-
 def get_primitive_type(t: cindex.Type) -> Optional[TypeRef]:
     # void
     if t.kind == cindex.TypeKind.VOID:  # void
@@ -75,6 +65,16 @@ def get_primitive_type(t: cindex.Type) -> Optional[TypeRef]:
         a = 0
 
     return None
+
+
+def get_pointer_nest_type(t: cindex.Type):
+    chain = []
+    current = t
+    while current.kind in (cindex.TypeKind.POINTER,
+                           cindex.TypeKind.LVALUEREFERENCE):
+        chain.append(current.is_const_qualified())
+        current = current.get_pointee()
+    return current, chain
 
 
 class DeclMap:
@@ -407,7 +407,7 @@ class DeclMap:
         raise Exception()
 
     def parse_typedef(self, c: cindex.Cursor) -> None:
-        underlying, chain = get_underlying_info(c.underlying_typedef_type)
+        underlying, chain = get_pointer_nest_type(c.underlying_typedef_type)
         primitive = get_primitive_type(underlying)
         if primitive:
             # pointer
@@ -534,6 +534,39 @@ class DeclMap:
         decl.line = c.location.line
         return decl
 
+    def parse_field(self, c: cindex.Cursor) -> Field:
+        '''
+        structのfieldを処理する。
+        配列の処理に注意。
+        '''
+        field_type, chain = get_pointer_nest_type(c.type)
+        primitive = get_primitive_type(field_type)
+        if primitive:
+            # pointer
+            current = primitive
+            while chain:
+                current = TypeRef(Pointer(current), chain.pop(0))
+            # field
+            return Field(current, c.spelling)
+
+        if field_type != cindex.TypeKind.ELABORATED:
+            decl = self.cindex_type_to_cpptypeinfo(c.type, c)
+            if decl:
+                return Field(decl, c.spelling)
+
+        raise Exception()
+        field = self.cindex_type_to_cpptypeinfo(child.type, child)
+        if not field:
+            raise Exception()
+        offset = child.get_field_offsetof() // 8
+        # if not decl.template_parameters and offset < 0:
+        #     # parseに失敗(特定のheaderが見つからないなど)
+        #     # clang 環境が壊れているかも
+        #     # VCのプレビュー版とか原因かも
+        #     # プレビュー版をアンインストールして LLVM を入れたり消したらなおった
+        #     raise Exception(f'struct {c.spelling}.{child.spelling}: offset error')
+        decl.add_field(Field(field, child.spelling, offset))
+
     def parse_struct(self, c: cindex.Cursor) -> Struct:
         name = c.spelling
         # print(f'{name}: {c.hash}')
@@ -544,22 +577,14 @@ class DeclMap:
         self.parser.push_namespace(decl.namespace)
         for child in c.get_children():
             if child.kind == cindex.CursorKind.FIELD_DECL:
-                field = self.cindex_type_to_cpptypeinfo(child.type, child)
-                if not field:
-                    raise Exception()
-                offset = child.get_field_offsetof() // 8
-                # if not decl.template_parameters and offset < 0:
-                #     # parseに失敗(特定のheaderが見つからないなど)
-                #     # clang 環境が壊れているかも
-                #     # VCのプレビュー版とか原因かも
-                #     # プレビュー版をアンインストールして LLVM を入れたり消したらなおった
-                #     raise Exception(f'struct {c.spelling}.{child.spelling}: offset error')
-                decl.add_field(Field(field, child.spelling, offset))
+                field = self.parse_field(child)
+                decl.fields.append(field)
 
             elif child.kind == cindex.CursorKind.CXX_ACCESS_SPEC_DECL:
                 pass
 
             else:
                 self.parse_cursor(child)
+
         self.parser.pop_namespace()
         return decl
