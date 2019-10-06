@@ -536,17 +536,6 @@ class DeclMap:
             # field
             return Field(current, c.spelling)
 
-        if field_type.kind == cindex.TypeKind.CONSTANTARRAY:
-            # 固定長配列
-            p = self.cindex_type_to_cpptypeinfo(
-                field_type.get_array_element_type(), c)
-            if p:
-                array = TypeRef(Array(p, field_type.get_array_size()),
-                                field_type.is_const_qualified())
-                return Field(array, c.spelling)
-
-            raise Exception()
-
         decl = self.get_type_from_hash(field_type, c)
         if decl:
             return Field(decl, c.spelling)
