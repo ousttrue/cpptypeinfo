@@ -3,7 +3,7 @@ from typing import List
 from clang import cindex
 from .typeparser import TypeParser
 from .get_tu import get_tu, tmp_from_source
-from . import cursors
+from .decl_map import DeclMap
 
 
 def debug_print(c, files: List[pathlib.Path], level=''):
@@ -82,7 +82,7 @@ def debug_print(c, files: List[pathlib.Path], level=''):
 def parse_files(parser: TypeParser,
                 *paths: pathlib.Path,
                 cpp_flags=None,
-                debug=False) -> cursors.DeclMap:
+                debug=False) -> DeclMap:
     if cpp_flags is None:
         cpp_flags = []
     cpp_flags += [f'-I{x.parent}' for x in paths]
@@ -91,7 +91,7 @@ def parse_files(parser: TypeParser,
         tu = get_tu(path, cpp_flags=cpp_flags)
         include_path_list = [x for x in paths]
         include_path_list.append(path)
-        decl_map = cursors.DeclMap(parser, include_path_list)
+        decl_map = DeclMap(parser, include_path_list)
         if debug:
             debug_print(tu.cursor, include_path_list)
         else:
@@ -100,8 +100,8 @@ def parse_files(parser: TypeParser,
 
 
 def parse_source(parser: TypeParser, source: str, cpp_flags=None,
-                 debug=False) -> cursors.DeclMap:
-    decl_map = cursors.DeclMap(parser, [])
+                 debug=False) -> DeclMap:
+    decl_map = DeclMap(parser, [])
 
     if cpp_flags is None:
         cpp_flags = []
