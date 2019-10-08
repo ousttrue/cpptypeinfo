@@ -1,10 +1,29 @@
 from typing import Dict, Optional, List, Set, NamedTuple, Union
 from enum import IntEnum, auto
 import pathlib
+import ctypes
 from clang import cindex
 import cpptypeinfo
 from cpptypeinfo.usertype import (TypeRef, Pointer, Array, UserType, Struct,
                                   Field, Function, Param, Enum, EnumValue)
+
+extract_bytes_cache: Dict[pathlib.Path, bytes] = {}
+
+
+def extract(x: cindex.Cursor) -> str:
+    '''
+    get str for cursor
+    '''
+    start = x.extent.start
+    p = pathlib.Path(start.file.name)
+    b = extract_bytes_cache.get(p)
+    if not b:
+        b = p.read_bytes()
+        extract_bytes_cache[p] = b
+
+    end = x.extent.end
+    text = b[start.offset:end.offset]
+    return text.decode('ascii')
 
 
 def get_primitive_type(t: cindex.Type) -> Optional[TypeRef]:
@@ -272,6 +291,15 @@ class DeclMap:
         elif c.kind == cindex.CursorKind.CLASS_TEMPLATE_PARTIAL_SPECIALIZATION:
             pass
 
+        elif c.kind == cindex.CursorKind.MACRO_DEFINITION:
+            pass
+
+        elif c.kind == cindex.CursorKind.MACRO_INSTANTIATION:
+            pass
+
+        elif c.kind == cindex.CursorKind.INCLUSION_DIRECTIVE:
+            pass
+
         else:
             tokens = [x.spelling for x in c.get_tokens()]
             raise NotImplementedError(f'{c.kind}: {tokens}')
@@ -504,6 +532,9 @@ class DeclMap:
                 # __declspec(dllimport)
                 pass
 
+            elif child.kind == cindex.CursorKind.WARN_UNUSED_RESULT_ATTR:
+                pass
+
             # elif child.kind == cindex.CursorKind.NAMESPACE_REF:
             #     pass
             # elif child.kind == cindex.CursorKind.TEMPLATE_REF:
@@ -555,6 +586,8 @@ class DeclMap:
 
     def parse_struct(self, c: cindex.Cursor) -> Struct:
         name = c.spelling
+        if name == 'ID3D11DeviceChild':
+            a = 0
         # print(f'{name}: {c.hash}')
         decl = Struct(name)
         self.add(c, decl)
@@ -567,10 +600,57 @@ class DeclMap:
                 decl.fields.append(field)
 
             elif child.kind == cindex.CursorKind.CXX_ACCESS_SPEC_DECL:
+                # public, private...
                 pass
 
-            else:
+            elif child.kind == cindex.CursorKind.CXX_UNARY_EXPR:
+                # some_template<sizeof(char)>
+                pass
+
+            elif child.kind == cindex.CursorKind.UNEXPOSED_EXPR:
+                # some_template<1>
+                pass
+
+            elif child.kind in [
+                    cindex.CursorKind.STRUCT_DECL,
+                    cindex.CursorKind.UNION_DECL,
+                    cindex.CursorKind.TYPEDEF_DECL
+            ]:
+                # inner type
                 self.parse_cursor(child)
+
+            elif child.kind == cindex.CursorKind.ALIGNED_ATTR:
+                # __declspec(align(x))
+                # use newer llvm(9) and latest cindex
+                # https://github.com/llvm-mirror/clang/blob/master/bindings/python/clang/cindex.py
+                pass
+
+            elif child.kind == cindex.CursorKind.CXX_BASE_SPECIFIER:
+                # class some: public base_class
+                pass
+
+            elif child.kind == cindex.CursorKind.UNEXPOSED_ATTR:
+                # __declspec(uuid(x))
+                tokens = [t for t in child.get_tokens()]
+                # c: cindex.Cursor = child
+                # http://clang-developers.42468.n3.nabble.com/source-code-string-from-SourceRange-td4032732.html
+
+                value = extract(child)
+                d3d11_key = 'MIDL_INTERFACE("'
+                d2d1_key = 'DX_DECLARE_INTERFACE("'
+                dwrite_key = 'DWRITE_DECLARE_INTERFACE("'
+                if value.startswith(d3d11_key):
+                    self.iid = uuid.UUID(value[len(d3d11_key):-2])
+                elif value.startswith(d2d1_key):
+                    self.iid = uuid.UUID(value[len(d2d1_key):-2])
+                elif value.startswith(dwrite_key):
+                    self.iid = uuid.UUID(value[len(dwrite_key):-2])
+                else:
+                    print(value)
+
+            else:
+                tokens = [t.spelling for t in child.get_tokens()]
+                raise Exception()
 
         self.parser.pop_namespace()
         return decl

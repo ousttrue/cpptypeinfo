@@ -30,11 +30,24 @@ def get_tu(path: pathlib.Path,
 
     index = cindex.Index.create()
 
-    kw = {}
+    kw = {'options': cindex.TranslationUnit.PARSE_SKIP_FUNCTION_BODIES}
     if use_macro:
-        kw['options'] = cindex.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD
+    # if True:
+        kw['options'] |= cindex.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD
 
-    cpp_args = ['-x', 'c++', '-target', 'x86_64-windows-msvc']
+    cpp_args = [
+        '-x',
+        'c++',
+        '-target',
+        'x86_64-windows-msvc',
+        # '-fms-extensions',
+        # 'x86_64-unknown-windows-win32',
+        '-fms-compatibility-version=18',
+        '-fdeclspec',
+        '-fms-compatibility',
+        # '-fdelayed-template-parsing'
+        # '-fblocks',
+    ]
     if include_path_list is not None:
         for i in include_path_list:
             value = f'-I{str(i)}'
