@@ -1,4 +1,5 @@
 import copy
+import uuid
 from typing import (Optional, Dict, List, Union, NamedTuple, Iterable)
 from .basictype import Type, TypeRef
 
@@ -218,6 +219,9 @@ class Struct(UserType):
                     f = Field(f.typeref.to_ref(), f.name, f.value)
                 self.add_field(f)
         self.template_parameters: List[str] = []
+
+        self.iid: Optional[uuid.UUID] = None
+        self.methods: List[Function] = []
 
     def is_forward_decl(self) -> bool:
         return len(self.fields) == 0

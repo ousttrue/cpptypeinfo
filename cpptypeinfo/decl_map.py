@@ -1,11 +1,15 @@
+import uuid
 from typing import Dict, Optional, List, Set, NamedTuple, Union
 from enum import IntEnum, auto
 import pathlib
-import ctypes
 from clang import cindex
 import cpptypeinfo
 from cpptypeinfo.usertype import (TypeRef, Pointer, Array, UserType, Struct,
                                   Field, Function, Param, Enum, EnumValue)
+
+d3d11_key = 'MIDL_INTERFACE("'
+d2d1_key = 'DX_DECLARE_INTERFACE("'
+dwrite_key = 'DWRITE_DECLARE_INTERFACE("'
 
 extract_bytes_cache: Dict[pathlib.Path, bytes] = {}
 
@@ -241,7 +245,8 @@ class DeclMap:
             self.parse_typedef(c)
 
         elif c.kind == cindex.CursorKind.FUNCTION_DECL:
-            self.parse_function(c)
+            function = self.parse_function(c)
+            self.parser.get_current_namespace().functions.append(function)
 
         elif c.kind == cindex.CursorKind.ENUM_DECL:
             self.parse_enum(c)
@@ -266,27 +271,12 @@ class DeclMap:
         elif c.kind == cindex.CursorKind.USING_DECLARATION:
             pass
 
-        elif c.kind == cindex.CursorKind.CONSTRUCTOR:
-            pass
-
-        elif c.kind == cindex.CursorKind.DESTRUCTOR:
-            pass
-
         elif c.kind == cindex.CursorKind.FUNCTION_TEMPLATE:
             pass
 
         elif c.kind == cindex.CursorKind.CLASS_TEMPLATE:
             pass
             # parse_struct(c)
-
-        elif c.kind == cindex.CursorKind.CXX_BASE_SPECIFIER:
-            pass
-
-        elif c.kind == cindex.CursorKind.CXX_METHOD:
-            pass
-
-        elif c.kind == cindex.CursorKind.CONVERSION_FUNCTION:
-            pass
 
         elif c.kind == cindex.CursorKind.CLASS_TEMPLATE_PARTIAL_SPECIALIZATION:
             pass
@@ -544,7 +534,6 @@ class DeclMap:
                 raise NotImplementedError(f'{child.kind}')
 
         decl = Function(result, params)
-        self.parser.get_current_namespace().functions.append(decl)
         decl.name = c.spelling
         decl.mangled_name = c.mangled_name
         decl.extern_c = self.extern_c[-1]
@@ -614,7 +603,8 @@ class DeclMap:
             elif child.kind in [
                     cindex.CursorKind.STRUCT_DECL,
                     cindex.CursorKind.UNION_DECL,
-                    cindex.CursorKind.TYPEDEF_DECL
+                    cindex.CursorKind.TYPEDEF_DECL,
+                    cindex.CursorKind.FUNCTION_TEMPLATE,
             ]:
                 # inner type
                 self.parse_cursor(child)
@@ -629,6 +619,20 @@ class DeclMap:
                 # class some: public base_class
                 pass
 
+            elif child.kind == cindex.CursorKind.CONSTRUCTOR:
+                pass
+
+            elif child.kind == cindex.CursorKind.DESTRUCTOR:
+                pass
+
+            elif child.kind == cindex.CursorKind.CXX_METHOD:
+                # children = [x for x in child.get_children()]
+                function = self.parse_function(child)
+                decl.methods.append(function)
+
+            elif child.kind == cindex.CursorKind.CONVERSION_FUNCTION:
+                pass
+
             elif child.kind == cindex.CursorKind.UNEXPOSED_ATTR:
                 # __declspec(uuid(x))
                 tokens = [t for t in child.get_tokens()]
@@ -636,15 +640,12 @@ class DeclMap:
                 # http://clang-developers.42468.n3.nabble.com/source-code-string-from-SourceRange-td4032732.html
 
                 value = extract(child)
-                d3d11_key = 'MIDL_INTERFACE("'
-                d2d1_key = 'DX_DECLARE_INTERFACE("'
-                dwrite_key = 'DWRITE_DECLARE_INTERFACE("'
                 if value.startswith(d3d11_key):
-                    self.iid = uuid.UUID(value[len(d3d11_key):-2])
+                    decl.iid = uuid.UUID(value[len(d3d11_key):-2])
                 elif value.startswith(d2d1_key):
-                    self.iid = uuid.UUID(value[len(d2d1_key):-2])
+                    decl.iid = uuid.UUID(value[len(d2d1_key):-2])
                 elif value.startswith(dwrite_key):
-                    self.iid = uuid.UUID(value[len(dwrite_key):-2])
+                    decl.iid = uuid.UUID(value[len(dwrite_key):-2])
                 else:
                     print(value)
 
