@@ -1,6 +1,8 @@
 /cpptypeinfo.egg-info
 *.pyc
 # generated
-*.cs
 __pycache__
 *.egg
+#
+*.d
+*.cs

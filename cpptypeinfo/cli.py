@@ -14,9 +14,7 @@ def get_windowskits() -> pathlib.Path:
 
 def debug(args):
     parser = cpptypeinfo.TypeParser()
-    cpptypeinfo.parse_files(parser,
-                            pathlib.Path(args.header),
-                            debug=True)
+    cpptypeinfo.parse_files(parser, pathlib.Path(args.header), debug=True)
 
 
 def debug_args(subparsers: argparse._SubParsersAction):
@@ -45,12 +43,16 @@ def gen(args):
         headers.append(dir / 'um/dxgiformat.h')
         headers.append(dir / 'um/dxgitype.h')
 
-    cpptypeinfo.parse_files(parser, *headers)
+    decl_map = cpptypeinfo.parse_files(parser, *headers)
 
     if args.lang == 'dlang':
-        cpptypeinfo.languages.dlang.generate(parser, args.dst)
+        cpptypeinfo.languages.dlang.generate(parser, decl_map, headers,
+                                             pathlib.Path(args.dst).absolute(),
+                                             ['windowskits', 'd3d11'])
     elif args.clang == 'csharp':
-        cpptypeinfo.languages.csharp.generate(parser, args.dst)
+        cpptypeinfo.languages.csharp.generate(
+            parser, decl_map,
+            pathlib.Path(args.dst).absolute())
     else:
         raise NotImplementedError()
 

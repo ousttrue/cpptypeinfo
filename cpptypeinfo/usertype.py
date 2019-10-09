@@ -313,6 +313,8 @@ class Function(UserType):
     ):
         super().__init__()
         self.extern_c = False
+        self.dll_export = False
+        self.has_body = False
         self.parent: Optional[Namespace] = None
         self.name = ''
         self.mangled_name = ''
@@ -328,6 +330,12 @@ class Function(UserType):
         self._hash = hash(result)
         for p in self.params:
             self._hash += hash(p)
+
+    def get_exportname(self):
+        if self.extern_c:
+            return self.name
+        else:
+            return self.mangled_name
 
     def __hash__(self):
         return self._hash

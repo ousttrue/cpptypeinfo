@@ -247,6 +247,7 @@ class DeclMap:
         elif c.kind == cindex.CursorKind.FUNCTION_DECL:
             function = self.parse_function(c)
             self.parser.get_current_namespace().functions.append(function)
+            self.add(c, function)
 
         elif c.kind == cindex.CursorKind.ENUM_DECL:
             self.parse_enum(c)
@@ -488,6 +489,8 @@ class DeclMap:
     def parse_function(self, c: cindex.Cursor) -> Function:
         result = self.cindex_type_to_cpptypeinfo(c.result_type, c)
 
+        dll_export = False
+        has_body = False
         params = []
         for child in c.get_children():
             if child.kind == cindex.CursorKind.PARM_DECL:
@@ -513,14 +516,15 @@ class DeclMap:
 
             elif child.kind == cindex.CursorKind.COMPOUND_STMT:
                 # function body
-                pass
+                has_body = True
 
             elif child.kind == cindex.CursorKind.DLLEXPORT_ATTR:
                 # __declspec(dllexport)
-                pass
+                dll_export = True
+
             elif child.kind == cindex.CursorKind.DLLIMPORT_ATTR:
                 # __declspec(dllimport)
-                pass
+                dll_export = True
 
             elif child.kind == cindex.CursorKind.WARN_UNUSED_RESULT_ATTR:
                 pass
@@ -535,10 +539,13 @@ class DeclMap:
 
         decl = Function(result, params)
         decl.name = c.spelling
+        # affected platform option: -target x86_64-windows-msvc
         decl.mangled_name = c.mangled_name
         decl.extern_c = self.extern_c[-1]
         decl.file = pathlib.Path(c.location.file.name)
         decl.line = c.location.line
+        decl.dll_export = dll_export
+        decl.has_body = has_body
         return decl
 
     def parse_field(self, c: cindex.Cursor) -> Field:
@@ -546,6 +553,14 @@ class DeclMap:
         structのfieldを処理する。
         配列の処理に注意。
         '''
+        offset = c.get_field_offsetof() // 8
+        # if not decl.template_parameters and offset < 0:
+        #     # parseに失敗(特定のheaderが見つからないなど)
+        #     # clang 環境が壊れているかも
+        #     # VCのプレビュー版とか原因かも
+        #     # プレビュー版をアンインストールして LLVM を入れたり消したらなおった
+        #     raise Exception(f'struct {c.spelling}.{child.spelling}: offset error')
+
         field_type, stack = strip_nest_type(c.type)
         primitive = get_primitive_type(field_type)
         if primitive:
@@ -554,29 +569,16 @@ class DeclMap:
             while stack:
                 current = TypeRef(Pointer(current), stack.pop(0))
             # field
-            return Field(current, c.spelling)
+            return Field(current, c.spelling, offset)
 
         decl = self.get_type_from_hash(field_type, c)
         if decl:
             return Field(decl, c.spelling)
 
         raise Exception()
-        field = self.cindex_type_to_cpptypeinfo(child.type, child)
-        if not field:
-            raise Exception()
-        offset = child.get_field_offsetof() // 8
-        # if not decl.template_parameters and offset < 0:
-        #     # parseに失敗(特定のheaderが見つからないなど)
-        #     # clang 環境が壊れているかも
-        #     # VCのプレビュー版とか原因かも
-        #     # プレビュー版をアンインストールして LLVM を入れたり消したらなおった
-        #     raise Exception(f'struct {c.spelling}.{child.spelling}: offset error')
-        decl.add_field(Field(field, child.spelling, offset))
 
     def parse_struct(self, c: cindex.Cursor) -> Struct:
         name = c.spelling
-        if name == 'ID3D11DeviceChild':
-            a = 0
         # print(f'{name}: {c.hash}')
         decl = Struct(name)
         self.add(c, decl)
