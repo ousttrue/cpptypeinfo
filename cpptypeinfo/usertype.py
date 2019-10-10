@@ -212,6 +212,7 @@ class Struct(UserType):
         self.parent: Optional[Namespace] = None
         self.namespace = Namespace(self.type_name, self)
         self.base: Optional[Struct] = None
+        self.is_union = False
 
         self.fields: List[Field] = []
         if fields:

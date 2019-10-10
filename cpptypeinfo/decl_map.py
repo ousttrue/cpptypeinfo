@@ -183,6 +183,10 @@ def deref_typedef(usertype: UserType) -> UserType:
             if usertype.type_name == ref.type_name:
                 return ref
 
+        if isinstance(ref, Enum):
+            if usertype.type_name == ref.type_name:
+                return ref
+
         if isinstance(ref, Typedef):
             if usertype.type_name == ref.type_name:
                 return deref_typedef(ref)
@@ -268,13 +272,13 @@ class DeclMap:
                 self.extern_c.pop()
 
         elif c.kind == cindex.CursorKind.UNION_DECL:
-            self.parse_struct(c)
+            self.parse_struct(c, 'union')
 
         elif c.kind == cindex.CursorKind.STRUCT_DECL:
-            self.parse_struct(c)
+            self.parse_struct(c, 'struct')
 
         elif c.kind == cindex.CursorKind.CLASS_DECL:
-            self.parse_struct(c)
+            self.parse_struct(c, 'class')
 
         elif c.kind == cindex.CursorKind.TYPEDEF_DECL:
             self.parse_typedef(c)
@@ -615,10 +619,11 @@ class DeclMap:
 
         raise Exception()
 
-    def parse_struct(self, c: cindex.Cursor) -> Struct:
+    def parse_struct(self, c: cindex.Cursor, struct_type: str) -> Struct:
         name = c.spelling
         # print(f'{name}: {c.hash}')
         decl = Struct(name)
+        decl.is_union = struct_type == 'union'
         self.add(c, decl)
         decl.file = pathlib.Path(c.location.file.name)
         decl.line = c.location.line

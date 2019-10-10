@@ -1,11 +1,11 @@
-from typing import List, TextIO, Dict, Set
+from typing import List, TextIO, Dict, Set, Optional
 import pathlib
 import shutil
 import time
 import datetime
 import cpptypeinfo
-from cpptypeinfo.usertype import (TypeRef, Typedef, Pointer, Struct, Function,
-                                  Enum)
+from cpptypeinfo.usertype import (TypeRef, UserType, Typedef, Pointer, Struct,
+                                  Function, Enum)
 
 IMPORT = '''
 import core.sys.windows.windef;
@@ -62,6 +62,8 @@ dlang_map: Dict[cpptypeinfo.Type, str] = {
     cpptypeinfo.UInt16(): 'ushort',
     cpptypeinfo.UInt32(): 'uint',
     cpptypeinfo.UInt64(): 'ulong',
+    cpptypeinfo.Float(): 'float',
+    cpptypeinfo.Double(): 'double',
 }
 
 
@@ -74,7 +76,7 @@ def is_const(typeref: TypeRef) -> bool:
 
 
 def to_d(typeref: TypeRef, level=0) -> str:
-    const = 'const ' if is_const(typeref) else ''
+    const = 'const ' if level == 0 and is_const(typeref) else ''
 
     if isinstance(typeref.ref, Pointer):
         return f'{const}{to_d(typeref.ref.typeref, level+1)}*'
@@ -96,6 +98,8 @@ class DSource:
         self.com_interfaces: List[Struct] = []
         self.functions: List[Function] = []
         self.enums: List[Enum] = []
+        self.structs: List[Struct] = []
+        self.imports: List[pathlib.Path] = []
 
     def __str__(self) -> str:
         return f'{self.file.name}: {len(self.com_interfaces)}interfaces {len(self.functions)}functions'
@@ -107,7 +111,25 @@ class DSource:
         self.functions.append(function)
 
     def add_enum(self, enum: Enum) -> None:
+        if enum in self.enums:
+            return
         self.enums.append(enum)
+        self.add_import(enum.file)
+
+    def add_struct(self, struct: Struct) -> None:
+        if struct in self.structs:
+            return
+        self.structs.append(struct)
+        self.add_import(struct.file)
+
+    def add_import(self, file: pathlib.Path) -> None:
+        if not file:
+            return
+        if file == self.file:
+            return
+        if file in self.imports:
+            return
+        self.imports.append(file)
 
     def generate(self, dir: pathlib.Path, parent: str) -> None:
         module_name = self.file.stem
@@ -117,18 +139,24 @@ class DSource:
 
         with dst.open('w') as d:
             d.write(f'// cpptypeinfo generated: {datetime.datetime.today()}\n')
-            d.write(f'module {parent}.{module_name}.d;\n')
+            d.write(f'module {parent}.{module_name};\n')
 
             d.write(IMPORT)
+            for i in self.imports:
+                d.write(f'import {parent}.{i.stem};\n')
             d.write('\n')
 
             for enum in self.enums:
                 dlang_enum(d, enum)
                 d.write('\n')
 
+            for struct in self.structs:
+                if dlang_struct(d, struct):
+                    d.write('\n')
+
             for com in self.com_interfaces:
-                dlang_com_interface(d, com)
-                d.write('\n')
+                if dlang_com_interface(d, com):
+                    d.write('\n')
 
 
 def dlang_enum(d: TextIO, node: Enum) -> None:
@@ -177,9 +205,23 @@ def dlang_function(d: TextIO, m: Function, indent='') -> None:
     d.write(f'{indent}{to_d(ret)} {m.name}({params});\n')
 
 
-def dlang_com_interface(d: TextIO, node: Struct) -> None:
-    if not node.base:
+def dlang_struct(d: TextIO, node: Struct) -> bool:
+    if not node.type_name:
         return
+    if node.is_union:
+        return
+    if not node.fields:
+        return False
+    d.write(f'struct {node.type_name}{{\n')
+    for f in node.fields:
+        d.write(f'    {to_d(f.typeref, 1)} {f.name};\n')
+    d.write(f'}}\n')
+    return True
+
+
+def dlang_com_interface(d: TextIO, node: Struct) -> bool:
+    if not node.base:
+        return False
     d.write(f'interface {node.type_name}: {to_d(node.base)} {{\n')
     if node.iid:
         h = node.iid.hex
@@ -188,6 +230,7 @@ def dlang_com_interface(d: TextIO, node: Struct) -> None:
     for m in node.methods:
         dlang_function(d, m, '    ')
     d.write(f'}}\n')
+    return True
 
 
 def generate(parser: cpptypeinfo.TypeParser, decl_map: cpptypeinfo.DeclMap,
@@ -212,8 +255,6 @@ def generate(parser: cpptypeinfo.TypeParser, decl_map: cpptypeinfo.DeclMap,
 
     source_map: Dict[pathlib.Path, DSource] = {}
 
-    used: Set[TypeRef] = set()
-
     def get_or_create_source_map(file: pathlib.Path) -> DSource:
         source = source_map.get(file)
         if not source:
@@ -221,33 +262,44 @@ def generate(parser: cpptypeinfo.TypeParser, decl_map: cpptypeinfo.DeclMap,
             source_map[file] = source
         return source
 
+    def register_enum_struct(ref: UserType) -> Optional[pathlib.Path]:
+        # enum
+        if isinstance(ref, Enum):
+            source = get_or_create_source_map(ref.file)
+            source.add_enum(ref)
+            return ref.file
+        elif isinstance(ref, Pointer) and isinstance(ref.typeref.ref, Enum):
+            source = get_or_create_source_map(ref.typeref.ref.file)
+            source.add_enum(ref.typeref.ref)
+            return ref.typeref.ref.file
+        # struct
+        elif isinstance(ref, Struct):
+            source = get_or_create_source_map(ref.file)
+            source.add_struct(ref)
+            return ref.file
+        elif isinstance(ref, Pointer) and isinstance(ref.typeref.ref, Struct):
+            source = get_or_create_source_map(ref.typeref.ref.file)
+            source.add_struct(ref.typeref.ref)
+            return ref.typeref.ref.file
+
     for k, v in decl_map.decl_map.items():
         if v.file in headers:
             if isinstance(v, Struct):
+                source = get_or_create_source_map(v.file)
                 if v.iid:
                     # print(f'{v.file}: {v.type_name}')
-                    source = get_or_create_source_map(v.file)
                     source.add_com_interface(v)
 
                     for m in v.methods:
                         for p in m.params:
-                            ref = p.typeref.ref
-                            if isinstance(ref, cpptypeinfo.Enum):
-                                # enum
-                                source = get_or_create_source_map(ref.file)
-                                if ref not in used:
-                                    source.add_enum(ref)
-                                    used.add(ref)
-                            elif isinstance(ref, Pointer) and isinstance(
-                                    ref.typeref.ref, Enum):
-                                source = get_or_create_source_map(
-                                    ref.typeref.ref.file)
-                                if ref.typeref.ref not in used:
-                                    source.add_enum(ref.typeref.ref)
-                                    used.add(ref.typeref.ref)
-
-            # elif isinstance(v, Enum):
-            #     print(f'{v.file}: {v}')
+                            path = register_enum_struct(p.typeref.ref)
+                            if path:
+                                source.add_import(path)
+                else:
+                    for f in v.fields:
+                        path = register_enum_struct(f.typeref.ref)
+                        if path:
+                            source.add_import(path)
 
             elif isinstance(v, Function):
                 # dll export
