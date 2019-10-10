@@ -194,7 +194,7 @@ class Array(Pointer):
 
 class Field(NamedTuple):
     typeref: TypeRef
-    name: str
+    name: str = ''
     offset: int = -1
     value: str = ''
 

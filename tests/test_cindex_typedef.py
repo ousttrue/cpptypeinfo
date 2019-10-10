@@ -142,6 +142,22 @@ typedef struct _NCB {
 ''',
                                  debug=True)
 
+    def test_anonymous_union(self) -> None:
+        parser = cpptypeinfo.TypeParser()
+        cpptypeinfo.parse_source(parser,
+                                 '''
+typedef struct D3D11_VIDEO_COLOR
+    {
+    union 
+        {
+        int YCbCr;
+        float RGBA;
+        } 	;
+    } 	D3D11_VIDEO_COLOR;
+''',
+                                 debug=True)
+
+
 if __name__ == '__main__':
     # unittest.main()
     CIndexTypedefTest().test_callback()

@@ -178,18 +178,27 @@ def deref_typedef(usertype: UserType) -> UserType:
     typedefを短縮する
     '''
     if isinstance(usertype, Typedef):
+        if usertype.type_name == 'D3D11_VIDEO_COLOR':
+            pass
+
         ref = usertype.typeref.ref
         if isinstance(ref, Struct):
             if usertype.type_name == ref.type_name:
                 return ref
+            if not ref.type_name:
+                ref.type_name = usertype.type_name
 
         if isinstance(ref, Enum):
             if usertype.type_name == ref.type_name:
                 return ref
+            if not ref.type_name:
+                ref.type_name = usertype.type_name
 
         if isinstance(ref, Typedef):
             if usertype.type_name == ref.type_name:
                 return deref_typedef(ref)
+            if not ref.type_name:
+                ref.type_name = usertype.type_name
 
         return ref
 
@@ -606,16 +615,12 @@ class DeclMap:
         field_type, stack = strip_nest_type(c.type)
         primitive = get_primitive_type(field_type)
         if primitive:
-            # pointer
-            current = primitive
-            while stack:
-                current = TypeRef(Pointer(current), stack.pop(0))
             # field
-            return Field(current, c.spelling, offset)
+            return Field(restore_nest_type(primitive, stack), c.spelling, offset)
 
         decl = self.get_type_from_hash(field_type, c)
         if decl:
-            return Field(decl, c.spelling)
+            return Field(restore_nest_type(decl, stack), c.spelling)
 
         raise Exception()
 
@@ -632,6 +637,12 @@ class DeclMap:
         for child in c.get_children():
             if child.kind == cindex.CursorKind.FIELD_DECL:
                 field = self.parse_field(child)
+                decl.fields.append(field)
+
+            elif child.kind == cindex.CursorKind.UNION_DECL and not child.spelling:
+                # anonymous union
+                union = self.parse_struct(child, StructType.UNION)
+                field = Field(TypeRef(union, child.type.is_const_qualified()))
                 decl.fields.append(field)
 
             elif child.kind == cindex.CursorKind.CXX_ACCESS_SPEC_DECL:

@@ -67,20 +67,6 @@ dlang_map: Dict[cpptypeinfo.Type, str] = {
 }
 
 
-def has_anonymous(usertype: UserType, used) -> bool:
-    used.append(usertype)
-
-    if not isinstance(usertype, Struct):
-        return False
-    if not usertype.type_name:
-        return True
-    for f in usertype.fields:
-        if f.typeref.ref not in used:
-            if has_anonymous(f.typeref.ref, used):
-                return True
-    return False
-
-
 def is_const(typeref: TypeRef) -> bool:
     if typeref.is_const:
         return True
@@ -95,7 +81,25 @@ def to_d(typeref: TypeRef, level=0) -> str:
     if isinstance(typeref.ref, Pointer):
         return f'{const}{to_d(typeref.ref.typeref, level+1)}*'
     if isinstance(typeref.ref, Struct):
-        return f'{const}{typeref.ref.type_name}'
+        if not typeref.ref.type_name:
+            if typeref.ref.struct_type == StructType.UNION:
+                # anonymous union
+                fields = [
+                    to_d(f.typeref, level + 1) + ' ' + f.name + ';\n'
+                    for f in typeref.ref.fields
+                ]
+                return 'union {\n' + ''.join(fields) + '}'
+            elif typeref.ref.struct_type == StructType.STRUCT:
+                # anonymous struct
+                fields = [
+                    to_d(f.typeref, level + 1) + ' ' + f.name + ';'
+                    for f in typeref.ref.fields
+                ]
+                return '// anonymous struct {' + ''.join(fields) + '}'
+            else:
+                raise Exception()
+        else:
+            return f'{const}{typeref.ref.type_name}'
     if isinstance(typeref.ref, Enum):
         return f'{const}{typeref.ref.type_name}'
     if isinstance(typeref.ref, Function):
@@ -225,8 +229,6 @@ def dlang_struct(d: TextIO, node: Struct) -> bool:
     if not node.fields:
         # may forward decl
         return False
-    if has_anonymous(node, []):
-        return False
 
     d.write(f'{node.struct_type.value} {node.type_name}{{\n')
     for f in node.fields:
@@ -298,28 +300,41 @@ def generate(parser: cpptypeinfo.TypeParser, decl_map: cpptypeinfo.DeclMap,
             source.add_struct(ref.typeref.ref)
             return ref.typeref.ref.file
 
+    def register_struct(v: Struct, used):
+        if v in used:
+            return
+        used.append(v)
+
+        source = get_or_create_source_map(v.file)
+        if v.iid:
+            # print(f'{v.file}: {v.type_name}')
+            source.add_com_interface(v)
+
+            for m in v.methods:
+                for p in m.params:
+                    path = register_enum_struct(p.typeref.ref)
+                    if path:
+                        source.add_import(path)
+                path = register_enum_struct(m.result.ref)
+                if path:
+                    source.add_import(path)
+
+        else:
+            for f in v.fields:
+                path = register_enum_struct(f.typeref.ref)
+                if path:
+                    source.add_import(path)
+
+                if isinstance(f.typeref.ref, Struct):
+                    register_struct(f.typeref.ref, used)
+                elif isinstance(f.typeref.ref, Pointer) and isinstance(
+                        f.typeref.ref.typeref.ref, Struct):
+                    register_struct(f.typeref.ref.typeref.ref, used)
+
     for k, v in decl_map.decl_map.items():
         if v.file in headers:
             if isinstance(v, Struct):
-                source = get_or_create_source_map(v.file)
-                if v.iid:
-                    # print(f'{v.file}: {v.type_name}')
-                    source.add_com_interface(v)
-
-                    for m in v.methods:
-                        for p in m.params:
-                            path = register_enum_struct(p.typeref.ref)
-                            if path:
-                                source.add_import(path)
-                        path = register_enum_struct(m.result.ref)
-                        if path:
-                            source.add_import(path)
-
-                else:
-                    for f in v.fields:
-                        path = register_enum_struct(f.typeref.ref)
-                        if path:
-                            source.add_import(path)
+                register_struct(v, [])
 
             elif isinstance(v, Function):
                 # dll export
