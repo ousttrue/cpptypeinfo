@@ -4,7 +4,7 @@ import shutil
 import time
 import datetime
 import cpptypeinfo
-from cpptypeinfo.usertype import (Typedef, Struct, Function, Enum)
+from cpptypeinfo.usertype import (TypeRef, Typedef, Struct, Function, Enum)
 
 IMPORT = '''
 import core.sys.windows.windef;
@@ -79,6 +79,9 @@ class DSource:
 
             d.write(IMPORT)
 
+            for com in self.com_interfaces:
+                dlang_struct(d, com)
+
 
 def dlang_enum(d: TextIO, node: Enum) -> None:
     d.write(f'enum {node.name} {{\n')
@@ -124,27 +127,27 @@ def repl(m):
     return m[0][1:]
 
 
-def to_d(param_type: str) -> str:
-    param_type = (param_type.replace('&', '*').replace('*const *', '**'))
-    if param_type[0] == 'I':  # is_instance
-        param_type = re.sub(r'\*+', repl, param_type)  # reduce *
-    return param_type
+def to_d(param: TypeRef) -> str:
+    # param_type = (param_type.replace('&', '*').replace('*const *', '**'))
+    # if param_type[0] == 'I':  # is_instance
+    #     param_type = re.sub(r'\*+', repl, param_type)  # reduce *
+    # return param_type
+    return str(param)
 
 
 def dlang_function(d: TextIO, m: Function, indent='') -> None:
-    ret = m.ret if m.ret else 'void'
-    params = ', '.join(f'{to_d(p.param_type)} {p.param_name}'
-                       for p in m.params)
+    ret = m.result if m.result else 'void'
+    params = ', '.join(f'{to_d(p.typeref)} {p.name}' for p in m.params)
     d.write(f'{indent}{ret} {m.name}({params});\n')
 
 
 def dlang_struct(d: TextIO, node: Struct) -> None:
-    if node.name[0] == 'I':
+    if node.type_name[0] == 'I':
         # com interface
         base = node.base
         if not base:
             base = 'IUnknown'
-        d.write(f'interface {node.name}: {base} {{\n')
+        d.write(f'interface {node.type_name}: {base} {{\n')
         if node.iid:
             h = node.iid.hex
             iid = f'0x{h[0:8]}, 0x{h[8:12]}, 0x{h[12:16]}, [0x{h[16:18]}, 0x{h[18:20]}, 0x{h[20:22]}, 0x{h[22:24]}, 0x{h[24:26]}, 0x{h[26:28]}, 0x{h[28:30]}, 0x{h[30:32]}]'

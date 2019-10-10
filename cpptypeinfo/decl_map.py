@@ -291,6 +291,9 @@ class DeclMap:
         elif c.kind == cindex.CursorKind.INCLUSION_DIRECTIVE:
             pass
 
+        elif c.kind == cindex.CursorKind.STATIC_ASSERT:
+            pass
+
         else:
             tokens = [x.spelling for x in c.get_tokens()]
             raise NotImplementedError(f'{c.kind}: {tokens}')
@@ -619,7 +622,15 @@ class DeclMap:
 
             elif child.kind == cindex.CursorKind.CXX_BASE_SPECIFIER:
                 # class some: public base_class
-                pass
+                for x in child.get_children():
+                    if x.kind == cindex.CursorKind.TYPE_REF:
+                        base = self.get(x.referenced)
+                        if base:
+                            decl.base = base
+                        else:
+                            raise Exception()
+                    else:
+                        raise Exception()
 
             elif child.kind == cindex.CursorKind.CONSTRUCTOR:
                 pass

@@ -211,6 +211,7 @@ class Struct(UserType):
         self.type_name = type_name
         self.parent: Optional[Namespace] = None
         self.namespace = Namespace(self.type_name, self)
+        self.base: Optional[Struct] = None
 
         self.fields: List[Field] = []
         if fields:
