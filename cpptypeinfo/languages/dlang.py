@@ -1,4 +1,4 @@
-from typing import List, TextIO
+from typing import List, TextIO, Dict
 import pathlib
 import shutil
 import time
@@ -50,6 +50,34 @@ snippet_map = {
     'd2d1': D2D1_SNIPPET,
     'd2dbasetypes': D2D_BASETYPES,
 }
+
+
+class DSource:
+    def __init__(self, file: pathlib.Path):
+        self.file = file
+        self.com_interfaces: List[Struct] = []
+        self.functions: List[Function] = []
+
+    def __str__(self) -> str:
+        return f'{self.file.name}: {len(self.com_interfaces)}interfaces {len(self.functions)}functions'
+
+    def add_com_interface(self, com_interface: Struct) -> None:
+        self.com_interfaces.append(com_interface)
+
+    def add_export_function(self, function: Function) -> None:
+        self.functions.append(function)
+
+    def generate(self, dir: pathlib.Path, parent: str) -> None:
+        module_name = self.file.stem
+        dst = dir / (module_name + '.d')
+        print(f'create {dst}')
+        dst.parent.mkdir(exist_ok=True, parents=True)
+
+        with dst.open('w') as d:
+            d.write(f'// cpptypeinfo generated: {datetime.datetime.today()}\n')
+            d.write(f'module {parent}.{module_name}.d;\n')
+
+            d.write(IMPORT)
 
 
 def dlang_enum(d: TextIO, node: Enum) -> None:
@@ -138,11 +166,25 @@ def generate(parser: cpptypeinfo.TypeParser, decl_map: cpptypeinfo.DeclMap,
 
     すべての com interface と __declspec(dllimport) な関数とそれの参照する型を出力する
     '''
+
+    # clear folder
+    if dir.exists():
+        print(f'clear {dir}')
+        shutil.rmtree(dir)
+        time.sleep(0.1)
+
+    source_map: Dict[pathlib.Path, DSource] = {}
+
     for k, v in decl_map.decl_map.items():
         if v.file in headers:
             if isinstance(v, Struct):
                 if v.iid:
-                    print(f'{v.file}: {v.type_name}')
+                    # print(f'{v.file}: {v.type_name}')
+                    source = source_map.get(v.file)
+                    if not source:
+                        source = DSource(v.file)
+                        source_map[v.file] = source
+                    source.add_com_interface(v)
 
             # elif isinstance(v, Enum):
             #     print(f'{v.file}: {v}')
@@ -150,23 +192,19 @@ def generate(parser: cpptypeinfo.TypeParser, decl_map: cpptypeinfo.DeclMap,
             elif isinstance(v, Function):
                 # dll export
                 if v.extern_c and not v.has_body:
-                    print(f'{v.file}: {v.get_exportname()}')
+                    # print(f'{v.file}: {v.get_exportname()}')
+                    source = source_map.get(v.file)
+                    if not source:
+                        source = DSource(v.file)
+                        source_map[v.file] = source
+                    source.add_export_function(v)
 
-    # # clear folder
-    # if dir.exists():
-    #     print(f'clear {dir}')
-    #     shutil.rmtree(dir)
-    #     time.sleep(0.1)
+    module_name = dir.name
 
-    # dst = dir / ('/'.join(module_list) + '.d')
-    # print(f'create {dst}')
-    # dst.parent.mkdir(parents=True)
+    for k, v in source_map.items():
+        # print(v)
+        v.generate(dir, module_name)
 
-    # with dst.open('w') as d:
-    #     d.write(f'// cpptypeinfo generated: {datetime.datetime.today()}\n')
-    #     d.write(f'module {".".join(module_list)};\n')
-
-    #     d.write(IMPORT)
     #     for include in header.includes:
     #         d.write(
     #             f'public import windowskits.{package_name}.{include.name[:-2]};\n'
