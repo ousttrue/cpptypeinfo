@@ -4,8 +4,9 @@ from enum import IntEnum, auto
 import pathlib
 from clang import cindex
 import cpptypeinfo
-from cpptypeinfo.usertype import (TypeRef, Pointer, Array, UserType, Struct,
-                                  Field, Function, Param, Enum, EnumValue)
+from cpptypeinfo.usertype import (TypeRef, Typedef, Pointer, Array, UserType,
+                                  Struct, Field, Function, Param, Enum,
+                                  EnumValue)
 
 d3d11_key = 'MIDL_INTERFACE("'
 d2d1_key = 'DX_DECLARE_INTERFACE("'
@@ -172,6 +173,35 @@ def restore_nest_type(ref: Union[TypeRef, cpptypeinfo.Type],
     return current
 
 
+def filter_typedef(usertype: UserType) -> UserType:
+    '''
+    不要なtypedefを短縮する
+    typedef struct some {} some;
+    '''
+    if isinstance(usertype, Typedef):
+        ref = usertype.typeref.ref
+        if isinstance(ref, Struct):
+            if usertype.type_name == ref.type_name:
+                return ref
+
+        if isinstance(ref, Typedef):
+            if usertype.type_name == ref.type_name:
+                return filter_typedef(ref)
+
+    return usertype
+
+
+def is_nest_typedef(typedef: Typedef) -> bool:
+    ref = typedef.typeref.ref
+    if not isinstance(ref, Typedef):
+        return False
+
+    if typedef.type_name != ref.type_name:
+        return False
+
+    return True
+
+
 class DeclMap:
     def __init__(self, parser: cpptypeinfo.TypeParser, files):
         self.parser = parser
@@ -190,7 +220,11 @@ class DeclMap:
         hash = c.hash
         while hash != c.canonical.hash:
             hash = c.canonical.hash
-        self.decl_map[hash] = usertype
+
+        self.decl_map[hash] = filter_typedef(usertype)
+
+    def resolve_typedef(self) -> None:
+        pass
 
     def parse_cursor(self, c: cindex.Cursor):
         '''

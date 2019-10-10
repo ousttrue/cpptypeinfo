@@ -176,6 +176,9 @@ def generate(parser: cpptypeinfo.TypeParser, decl_map: cpptypeinfo.DeclMap,
         shutil.rmtree(dir)
         time.sleep(0.1)
 
+    # preprocess
+    decl_map.resolve_typedef()
+
     source_map: Dict[pathlib.Path, DSource] = {}
 
     for k, v in decl_map.decl_map.items():
