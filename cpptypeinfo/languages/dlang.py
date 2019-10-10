@@ -311,6 +311,10 @@ def generate(parser: cpptypeinfo.TypeParser, decl_map: cpptypeinfo.DeclMap,
                             path = register_enum_struct(p.typeref.ref)
                             if path:
                                 source.add_import(path)
+                        path = register_enum_struct(m.result.ref)
+                        if path:
+                            source.add_import(path)
+
                 else:
                     for f in v.fields:
                         path = register_enum_struct(f.typeref.ref)
