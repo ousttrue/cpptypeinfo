@@ -1,4 +1,4 @@
-from typing import List, TextIO, Dict
+from typing import List, TextIO, Dict, Set
 import pathlib
 import shutil
 import time
@@ -82,6 +82,8 @@ def to_d(typeref: TypeRef, level=0) -> str:
         return f'{const}{typeref.ref.type_name}'
     if isinstance(typeref.ref, Enum):
         return f'{const}{typeref.ref.type_name}'
+    if isinstance(typeref.ref, Function):
+        return 'void*'
     text = dlang_map.get(typeref.ref)
     if text:
         return f'{const}{text}'
@@ -210,6 +212,8 @@ def generate(parser: cpptypeinfo.TypeParser, decl_map: cpptypeinfo.DeclMap,
 
     source_map: Dict[pathlib.Path, DSource] = {}
 
+    used: Set[TypeRef] = set()
+
     def get_or_create_source_map(file: pathlib.Path) -> DSource:
         source = source_map.get(file)
         if not source:
@@ -231,12 +235,16 @@ def generate(parser: cpptypeinfo.TypeParser, decl_map: cpptypeinfo.DeclMap,
                             if isinstance(ref, cpptypeinfo.Enum):
                                 # enum
                                 source = get_or_create_source_map(ref.file)
-                                source.add_enum(ref)
+                                if ref not in used:
+                                    source.add_enum(ref)
+                                    used.add(ref)
                             elif isinstance(ref, Pointer) and isinstance(
                                     ref.typeref.ref, Enum):
                                 source = get_or_create_source_map(
                                     ref.typeref.ref.file)
-                                source.add_enum(ref.typeref.ref)
+                                if ref.typeref.ref not in used:
+                                    source.add_enum(ref.typeref.ref)
+                                    used.add(ref.typeref.ref)
 
             # elif isinstance(v, Enum):
             #     print(f'{v.file}: {v}')
