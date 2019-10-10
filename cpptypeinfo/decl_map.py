@@ -173,10 +173,9 @@ def restore_nest_type(ref: Union[TypeRef, cpptypeinfo.Type],
     return current
 
 
-def filter_typedef(usertype: UserType) -> UserType:
+def deref_typedef(usertype: UserType) -> UserType:
     '''
-    不要なtypedefを短縮する
-    typedef struct some {} some;
+    typedefを短縮する
     '''
     if isinstance(usertype, Typedef):
         ref = usertype.typeref.ref
@@ -186,7 +185,9 @@ def filter_typedef(usertype: UserType) -> UserType:
 
         if isinstance(ref, Typedef):
             if usertype.type_name == ref.type_name:
-                return filter_typedef(ref)
+                return deref_typedef(ref)
+
+        return ref
 
     return usertype
 
@@ -221,7 +222,7 @@ class DeclMap:
         while hash != c.canonical.hash:
             hash = c.canonical.hash
 
-        self.decl_map[hash] = filter_typedef(usertype)
+        self.decl_map[hash] = deref_typedef(usertype)
 
     def resolve_typedef(self) -> None:
         pass
