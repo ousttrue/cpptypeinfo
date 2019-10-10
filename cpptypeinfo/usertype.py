@@ -1,4 +1,5 @@
 import copy
+from enum import Enum, auto
 import uuid
 from typing import (Optional, Dict, List, Union, NamedTuple, Iterable)
 from .basictype import Type, TypeRef
@@ -49,6 +50,7 @@ class Namespace:
     '''
     UserType を管理する
     '''
+
     def __init__(self, name: str = None, struct: Optional['Struct'] = None):
         if name is None:
             name = ''
@@ -201,6 +203,12 @@ class Field(NamedTuple):
                      self.name, self.offset, self.value)
 
 
+class StructType(Enum):
+    STRUCT = 'struct'
+    UNION = 'union'
+    CLASS = 'class'
+
+
 class Struct(UserType):
     def __init__(
             self,
@@ -212,7 +220,7 @@ class Struct(UserType):
         self.parent: Optional[Namespace] = None
         self.namespace = Namespace(self.type_name, self)
         self.base: Optional[Struct] = None
-        self.is_union = False
+        self.struct_type: StructType = StructType.STRUCT
 
         self.fields: List[Field] = []
         if fields:

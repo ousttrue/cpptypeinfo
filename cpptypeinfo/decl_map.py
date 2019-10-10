@@ -5,8 +5,8 @@ import pathlib
 from clang import cindex
 import cpptypeinfo
 from cpptypeinfo.usertype import (TypeRef, Typedef, Pointer, Array, UserType,
-                                  Struct, Field, Function, Param, Enum,
-                                  EnumValue)
+                                  StructType, Struct, Field, Function, Param,
+                                  Enum, EnumValue)
 
 d3d11_key = 'MIDL_INTERFACE("'
 d2d1_key = 'DX_DECLARE_INTERFACE("'
@@ -272,13 +272,13 @@ class DeclMap:
                 self.extern_c.pop()
 
         elif c.kind == cindex.CursorKind.UNION_DECL:
-            self.parse_struct(c, 'union')
+            self.parse_struct(c, StructType.UNION)
 
         elif c.kind == cindex.CursorKind.STRUCT_DECL:
-            self.parse_struct(c, 'struct')
+            self.parse_struct(c, StructType.STRUCT)
 
         elif c.kind == cindex.CursorKind.CLASS_DECL:
-            self.parse_struct(c, 'class')
+            self.parse_struct(c, StructType.CLASS)
 
         elif c.kind == cindex.CursorKind.TYPEDEF_DECL:
             self.parse_typedef(c)
@@ -619,11 +619,12 @@ class DeclMap:
 
         raise Exception()
 
-    def parse_struct(self, c: cindex.Cursor, struct_type: str) -> Struct:
+    def parse_struct(self, c: cindex.Cursor,
+                     struct_type: StructType) -> Struct:
         name = c.spelling
         # print(f'{name}: {c.hash}')
         decl = Struct(name)
-        decl.is_union = struct_type == 'union'
+        decl.struct_type = struct_type
         self.add(c, decl)
         decl.file = pathlib.Path(c.location.file.name)
         decl.line = c.location.line

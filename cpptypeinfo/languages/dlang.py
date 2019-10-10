@@ -4,8 +4,8 @@ import shutil
 import time
 import datetime
 import cpptypeinfo
-from cpptypeinfo.usertype import (TypeRef, UserType, Typedef, Pointer, Struct,
-                                  Function, Enum)
+from cpptypeinfo.usertype import (TypeRef, UserType, Typedef, Pointer,
+                                  StructType, Struct, Function, Enum)
 
 IMPORT = '''
 import core.sys.windows.windef;
@@ -65,6 +65,20 @@ dlang_map: Dict[cpptypeinfo.Type, str] = {
     cpptypeinfo.Float(): 'float',
     cpptypeinfo.Double(): 'double',
 }
+
+
+def has_anonymous(usertype: UserType, used) -> bool:
+    used.append(usertype)
+
+    if not isinstance(usertype, Struct):
+        return False
+    if not usertype.type_name:
+        return True
+    for f in usertype.fields:
+        if f.typeref.ref not in used:
+            if has_anonymous(f.typeref.ref, used):
+                return True
+    return False
 
 
 def is_const(typeref: TypeRef) -> bool:
@@ -207,12 +221,14 @@ def dlang_function(d: TextIO, m: Function, indent='') -> None:
 
 def dlang_struct(d: TextIO, node: Struct) -> bool:
     if not node.type_name:
-        return
-    if node.is_union:
-        return
-    if not node.fields:
         return False
-    d.write(f'struct {node.type_name}{{\n')
+    if not node.fields:
+        # may forward decl
+        return False
+    if has_anonymous(node, []):
+        return False
+
+    d.write(f'{node.struct_type.value} {node.type_name}{{\n')
     for f in node.fields:
         d.write(f'    {to_d(f.typeref, 1)} {f.name};\n')
     d.write(f'}}\n')
@@ -313,49 +329,3 @@ def generate(parser: cpptypeinfo.TypeParser, decl_map: cpptypeinfo.DeclMap,
     for k, v in source_map.items():
         # print(v)
         v.generate(dir, module_name)
-
-    #     for include in header.includes:
-    #         d.write(
-    #             f'public import windowskits.{package_name}.{include.name[:-2]};\n'
-    #         )
-    #     d.write(HEAD)
-
-    #     snippet = snippet_map.get(module_name)
-    #     if snippet:
-    #         d.write(snippet)
-
-    #     for m in header.macro_defnitions:
-    #         d.write(f'enum {m.name} = {m.value};\n')
-
-    #     for node in header.nodes:
-
-    #         if isinstance(node, EnumNode):
-    #             dlang_enum(d, node)
-    #             d.write('\n')
-    #         elif isinstance(node, TypedefNode):
-    #             dlang_alias(d, node)
-    #             d.write('\n')
-    #         elif isinstance(node, StructNode):
-    #             if node.is_forward:
-    #                 continue
-    #             if node.name[0] == 'C':  # class
-    #                 continue
-    #             dlang_struct(d, node)
-    #             d.write('\n')
-    #         elif isinstance(node, FunctionNode):
-    #             dlang_function(d, node)
-    #             d.write('\n')
-    #         else:
-    #             #raise Exception(type(node))
-    #             pass
-    #         '''
-
-    #         # constant
-
-    #         const(d, v.const_list)
-
-    #         '''
-    #     d.write(TAIL)
-
-    # # for include in header.includes:
-    # #     self.generate_header(include, root, package_name)
