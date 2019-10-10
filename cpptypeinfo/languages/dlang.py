@@ -65,11 +65,22 @@ dlang_map: Dict[cpptypeinfo.Type, str] = {
 }
 
 
-def to_d(typeref: TypeRef) -> str:
-    const = 'const ' if typeref.is_const else ''
+def is_const(typeref: TypeRef) -> bool:
+    if typeref.is_const:
+        return True
+    if not isinstance(typeref.ref, Typedef):
+        return False
+    return is_const(typeref.ref.typeref)
+
+
+def to_d(typeref: TypeRef, level=0) -> str:
+    const = 'const ' if is_const(typeref) else ''
+
     if isinstance(typeref.ref, Pointer):
-        return f'{to_d(typeref.ref.typeref)}*{const}'
+        return f'{const}{to_d(typeref.ref.typeref, level+1)}*'
     if isinstance(typeref.ref, Struct):
+        return f'{const}{typeref.ref.type_name}'
+    if isinstance(typeref.ref, Enum):
         return f'{const}{typeref.ref.type_name}'
     text = dlang_map.get(typeref.ref)
     if text:
@@ -82,6 +93,7 @@ class DSource:
         self.file = file
         self.com_interfaces: List[Struct] = []
         self.functions: List[Function] = []
+        self.enums: List[Enum] = []
 
     def __str__(self) -> str:
         return f'{self.file.name}: {len(self.com_interfaces)}interfaces {len(self.functions)}functions'
@@ -91,6 +103,9 @@ class DSource:
 
     def add_export_function(self, function: Function) -> None:
         self.functions.append(function)
+
+    def add_enum(self, enum: Enum) -> None:
+        self.enums.append(enum)
 
     def generate(self, dir: pathlib.Path, parent: str) -> None:
         module_name = self.file.stem
@@ -103,30 +118,36 @@ class DSource:
             d.write(f'module {parent}.{module_name}.d;\n')
 
             d.write(IMPORT)
+            d.write('\n')
+
+            for enum in self.enums:
+                dlang_enum(d, enum)
+                d.write('\n')
 
             for com in self.com_interfaces:
                 dlang_com_interface(d, com)
+                d.write('\n')
 
 
 def dlang_enum(d: TextIO, node: Enum) -> None:
-    d.write(f'enum {node.name} {{\n')
+    d.write(f'enum {node.type_name} {{\n')
     for v in node.values:
         name = v.name
-        if name.startswith(node.name):
+        if name.startswith(node.type_name):
             # invalid: DXGI_FORMAT_420_OPAQUE
-            if name[len(node.name) + 1].isnumeric():
-                name = name[len(node.name) + 0:]
+            if name[len(node.type_name) + 1].isnumeric():
+                name = name[len(node.type_name) + 0:]
             else:
-                name = name[len(node.name) + 1:]
+                name = name[len(node.type_name) + 1:]
         else:
             for suffix in ['_FLAG', '_MODE']:
                 suffix_len = len(suffix)
-                if node.name.endswith(suffix) and name.startswith(
-                        node.name[:-suffix_len]):
-                    if name[len(node.name) - suffix_len + 1].isnumeric():
-                        name = name[len(node.name) - suffix_len:]
+                if node.type_name.endswith(suffix) and name.startswith(
+                        node.type_name[:-suffix_len]):
+                    if name[len(node.type_name) - suffix_len + 1].isnumeric():
+                        name = name[len(node.type_name) - suffix_len:]
                     else:
-                        name = name[len(node.name) - suffix_len + 1:]
+                        name = name[len(node.type_name) - suffix_len + 1:]
                     break
 
         value = v.value
@@ -189,16 +210,33 @@ def generate(parser: cpptypeinfo.TypeParser, decl_map: cpptypeinfo.DeclMap,
 
     source_map: Dict[pathlib.Path, DSource] = {}
 
+    def get_or_create_source_map(file: pathlib.Path) -> DSource:
+        source = source_map.get(file)
+        if not source:
+            source = DSource(file)
+            source_map[file] = source
+        return source
+
     for k, v in decl_map.decl_map.items():
         if v.file in headers:
             if isinstance(v, Struct):
                 if v.iid:
                     # print(f'{v.file}: {v.type_name}')
-                    source = source_map.get(v.file)
-                    if not source:
-                        source = DSource(v.file)
-                        source_map[v.file] = source
+                    source = get_or_create_source_map(v.file)
                     source.add_com_interface(v)
+
+                    for m in v.methods:
+                        for p in m.params:
+                            ref = p.typeref.ref
+                            if isinstance(ref, cpptypeinfo.Enum):
+                                # enum
+                                source = get_or_create_source_map(ref.file)
+                                source.add_enum(ref)
+                            elif isinstance(ref, Pointer) and isinstance(
+                                    ref.typeref.ref, Enum):
+                                source = get_or_create_source_map(
+                                    ref.typeref.ref.file)
+                                source.add_enum(ref.typeref.ref)
 
             # elif isinstance(v, Enum):
             #     print(f'{v.file}: {v}')
@@ -207,10 +245,7 @@ def generate(parser: cpptypeinfo.TypeParser, decl_map: cpptypeinfo.DeclMap,
                 # dll export
                 if v.extern_c and not v.has_body:
                     # print(f'{v.file}: {v.get_exportname()}')
-                    source = source_map.get(v.file)
-                    if not source:
-                        source = DSource(v.file)
-                        source_map[v.file] = source
+                    source = get_or_create_source_map(v.file)
                     source.add_export_function(v)
 
     module_name = dir.name
