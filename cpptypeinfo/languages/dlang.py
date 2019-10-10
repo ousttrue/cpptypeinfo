@@ -4,7 +4,8 @@ import shutil
 import time
 import datetime
 import cpptypeinfo
-from cpptypeinfo.usertype import (TypeRef, Typedef, Struct, Function, Enum)
+from cpptypeinfo.usertype import (TypeRef, Typedef, Pointer, Struct, Function,
+                                  Enum)
 
 IMPORT = '''
 import core.sys.windows.windef;
@@ -51,6 +52,30 @@ snippet_map = {
     'd2dbasetypes': D2D_BASETYPES,
 }
 
+dlang_map: Dict[cpptypeinfo.Type, str] = {
+    cpptypeinfo.Void(): 'void',
+    cpptypeinfo.Int8(): 'byte',
+    cpptypeinfo.Int16(): 'short',
+    cpptypeinfo.Int32(): 'int',
+    cpptypeinfo.Int64(): 'long',
+    cpptypeinfo.UInt8(): 'ubyte',
+    cpptypeinfo.UInt16(): 'ushort',
+    cpptypeinfo.UInt32(): 'uint',
+    cpptypeinfo.UInt64(): 'ulong',
+}
+
+
+def to_d(typeref: TypeRef) -> str:
+    const = 'const ' if typeref.is_const else ''
+    if isinstance(typeref.ref, Pointer):
+        return f'{to_d(typeref.ref.typeref)}*{const}'
+    if isinstance(typeref.ref, Struct):
+        return f'{const}{typeref.ref.type_name}'
+    text = dlang_map.get(typeref.ref)
+    if text:
+        return f'{const}{text}'
+    return f'{typeref}'
+
 
 class DSource:
     def __init__(self, file: pathlib.Path):
@@ -80,7 +105,7 @@ class DSource:
             d.write(IMPORT)
 
             for com in self.com_interfaces:
-                dlang_struct(d, com)
+                dlang_com_interface(d, com)
 
 
 def dlang_enum(d: TextIO, node: Enum) -> None:
@@ -123,40 +148,23 @@ def dlang_alias(d: TextIO, node: Typedef) -> None:
         d.write(f'alias {node.name} = {typedef_type};\n')
 
 
-def repl(m):
-    return m[0][1:]
-
-
-def to_d(param: TypeRef) -> str:
-    # param_type = (param_type.replace('&', '*').replace('*const *', '**'))
-    # if param_type[0] == 'I':  # is_instance
-    #     param_type = re.sub(r'\*+', repl, param_type)  # reduce *
-    # return param_type
-    return str(param)
-
-
 def dlang_function(d: TextIO, m: Function, indent='') -> None:
     ret = m.result if m.result else 'void'
     params = ', '.join(f'{to_d(p.typeref)} {p.name}' for p in m.params)
-    d.write(f'{indent}{ret} {m.name}({params});\n')
+    d.write(f'{indent}{to_d(ret)} {m.name}({params});\n')
 
 
-def dlang_struct(d: TextIO, node: Struct) -> None:
-    if node.type_name[0] == 'I':
-        # com interface
-        base = node.base
-        if not base:
-            base = 'IUnknown'
-        d.write(f'interface {node.type_name}: {base} {{\n')
-        if node.iid:
-            h = node.iid.hex
-            iid = f'0x{h[0:8]}, 0x{h[8:12]}, 0x{h[12:16]}, [0x{h[16:18]}, 0x{h[18:20]}, 0x{h[20:22]}, 0x{h[22:24]}, 0x{h[24:26]}, 0x{h[26:28]}, 0x{h[28:30]}, 0x{h[30:32]}]'
-            d.write(f'    static immutable iidof = GUID({iid});\n')
-        for m in node.methods:
-            dlang_function(d, m, '    ')
-        d.write(f'}}\n')
-    else:
-        d.write(f'{node}\n')
+def dlang_com_interface(d: TextIO, node: Struct) -> None:
+    if not node.base:
+        return
+    d.write(f'interface {node.type_name}: {to_d(node.base)} {{\n')
+    if node.iid:
+        h = node.iid.hex
+        iid = f'0x{h[0:8]}, 0x{h[8:12]}, 0x{h[12:16]}, [0x{h[16:18]}, 0x{h[18:20]}, 0x{h[20:22]}, 0x{h[22:24]}, 0x{h[24:26]}, 0x{h[26:28]}, 0x{h[28:30]}, 0x{h[30:32]}]'
+        d.write(f'    static immutable iidof = GUID({iid});\n')
+    for m in node.methods:
+        dlang_function(d, m, '    ')
+    d.write(f'}}\n')
 
 
 def generate(parser: cpptypeinfo.TypeParser, decl_map: cpptypeinfo.DeclMap,

@@ -661,7 +661,7 @@ class DeclMap:
                     if x.kind == cindex.CursorKind.TYPE_REF:
                         base = self.get(x.referenced)
                         if base:
-                            decl.base = base
+                            decl.base = TypeRef(base)
                         else:
                             raise Exception()
                     else:
