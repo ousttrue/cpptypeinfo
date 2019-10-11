@@ -156,7 +156,7 @@ class DSource:
         dst.parent.mkdir(exist_ok=True, parents=True)
 
         with dst.open('w') as d:
-            d.write(f'// cpptypeinfo generated: {datetime.datetime.today()}\n')
+            d.write(f'// cpptypeinfo generated\n')
             d.write(f'module {parent}.{module_name};\n')
 
             d.write(IMPORT)
@@ -175,6 +175,9 @@ class DSource:
             for com in self.com_interfaces:
                 if dlang_com_interface(d, com):
                     d.write('\n')
+
+            for function in self.functions:
+                dlang_function(d, function)
 
 
 def dlang_enum(d: TextIO, node: Enum) -> None:
