@@ -345,6 +345,10 @@ def generate(parser: cpptypeinfo.TypeParser, decl_map: cpptypeinfo.DeclMap,
         if isinstance(v, Struct):
             if v.type_name == 'IDXGIAdapter':
                 a = 0
+        if isinstance(v, Enum):
+            if v.type_name == 'D3D_DRIVER_TYPE':
+                a = 0
+
 
         if v.file in headers:
             if isinstance(v, Struct):
@@ -356,6 +360,11 @@ def generate(parser: cpptypeinfo.TypeParser, decl_map: cpptypeinfo.DeclMap,
                     # print(f'{v.file}: {v.get_exportname()}')
                     source = get_or_create_source_map(v.file)
                     source.add_export_function(v)
+                    for p in v.params:
+                        path = register_enum_struct(p.typeref.ref)
+                        if path:
+                            source.add_import(path)
+
 
     module_name = dir.name
 
