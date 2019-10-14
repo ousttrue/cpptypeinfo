@@ -342,6 +342,10 @@ def generate(parser: cpptypeinfo.TypeParser, decl_map: cpptypeinfo.DeclMap,
                     register_struct(f.typeref.ref.typeref.ref, used)
 
     for k, v in decl_map.decl_map.items():
+        if isinstance(v, Struct):
+            if v.type_name == 'IDXGIAdapter':
+                a = 0
+
         if v.file in headers:
             if isinstance(v, Struct):
                 register_struct(v, [])

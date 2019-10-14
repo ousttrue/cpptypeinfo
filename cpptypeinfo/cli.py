@@ -36,12 +36,12 @@ def gen(args):
         headers.append(dir / 'um/d3dtypes.h')
         headers.append(dir / 'um/d3dcommon.h')
         headers.append(dir / 'um/d3d10.h')
-        headers.append(dir / 'um/dxgi.h')
+        headers.append(dir / 'shared/dxgi.h')
         headers.append(dir / 'um/dcommon.h')
         # headers.append(dir / 'um/d2dbasetypes.h')
         headers.append(dir / 'um/dxgicommon.h')
         headers.append(dir / 'um/dxgiformat.h')
-        headers.append(dir / 'um/dxgitype.h')
+        headers.append(dir / 'shared/dxgitype.h')
 
     decl_map = cpptypeinfo.parse_files(parser, *headers)
 

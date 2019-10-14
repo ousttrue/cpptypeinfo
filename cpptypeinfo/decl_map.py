@@ -191,10 +191,6 @@ def deref_typedef(usertype: UserType) -> UserType:
     typedefを短縮する
     '''
     if isinstance(usertype, Typedef):
-        if usertype.type_name == 'HINSTANCE':
-            a = 0
-            pass
-
         ref = usertype.typeref.ref
         if isinstance(ref, Struct):
             if usertype.type_name == ref.type_name:
@@ -253,23 +249,12 @@ class DeclMap:
 
     def get(self, _c: cindex.Cursor) -> UserType:
         c = get_canonical(_c)
-        if c.hash not in self.decl_map:
-            for k, v in self.decl_map.items():
-                if hasattr(v, 'type_name'):
-                    if 'ChannelBuffer' in v.type_name:
-                        a = 0
-
         return self.decl_map[c.hash]
 
     def add(self, _c: cindex.Cursor, usertype: UserType) -> None:
         c = get_canonical(_c)
         if c.hash in self.decl_map:
             raise Exception()
-        if 'ChannelBuffer' in _c.spelling:
-            a = 0
-        if c.spelling == 'IRpcChannelBuffer':
-            a = 0
-
         concrete_type, stack = strip_pointer(usertype)
         inner_type = deref_typedef(concrete_type)
         restore = restore_nest_type(inner_type, stack).ref
@@ -465,17 +450,12 @@ class DeclMap:
         if underlying.kind != cindex.TypeKind.ELABORATED:
             return None
 
-        if c.spelling == 'HINSTANCE':
-            a = 0
-
         children = [child for child in c.get_children()]
         for child in children:
             if child.kind in [
                     cindex.CursorKind.STRUCT_DECL,
                     cindex.CursorKind.UNION_DECL,
             ]:
-                if child.spelling == 'IRpcChannelBuffer':
-                    a = 0
                 struct = self.get(child)
                 if struct:
                     # decl = self.parser.typedef(c.spelling, struct)
@@ -496,8 +476,6 @@ class DeclMap:
                 raise Exception()
 
             if child.kind == cindex.CursorKind.TYPE_REF:
-                if child.referenced.spelling == 'IRpcChannelBuffer':
-                    a = 0
                 ref = self.get(child.referenced)
                 if ref:
                     # decl = self.parser.typedef(c.spelling, ref)
@@ -679,9 +657,6 @@ class DeclMap:
 
     def parse_struct(self, c: cindex.Cursor,
                      struct_type: StructType) -> Struct:
-        if c.spelling == 'IDXGIAdapter':
-            a = 0
-
         if self.has(c):
             decl = self.get(c)
         else:
