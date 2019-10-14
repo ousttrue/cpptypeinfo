@@ -230,6 +230,14 @@ def is_nest_typedef(typedef: Typedef) -> bool:
     return True
 
 
+def get_canonical(c: cindex.Cursor) -> cindex.Cursor:
+    while c.hash != c.canonical.hash:
+        if c.spelling != c.canonical.spelling:
+            raise Exception()
+        c = c.canonical
+    return c
+
+
 class DeclMap:
     def __init__(self, parser: cpptypeinfo.TypeParser, files):
         self.parser = parser
@@ -237,27 +245,36 @@ class DeclMap:
         self.used: Set[int] = set()
         self.files = files
         self.extern_c: List[bool] = [False]
+        self.debug = {}
 
-    def get(self, c: cindex.Cursor, raise_error=True) -> UserType:
-        hash = c.hash
-        while hash != c.canonical.hash:
-            hash = c.canonical.hash
-        if raise_error:
-            return self.decl_map[hash]
-        else:
-            return self.decl_map.get(hash)
+    def has(self, _c: cindex.Cursor) -> bool:
+        c = get_canonical(_c)
+        return c.hash in self.decl_map
 
-    def add(self, c: cindex.Cursor, usertype: UserType) -> None:
-        hash = c.hash
-        while hash != c.canonical.hash:
-            hash = c.canonical.hash
-        if hash in self.decl_map:
+    def get(self, _c: cindex.Cursor) -> UserType:
+        c = get_canonical(_c)
+        if c.hash not in self.decl_map:
+            for k, v in self.decl_map.items():
+                if hasattr(v, 'type_name'):
+                    if 'ChannelBuffer' in v.type_name:
+                        a = 0
+
+        return self.decl_map[c.hash]
+
+    def add(self, _c: cindex.Cursor, usertype: UserType) -> None:
+        c = get_canonical(_c)
+        if c.hash in self.decl_map:
             raise Exception()
+        if 'ChannelBuffer' in _c.spelling:
+            a = 0
+        if c.spelling == 'IRpcChannelBuffer':
+            a = 0
 
         concrete_type, stack = strip_pointer(usertype)
         inner_type = deref_typedef(concrete_type)
         restore = restore_nest_type(inner_type, stack).ref
-        self.decl_map[hash] = restore
+        self.decl_map[c.hash] = restore
+        self.debug[c.spelling] = restore
 
     def resolve_typedef(self) -> None:
         pass
@@ -272,7 +289,6 @@ class DeclMap:
         self.used.add(c.hash)
         # if files and pathlib.Path(c.location.file.name) not in files:
         #     return
-
         if c.kind == cindex.CursorKind.TRANSLATION_UNIT:
 
             for child in c.get_children():
@@ -317,7 +333,7 @@ class DeclMap:
         elif c.kind == cindex.CursorKind.FUNCTION_DECL:
             function = self.parse_function(c)
             self.parser.get_current_namespace().functions.append(function)
-            if not self.get(c, False):
+            if not self.has(c):
                 self.add(c, function)
 
         elif c.kind == cindex.CursorKind.ENUM_DECL:
@@ -386,6 +402,8 @@ class DeclMap:
                     raise Exception()
 
                 elif child.kind == cindex.CursorKind.TYPE_REF:
+                    if not self.has(child.referenced):
+                        self.parse_cursor(child.referenced)
                     decl = self.get(child.referenced)
                     if decl:
                         return TypeRef(decl, t.is_const_qualified())
@@ -448,7 +466,7 @@ class DeclMap:
             return None
 
         if c.spelling == 'HINSTANCE':
-            a=0
+            a = 0
 
         children = [child for child in c.get_children()]
         for child in children:
@@ -456,6 +474,8 @@ class DeclMap:
                     cindex.CursorKind.STRUCT_DECL,
                     cindex.CursorKind.UNION_DECL,
             ]:
+                if child.spelling == 'IRpcChannelBuffer':
+                    a = 0
                 struct = self.get(child)
                 if struct:
                     # decl = self.parser.typedef(c.spelling, struct)
@@ -476,6 +496,8 @@ class DeclMap:
                 raise Exception()
 
             if child.kind == cindex.CursorKind.TYPE_REF:
+                if child.referenced.spelling == 'IRpcChannelBuffer':
+                    a = 0
                 ref = self.get(child.referenced)
                 if ref:
                     # decl = self.parser.typedef(c.spelling, ref)
@@ -488,7 +510,7 @@ class DeclMap:
         raise Exception()
 
     def parse_typedef(self, c: cindex.Cursor) -> None:
-        if self.get(c, False):
+        if self.has(c):
             # already exists
             return
 
@@ -657,13 +679,11 @@ class DeclMap:
 
     def parse_struct(self, c: cindex.Cursor,
                      struct_type: StructType) -> Struct:
-        if c.type.kind != cindex.TypeKind.RECORD:
-            return
-        decl = self.get(c, False)
-        if decl:
-            # already
-            if decl.fields:
-                return
+        if c.spelling == 'IDXGIAdapter':
+            a = 0
+
+        if self.has(c):
+            decl = self.get(c)
         else:
             name = c.spelling
             # print(f'{name}: {c.hash}')

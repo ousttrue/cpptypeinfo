@@ -118,14 +118,19 @@ class DSource:
         self.enums: List[Enum] = []
         self.structs: List[Struct] = []
         self.imports: List[pathlib.Path] = []
+        self.used: Set[int] = set()
 
     def __str__(self) -> str:
         return f'{self.file.name}: {len(self.com_interfaces)}interfaces {len(self.functions)}functions'
 
     def add_com_interface(self, com_interface: Struct) -> None:
+        if com_interface in self.com_interfaces:
+            return
         self.com_interfaces.append(com_interface)
 
     def add_export_function(self, function: Function) -> None:
+        if function in self.functions:
+            return
         self.functions.append(function)
 
     def add_enum(self, enum: Enum) -> None:
@@ -243,6 +248,8 @@ def dlang_struct(d: TextIO, node: Struct) -> bool:
 def dlang_com_interface(d: TextIO, node: Struct) -> bool:
     if not node.base:
         return False
+
+    d.write(f'// {node.file.name}: {node.line}\n')
     d.write(f'interface {node.type_name}: {to_d(node.base)} {{\n')
     if node.iid:
         h = node.iid.hex
