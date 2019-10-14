@@ -1,5 +1,5 @@
 import uuid
-from typing import Dict, Optional, List, Set, NamedTuple, Union
+from typing import Dict, Optional, List, Set, NamedTuple, Union, Tuple
 from enum import IntEnum, auto
 import pathlib
 from clang import cindex
@@ -154,6 +154,19 @@ def strip_nest_type(t: cindex.Type):
     return current, stack
 
 
+def strip_pointer(usertype: UserType
+                  ) -> Tuple[cpptypeinfo.Type, List[NestInfo]]:
+    stack: List[NestInfo] = []
+    current: cpptypeinfo.Type = usertype
+    while True:
+        if isinstance(current, Pointer):
+            stack.append(NestInfo(NestType.POINTER, current.typeref.is_const))
+            current = current.typeref.ref
+        else:
+            break
+    return current, stack
+
+
 def restore_nest_type(ref: Union[TypeRef, cpptypeinfo.Type],
                       stack: List[NestInfo]) -> TypeRef:
     if isinstance(ref, TypeRef):
@@ -178,7 +191,8 @@ def deref_typedef(usertype: UserType) -> UserType:
     typedefを短縮する
     '''
     if isinstance(usertype, Typedef):
-        if usertype.type_name == 'D3D11_VIDEO_COLOR':
+        if usertype.type_name == 'HINSTANCE':
+            a = 0
             pass
 
         ref = usertype.typeref.ref
@@ -224,18 +238,26 @@ class DeclMap:
         self.files = files
         self.extern_c: List[bool] = [False]
 
-    def get(self, c: cindex.Cursor) -> UserType:
+    def get(self, c: cindex.Cursor, raise_error=True) -> UserType:
         hash = c.hash
         while hash != c.canonical.hash:
             hash = c.canonical.hash
-        return self.decl_map[hash]
+        if raise_error:
+            return self.decl_map[hash]
+        else:
+            return self.decl_map.get(hash)
 
     def add(self, c: cindex.Cursor, usertype: UserType) -> None:
         hash = c.hash
         while hash != c.canonical.hash:
             hash = c.canonical.hash
+        if hash in self.decl_map:
+            raise Exception()
 
-        self.decl_map[hash] = deref_typedef(usertype)
+        concrete_type, stack = strip_pointer(usertype)
+        inner_type = deref_typedef(concrete_type)
+        restore = restore_nest_type(inner_type, stack).ref
+        self.decl_map[hash] = restore
 
     def resolve_typedef(self) -> None:
         pass
@@ -295,7 +317,8 @@ class DeclMap:
         elif c.kind == cindex.CursorKind.FUNCTION_DECL:
             function = self.parse_function(c)
             self.parser.get_current_namespace().functions.append(function)
-            self.add(c, function)
+            if not self.get(c, False):
+                self.add(c, function)
 
         elif c.kind == cindex.CursorKind.ENUM_DECL:
             self.parse_enum(c)
@@ -424,6 +447,9 @@ class DeclMap:
         if underlying.kind != cindex.TypeKind.ELABORATED:
             return None
 
+        if c.spelling == 'HINSTANCE':
+            a=0
+
         children = [child for child in c.get_children()]
         for child in children:
             if child.kind in [
@@ -432,36 +458,40 @@ class DeclMap:
             ]:
                 struct = self.get(child)
                 if struct:
-                    decl = self.parser.typedef(c.spelling, struct)
-                    decl.file = pathlib.Path(c.location.file.name)
-                    decl.line = c.location.line
-                    self.add(c, decl)
-                    return TypeRef(decl, underlying.is_const_qualified())
+                    # decl = self.parser.typedef(c.spelling, struct)
+                    # decl.file = pathlib.Path(c.location.file.name)
+                    # decl.line = c.location.line
+                    # self.add(child, decl)
+                    return TypeRef(struct, underlying.is_const_qualified())
                 raise Exception()
 
             if child.kind == cindex.CursorKind.ENUM_DECL:
                 enum = self.get(child)
                 if enum:
-                    decl = self.parser.typedef(c.spelling, enum)
-                    decl.file = pathlib.Path(c.location.file.name)
-                    decl.line = c.location.line
-                    self.add(c, decl)
-                    return TypeRef(decl, underlying.is_const_qualified())
+                    # decl = self.parser.typedef(c.spelling, enum)
+                    # decl.file = pathlib.Path(c.location.file.name)
+                    # decl.line = c.location.line
+                    # self.add(child, decl)
+                    return TypeRef(enum, underlying.is_const_qualified())
                 raise Exception()
 
             if child.kind == cindex.CursorKind.TYPE_REF:
                 ref = self.get(child.referenced)
                 if ref:
-                    decl = self.parser.typedef(c.spelling, ref)
-                    decl.file = pathlib.Path(c.location.file.name)
-                    decl.line = c.location.line
-                    self.add(c, decl)
-                    return TypeRef(decl, underlying.is_const_qualified())
+                    # decl = self.parser.typedef(c.spelling, ref)
+                    # decl.file = pathlib.Path(c.location.file.name)
+                    # decl.line = c.location.line
+                    # self.add(child, decl)
+                    return TypeRef(ref, underlying.is_const_qualified())
                 raise Exception()
             raise Exception()
         raise Exception()
 
     def parse_typedef(self, c: cindex.Cursor) -> None:
+        if self.get(c, False):
+            # already exists
+            return
+
         underlying, stack = strip_nest_type(c.underlying_typedef_type)
         primitive = get_primitive_type(underlying)
         if primitive:
@@ -554,7 +584,7 @@ class DeclMap:
                     param = self.cindex_type_to_cpptypeinfo(child.type, child)
                 # ToDo:
                 default_value = ''
-                params.append(Param(param, c.spelling, default_value))
+                params.append(Param(param, child.spelling, default_value))
 
             elif child.kind == cindex.CursorKind.TYPE_REF:
                 pass
@@ -616,7 +646,8 @@ class DeclMap:
         primitive = get_primitive_type(field_type)
         if primitive:
             # field
-            return Field(restore_nest_type(primitive, stack), c.spelling, offset)
+            return Field(restore_nest_type(primitive, stack), c.spelling,
+                         offset)
 
         decl = self.get_type_from_hash(field_type, c)
         if decl:
@@ -626,11 +657,19 @@ class DeclMap:
 
     def parse_struct(self, c: cindex.Cursor,
                      struct_type: StructType) -> Struct:
-        name = c.spelling
-        # print(f'{name}: {c.hash}')
-        decl = Struct(name)
+        if c.type.kind != cindex.TypeKind.RECORD:
+            return
+        decl = self.get(c, False)
+        if decl:
+            # already
+            if decl.fields:
+                return
+        else:
+            name = c.spelling
+            # print(f'{name}: {c.hash}')
+            decl = Struct(name)
+            self.add(c, decl)
         decl.struct_type = struct_type
-        self.add(c, decl)
         decl.file = pathlib.Path(c.location.file.name)
         decl.line = c.location.line
         self.parser.push_namespace(decl.namespace)
