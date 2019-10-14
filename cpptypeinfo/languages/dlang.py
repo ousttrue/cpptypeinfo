@@ -79,9 +79,14 @@ def to_d(typeref: TypeRef, level=0) -> str:
     const = 'const ' if level == 0 and is_const(typeref) else ''
 
     if isinstance(typeref.ref, Pointer):
+        if isinstance(typeref.ref.typeref.ref, Struct):
+            if typeref.ref.typeref.ref.type_name == 'HWND__':
+                return 'HWND'
         return f'{const}{to_d(typeref.ref.typeref, level+1)}*'
     if isinstance(typeref.ref, Struct):
-        if not typeref.ref.type_name:
+        if typeref.ref.type_name in ['HDC__', 'HINSTANCE__']:
+            return typeref.ref.type_name[:-2]
+        elif not typeref.ref.type_name:
             if typeref.ref.struct_type == StructType.UNION:
                 # anonymous union
                 fields = [
@@ -342,17 +347,12 @@ def generate(parser: cpptypeinfo.TypeParser, decl_map: cpptypeinfo.DeclMap,
                     register_struct(f.typeref.ref.typeref.ref, used)
 
     for k, v in decl_map.decl_map.items():
-        if isinstance(v, Struct):
-            if v.type_name == 'IDXGIAdapter':
-                a = 0
-        if isinstance(v, Enum):
-            if v.type_name == 'D3D_DRIVER_TYPE':
-                a = 0
-
-
         if v.file in headers:
             if isinstance(v, Struct):
                 register_struct(v, [])
+
+            elif isinstance(v, Enum):
+                register_enum_struct(v)
 
             elif isinstance(v, Function):
                 # dll export
@@ -365,9 +365,16 @@ def generate(parser: cpptypeinfo.TypeParser, decl_map: cpptypeinfo.DeclMap,
                         if path:
                             source.add_import(path)
 
-
     module_name = dir.name
 
     for k, v in source_map.items():
         # print(v)
         v.generate(dir, module_name)
+
+    dst = dir / 'package.d'
+    print(f'create {dst}')
+    dst.parent.mkdir(exist_ok=True, parents=True)
+    with dst.open('w') as d:
+        d.write(f'module {module_name};\n')
+        for k, v in source_map.items():
+            d.write(f'public import {module_name}.{k.stem};\n')
