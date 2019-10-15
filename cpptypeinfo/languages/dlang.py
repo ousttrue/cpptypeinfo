@@ -82,6 +82,9 @@ def to_d(typeref: TypeRef, level=0) -> str:
         if isinstance(typeref.ref.typeref.ref, Struct):
             if typeref.ref.typeref.ref.type_name == 'HWND__':
                 return 'HWND'
+            if typeref.ref.typeref.ref.iid:
+                # interface remove *
+                return f'{const}{typeref.ref.typeref.ref.type_name}'
         return f'{const}{to_d(typeref.ref.typeref, level+1)}*'
     if isinstance(typeref.ref, Struct):
         if typeref.ref.type_name in ['HDC__', 'HINSTANCE__']:
