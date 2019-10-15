@@ -153,3 +153,10 @@ primitive_type_map: Dict[str, PrimitiveType] = {
     'bool': Bool(),
     'va_list': VaList(),
 }
+
+
+class MacroDefinition(NamedTuple):
+    name: str
+    value: str
+    file: pathlib.Path
+    line: int

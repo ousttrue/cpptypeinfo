@@ -124,6 +124,7 @@ class DSource:
         self.structs: List[Struct] = []
         self.imports: List[pathlib.Path] = []
         self.used: Set[int] = set()
+        self.macros: List[cpptypeinfo.MacroDefinition] = []
 
     def __str__(self) -> str:
         return f'{self.file.name}: {len(self.com_interfaces)}interfaces {len(self.functions)}functions'
@@ -172,6 +173,10 @@ class DSource:
             d.write(IMPORT)
             for i in self.imports:
                 d.write(f'import {parent}.{i.stem};\n')
+            d.write('\n')
+
+            for macro in self.macros:
+                d.write(f'const {macro.name} = {macro.value};\n')
             d.write('\n')
 
             for enum in self.enums:
@@ -365,12 +370,23 @@ def generate(parser: cpptypeinfo.TypeParser, decl_map: cpptypeinfo.DeclMap,
                         if path:
                             source.add_import(path)
 
+    for m in decl_map.macro_definitions:
+        if m.name == 'D3D11_SDK_VERSION':
+            source = get_or_create_source_map(m.file)
+            source.macros.append(m)
+        elif m.file.name == 'dxgi.h':
+            source = get_or_create_source_map(m.file)
+            source.macros.append(m)
+        else:
+            pass
+
     module_name = dir.name
 
+    # write each DLangSource
     for k, v in source_map.items():
-        # print(v)
         v.generate(dir, module_name)
 
+    # package.d
     dst = dir / 'package.d'
     print(f'create {dst}')
     dst.parent.mkdir(exist_ok=True, parents=True)

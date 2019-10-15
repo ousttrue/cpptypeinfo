@@ -32,9 +32,8 @@ def get_tu(path: pathlib.Path,
 
     kw = {'options': 0}
     # kw['options'] |= cindex.TranslationUnit.PARSE_SKIP_FUNCTION_BODIES
-    if use_macro:
-        # if True:
-        kw['options'] |= cindex.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD
+    # macro
+    kw['options'] |= cindex.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD
 
     cpp_args = [
         '-x',

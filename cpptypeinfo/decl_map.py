@@ -241,7 +241,7 @@ class DeclMap:
         self.used: Set[int] = set()
         self.files = files
         self.extern_c: List[bool] = [False]
-        self.debug = {}
+        self.macro_definitions: List[cpptypeinfo.MacroDefinition] = []
 
     def has(self, _c: cindex.Cursor) -> bool:
         c = get_canonical(_c)
@@ -259,7 +259,6 @@ class DeclMap:
         inner_type = deref_typedef(concrete_type)
         restore = restore_nest_type(inner_type, stack).ref
         self.decl_map[c.hash] = restore
-        self.debug[c.spelling] = restore
 
     def resolve_typedef(self) -> None:
         pass
@@ -355,7 +354,41 @@ class DeclMap:
             pass
 
         elif c.kind == cindex.CursorKind.MACRO_DEFINITION:
-            pass
+            if not c.location.file:
+                # __llvm = 1
+                return
+
+            tokens = [t.spelling for t in c.get_tokens()]
+
+            if len(tokens) == 1:
+                # ex. #define __header__
+                return
+
+            if tokens in [
+                ['IID_ID3DBlob', 'IID_ID3D10Blob'],
+                ['INTERFACE', 'ID3DInclude'],
+                ['D2D1_INVALID_TAG', 'ULONGLONG_MAX'],
+                ['D2D1FORCEINLINE', 'FORCEINLINE'],
+            ]:
+                #define IID_ID3DBlob IID_ID3D10Blob
+                #define INTERFACE ID3DInclude
+                #define D2D1_INVALID_TAG ULONGLONG_MAX
+                #define D2D1FORCEINLINE FORCEINLINE
+                return
+
+            if len(tokens) >= 3 and tokens[1] == '(' and tokens[2][0].isalpha(
+            ):
+                # maybe macro function
+                return
+
+            # if c.spelling == 'D3D11_SDK_VERSION':
+            #     raise Exception()
+
+            self.macro_definitions.append(
+                cpptypeinfo.MacroDefinition(c.spelling,
+                                            ' '.join(x for x in tokens[1:]),
+                                            pathlib.Path(c.location.file.name),
+                                            c.location.line))
 
         elif c.kind == cindex.CursorKind.MACRO_INSTANTIATION:
             pass
@@ -515,6 +548,8 @@ class DeclMap:
             children = [child for child in c.get_children()]
             for child in children:
                 if child.kind == cindex.CursorKind.TYPE_REF:
+                    if not self.has(child.referenced):
+                        self.parse_cursor(child.referenced)
                     usertype = self.get(child.referenced)
                     if usertype:
                         typedef = self.parser.typedef(
