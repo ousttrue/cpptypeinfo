@@ -37,10 +37,13 @@ Param: for Function
     + ref: TypeRef
     + name
 '''
+VERSION = '0.3.0'
+
+
 from .basictype import *
 from .usertype import Enum, EnumValue
 from .typeparser import TypeParser
+from .decl_map import DeclMap
 from .get_tu import *
 from .cursor import parse_files, parse_source
-
-VERSION = '0.2.0'
+from . import languages

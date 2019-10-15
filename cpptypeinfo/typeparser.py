@@ -115,7 +115,7 @@ class TypeParser:
 
         return None
 
-    def typedef(self, name: str, src: Union[str, TypeRef]) -> Typedef:
+    def typedef(self, name: str, src: Union[str, Type, TypeRef]) -> Typedef:
         '''
         現在のnamespaceに型をTypedefを登録する
         '''
@@ -123,8 +123,12 @@ class TypeParser:
             raise Exception('no src')
         elif isinstance(src, str):
             decl = self.parse(src)
-        else:
+        elif isinstance(src, Type):
+            decl = TypeRef(src)
+        elif isinstance(src, TypeRef):
             decl = src
+        else:
+            raise Exception()
         typedef = Typedef(name, decl)
         namespace = self.get_current_namespace()
         namespace.register_type(name, typedef)

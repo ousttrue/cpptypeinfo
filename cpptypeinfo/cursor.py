@@ -1,10 +1,9 @@
 import pathlib
-from typing import List, Set, Optional
+from typing import List
 from clang import cindex
-from .usertype import (Param, Field, Struct, Function, EnumValue, Enum,
-                       Typedef)
 from .typeparser import TypeParser
 from .get_tu import get_tu, tmp_from_source
+from .decl_map import DeclMap
 
 
 def debug_print(c, files: List[pathlib.Path], level=''):
@@ -17,263 +16,73 @@ def debug_print(c, files: List[pathlib.Path], level=''):
         if c.kind == cindex.CursorKind.UNEXPOSED_DECL:
             tokens = [x.spelling for x in c.get_tokens()]
             if tokens and tokens[0] == 'extern':
+                # https://stackoverflow.com/questions/11865486/clang-ast-extern-linkagespec-issue/12526555#12526555
                 display = 'extern "C"'
-    extra = ''
-    if c.kind == cindex.CursorKind.FUNCTION_DECL:
-        # https://clang.llvm.org/doxygen/Index_8h_source.html
-        calling_convention = cindex.conf.lib.clang_getFunctionTypeCallingConv(
-            c.type)
-        extra = {1: '', 2: '(stdcall)', 100: '# invalid #'}[calling_convention]
-    text = f'{level}{c.kind}=>{extra}{c.spelling}: {c.type.kind}=>{display}'
 
-    print(text)
-    for child in c.get_children():
-        debug_print(child, files, level + '  ')
-
-
-def parse_param(parser: TypeParser, c: cindex.Cursor) -> Param:
-    tokens = [x.spelling for x in c.get_tokens()]
-    default_value = ''
-    for i, token in enumerate(tokens):
-        if token == '=':
-            default_value = ''.join(tokens[i + 1:])
-            break
-
-    parsed = parser.parse(c.type.spelling)
-    return Param(parsed, c.spelling, default_value)
-
-
-def parse_function(parser: TypeParser, c: cindex.Cursor,
-                   extern_c: bool) -> Function:
-    params = []
-    result = parser.parse(c.result_type.spelling)
-    for child in c.get_children():
-        if child.kind == cindex.CursorKind.TYPE_REF:
-            pass
-        elif child.kind == cindex.CursorKind.UNEXPOSED_ATTR:
-            # macro
-            # tokens = [token.spelling for token in child.get_tokens()]
-            pass
-        elif child.kind == cindex.CursorKind.UNEXPOSED_EXPR:
-            pass
-        elif child.kind == cindex.CursorKind.PARM_DECL:
-            params.append(parse_param(parser, child))
-            pass
-        elif child.kind == cindex.CursorKind.COMPOUND_STMT:
-            # function body
-            pass
-        elif child.kind == cindex.CursorKind.DLLEXPORT_ATTR:
-            # __declspec(dllexport)
-            pass
-        elif child.kind == cindex.CursorKind.DLLIMPORT_ATTR:
-            # __declspec(dllimport)
-            pass
-        elif child.kind == cindex.CursorKind.NAMESPACE_REF:
-            pass
-        elif child.kind == cindex.CursorKind.TEMPLATE_REF:
-            pass
+    if c.kind == cindex.CursorKind.TYPEDEF_DECL:
+        # children = [child for child in c.get_children()]
+        # if c.underlying_typedef_type.kind == cindex.TypeKind.POINTER:
+        #     p = c.underlying_typedef_type.get_pointee()
+        #     text = f'{level}({c.hash}){c.kind}=>{c.spelling}: {c.underlying_typedef_type.kind}=>{p.spelling}'
+        # if children:
+        #     if c.underlying_typedef_type.kind == cindex.TypeKind.POINTER:
+        #         p = c.underlying_typedef_type.get_pointee()
+        #         child = children[0]
+        #         ref = child.referenced
+        #         text = f'{level}({c.hash}){c.kind}=>{c.spelling}: {c.underlying_typedef_type.kind}=>{children[0].hash}'
+        #     else:
+        #         text = f'{level}({c.hash}){c.kind}=>{c.spelling}: {c.underlying_typedef_type.kind}=>{children[0].hash}'
+        # else:
+        #     text = f'{level}({c.hash}){c.kind}=>{c.spelling}: {c.underlying_typedef_type.kind}'
+        # print(text)
+        children = [child for child in c.get_children()]
+        if c.underlying_typedef_type.kind == cindex.TypeKind.POINTER:
+            child = children[0]
+            ref = child.referenced
+            text = f'{level}({c.hash}){c.kind}=>{c.spelling}: {c.underlying_typedef_type.kind} => {ref.hash}'
         else:
-            raise NotImplementedError(f'{child.kind}')
-
-    decl = Function(result, params)
-    parser.get_current_namespace().functions.append(decl)
-    decl.name = c.spelling
-    decl.mangled_name = c.mangled_name
-    decl.extern_c = extern_c
-    decl.file = pathlib.Path(c.location.file.name)
-    decl.line = c.location.line
-    return decl
-
-
-def parse_enum(parser: TypeParser, c: cindex.Cursor) -> Enum:
-    name = c.type.spelling
-    if not name:
-        raise Exception(f'no name')
-    values = []
-    for child in c.get_children():
-        if child.kind == cindex.CursorKind.ENUM_CONSTANT_DECL:
-            values.append(EnumValue(child.spelling, child.enum_value))
-        else:
-            raise Exception(f'{child.kind}')
-    decl = Enum(name, values)
-    parser.get_current_namespace().register_type(name, decl)
-    decl.file = pathlib.Path(c.location.file.name)
-    decl.line = c.location.line
-    return decl
-
-
-def parse_struct(parser: TypeParser, c: cindex.Cursor) -> Optional[Struct]:
-    name = c.spelling
-    if not name:
-        # anonymous
-        return None
-    decl = parser.parse(f'struct {name}').ref
-    if not isinstance(decl, Struct):
-        if isinstance(decl, Typedef):
-            decl = decl.typeref.ref
-    if not isinstance(decl, Struct):
-        raise Exception('not struct')
-    decl.file = pathlib.Path(c.location.file.name)
-    decl.line = c.location.line
-    # if isinstance(decl, Typedef):
-    #     decl = decl.src
-    parser.push_namespace(decl.namespace)
-    for child in c.get_children():
-        if child.kind == cindex.CursorKind.FIELD_DECL:
-            field = parser.parse(child.type.spelling)
-            offset = child.get_field_offsetof() // 8
-            if not decl.template_parameters and offset < 0:
-                # parseに失敗(特定のheaderが見つからないなど)
-                # clang 環境が壊れているかも
-                # VCのプレビュー版とか原因かも
-                # プレビュー版をアンインストールして LLVM を入れたり消したらなおった
-                raise Exception(f'struct {c.spelling}: offset error')
-            decl.add_field(Field(field, child.spelling, offset))
-        elif child.kind == cindex.CursorKind.CONSTRUCTOR:
-            pass
-        elif child.kind == cindex.CursorKind.DESTRUCTOR:
-            pass
-        elif child.kind == cindex.CursorKind.CXX_METHOD:
-            pass
-        elif child.kind == cindex.CursorKind.CONVERSION_FUNCTION:
-            pass
-        elif child.kind == cindex.CursorKind.TEMPLATE_TYPE_PARAMETER:
-            t = child.spelling
-            parser.parse(f'struct {t}')
-            decl.add_template_parameter(t)
-        elif child.kind == cindex.CursorKind.VAR_DECL:
-            # static variable
-            pass
-        elif child.kind == cindex.CursorKind.UNION_DECL:
-            # ToDo
-            pass
-        elif child.kind == cindex.CursorKind.STRUCT_DECL:
-            parse_struct(parser, child)
-        elif child.kind == cindex.CursorKind.TYPEDEF_DECL:
-            typedef_decl = parser.parse(child.underlying_typedef_type.spelling)
-            parser.typedef(child.spelling, typedef_decl)
-        elif child.kind == cindex.CursorKind.UNEXPOSED_ATTR:
-            pass
-        elif child.kind == cindex.CursorKind.CXX_ACCESS_SPEC_DECL:
-            pass
-        else:
-            raise NotImplementedError(f'{child.kind}')
-    parser.pop_namespace()
-    return decl
-
-
-def parse_typedef(parser: TypeParser, c: cindex.Cursor) -> Optional[Typedef]:
-    tokens = [t.spelling for t in c.get_tokens()]
-    if not tokens:
-        return None
-    elif tokens[-1] == ')' or c.underlying_typedef_type.spelling != 'int':
-        parsed = parser.parse(c.underlying_typedef_type.spelling)
-    else:
-        # int type may be wrong.
-        # workaround
-        end = -1
-        for i, t in enumerate(tokens):
-            if t == '{':
-                end = i
-                break
-        parsed = parser.parse(' '.join(tokens[1:end]))
-    if not parsed:
-        return
-
-    decl = parser.typedef(c.spelling, parsed)
-    decl.file = pathlib.Path(c.location.file.name)
-    decl.line = c.location.line
-    return decl
-
-
-def parse_cursor(parser: TypeParser,
-                 c: cindex.Cursor,
-                 files: List[pathlib.Path],
-                 used: Set[int],
-                 extern_c=False):
-    if c.hash in used:
-        return
-    used.add(c.hash)
-    if files and pathlib.Path(c.location.file.name) not in files:
-        return
-
-    if c.kind == cindex.CursorKind.UNEXPOSED_DECL:
-        # try:
-        #     it = c.get_tokens()
-        #     t0 = next(it)
-        #     t1 = next(it)
-        #     if t0.spelling == 'extern' and t1.spelling == '"C"':
-        #         extern_c = True
-        # except StopIteration:
-        #     pass
-        # tokens = [t.spelling for t in ]
-        # if len(tokens) >= 2 and tokens[0] == 'extern' and tokens[1] == '"C"':
-        # if 'dllexport' in tokens:
-        #     a = 0
-        for child in c.get_children():
-            parse_cursor(parser,
-                         child,
-                         files=files,
-                         used=used,
-                         extern_c=extern_c)
-
-    elif c.kind == cindex.CursorKind.UNION_DECL:
-        parse_struct(parser, c)
-
-    elif c.kind == cindex.CursorKind.STRUCT_DECL:
-        parse_struct(parser, c)
-
-    elif c.kind == cindex.CursorKind.CLASS_DECL:
-        parse_struct(parser, c)
-
-    elif c.kind == cindex.CursorKind.TYPEDEF_DECL:
-        parse_typedef(parser, c)
-
-    elif c.kind == cindex.CursorKind.FUNCTION_DECL:
-        parse_function(parser, c, extern_c)
-
-    elif c.kind == cindex.CursorKind.ENUM_DECL:
-        parse_enum(parser, c)
-
-    elif c.kind == cindex.CursorKind.VAR_DECL:
-        # static variable
-        pass
-
-    elif c.kind == cindex.CursorKind.CONSTRUCTOR:
-        pass
-
-    elif c.kind == cindex.CursorKind.FUNCTION_TEMPLATE:
-        pass
-
-    elif c.kind == cindex.CursorKind.CLASS_TEMPLATE:
-        parse_struct(parser, c)
+            text = f'{level}({c.hash}){c.kind}=>{c.spelling}: {c.underlying_typedef_type.kind}'
+        print(text)
 
     else:
-        raise NotImplementedError(str(c.kind))
+        extra = ''
+        go_children = True
 
+        if c.type.kind == cindex.TypeKind.POINTER:
+            p = c.type.get_pointee()
+            a = 0
+            extra = f'=>({p.spelling})'
 
-def parse_namespace(parser: TypeParser,
-                    c: cindex.Cursor,
-                    files: List[pathlib.Path],
-                    used=None):
-    if not used:
-        used = set()
+        if c.hash != c.canonical.hash:
+            extra = f'[{c.canonical.hash}]'
 
-    for i, child in enumerate(c.get_children()):
-        if child.kind == cindex.CursorKind.NAMESPACE:
-            # nested
-            parser.push_namespace(child.spelling)
-            parse_namespace(parser, child, files)
-            parser.pop_namespace()
+        if c.kind == cindex.CursorKind.ENUM_DECL:
+            go_children = False
+        if c.kind == cindex.CursorKind.TYPE_REF:
+            extra = f'({c.referenced.hash})'
         else:
+            if c.kind == cindex.CursorKind.FUNCTION_DECL:
+                # https://clang.llvm.org/doxygen/Index_8h_source.html
+                calling_convention = cindex.conf.lib.clang_getFunctionTypeCallingConv(
+                    c.type)
+                calling_convention = {
+                    1: '',
+                    2: '(stdcall)',  # 64bit ignored
+                    100: '# invalid #'
+                }[calling_convention]
+                extra = f'({c.result_type.kind}){calling_convention}'
+        text = f'{level}({c.hash}){c.kind}=>{extra}{c.spelling}: {c.type.kind}=>{display}'
+        print(text)
 
-            parse_cursor(parser, child, files, used)
+        if go_children:
+            for child in c.get_children():
+                debug_print(child, files, level + '  ')
 
 
 def parse_files(parser: TypeParser,
                 *paths: pathlib.Path,
                 cpp_flags=None,
-                debug=False):
+                debug=False) -> DeclMap:
     if cpp_flags is None:
         cpp_flags = []
     cpp_flags += [f'-I{x.parent}' for x in paths]
@@ -282,17 +91,24 @@ def parse_files(parser: TypeParser,
         tu = get_tu(path, cpp_flags=cpp_flags)
         include_path_list = [x for x in paths]
         include_path_list.append(path)
+        decl_map = DeclMap(parser, include_path_list)
         if debug:
             debug_print(tu.cursor, include_path_list)
         else:
-            parse_namespace(parser, tu.cursor, include_path_list)
+            decl_map.parse_cursor(tu.cursor)
+        return decl_map
 
 
-def parse_source(parser: TypeParser, source: str, cpp_flags=None, debug=False):
+def parse_source(parser: TypeParser, source: str, cpp_flags=None,
+                 debug=False) -> DeclMap:
+    decl_map = DeclMap(parser, [])
+
     if cpp_flags is None:
         cpp_flags = []
     with tmp_from_source(source) as path:
         tu = get_tu(path, cpp_flags=cpp_flags)
         if debug:
             debug_print(tu.cursor, [])
-        parse_namespace(parser, tu.cursor, [])
+        decl_map.parse_cursor(tu.cursor)
+
+    return decl_map

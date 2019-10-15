@@ -4,8 +4,8 @@ import cpptypeinfo
 SOURCE = '''
 namespace A
 {
-    int __stdcall stdcall_func(const char *src); // -target=i686-pc-win32 only. ignored 64bit
-    void __stdcall StdcallFunc(){}
+    // -target=i686-pc-win32 only. ignored 64bit
+    int __stdcall stdcall_func(const char *src);
 
     extern "C" void* Hello(const char *src);
     __declspec(dllexport) void* Export(const char *src);
@@ -21,9 +21,7 @@ namespace A
 class FunctionTests(unittest.TestCase):
     def test_function(self) -> None:
         parser = cpptypeinfo.TypeParser()
-        cpptypeinfo.parse_source(parser,
-                                 SOURCE,
-                                 debug=True)
+        cpptypeinfo.parse_source(parser, SOURCE, debug=True)
 
 
 if __name__ == '__main__':

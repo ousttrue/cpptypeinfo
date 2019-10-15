@@ -1,4 +1,6 @@
 import copy
+from enum import Enum, auto
+import uuid
 from typing import (Optional, Dict, List, Union, NamedTuple, Iterable)
 from .basictype import Type, TypeRef
 
@@ -48,6 +50,7 @@ class Namespace:
     '''
     UserType を管理する
     '''
+
     def __init__(self, name: str = None, struct: Optional['Struct'] = None):
         if name is None:
             name = ''
@@ -191,13 +194,19 @@ class Array(Pointer):
 
 class Field(NamedTuple):
     typeref: TypeRef
-    name: str
+    name: str = ''
     offset: int = -1
     value: str = ''
 
     def replace(self, target: Type, replace: Type, recursive) -> 'Field':
         return Field(replace_typeref(self.typeref, target, replace, recursive),
                      self.name, self.offset, self.value)
+
+
+class StructType(Enum):
+    STRUCT = 'struct'
+    UNION = 'union'
+    CLASS = 'class'
 
 
 class Struct(UserType):
@@ -210,6 +219,8 @@ class Struct(UserType):
         self.type_name = type_name
         self.parent: Optional[Namespace] = None
         self.namespace = Namespace(self.type_name, self)
+        self.base: Optional[Struct] = None
+        self.struct_type: StructType = StructType.STRUCT
 
         self.fields: List[Field] = []
         if fields:
@@ -218,6 +229,9 @@ class Struct(UserType):
                     f = Field(f.typeref.to_ref(), f.name, f.value)
                 self.add_field(f)
         self.template_parameters: List[str] = []
+
+        self.iid: Optional[uuid.UUID] = None
+        self.methods: List[Function] = []
 
     def is_forward_decl(self) -> bool:
         return len(self.fields) == 0
@@ -285,7 +299,10 @@ class Struct(UserType):
         return True
 
     def __str__(self) -> str:
-        return f'{self.type_name}'
+        if self.type_name:
+            return f'struct {self.type_name}'
+        else:
+            return f'struct (anonymous)'
 
 
 class Param(NamedTuple):
@@ -305,6 +322,9 @@ class Function(UserType):
             params: List[Param],
     ):
         super().__init__()
+        self.extern_c = False
+        self.dll_export = False
+        self.has_body = False
         self.parent: Optional[Namespace] = None
         self.name = ''
         self.mangled_name = ''
@@ -320,6 +340,12 @@ class Function(UserType):
         self._hash = hash(result)
         for p in self.params:
             self._hash += hash(p)
+
+    def get_exportname(self):
+        if self.extern_c:
+            return self.name
+        else:
+            return self.mangled_name
 
     def __hash__(self):
         return self._hash
