@@ -238,7 +238,8 @@ def dlang_alias(d: TextIO, node: Typedef) -> None:
 def dlang_function(d: TextIO, m: Function, indent='') -> None:
     ret = m.result if m.result else 'void'
     params = ', '.join(f'{to_d(p.typeref)} {p.name}' for p in m.params)
-    d.write(f'{indent}{to_d(ret)} {m.name}({params});\n')
+    extern_c = 'extern(C) ' if m.extern_c else ''
+    d.write(f'{indent}{extern_c}{to_d(ret)} {m.name}({params});\n')
 
 
 def dlang_struct(d: TextIO, node: Struct) -> bool:
