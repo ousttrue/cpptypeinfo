@@ -4,7 +4,7 @@ import shutil
 import time
 import datetime
 import cpptypeinfo
-from cpptypeinfo.usertype import (TypeRef, UserType, Typedef, Pointer,
+from cpptypeinfo.usertype import (TypeRef, UserType, Typedef, Pointer, Array,
                                   StructType, Struct, Function, Enum)
 
 IMPORT = '''
@@ -78,6 +78,8 @@ def is_const(typeref: TypeRef) -> bool:
 def to_d(typeref: TypeRef, level=0) -> str:
     const = 'const ' if level == 0 and is_const(typeref) else ''
 
+    if isinstance(typeref.ref, Array) and typeref.ref.length:
+        return f'{const}{to_d(typeref.ref.typeref, level+1)}[{typeref.ref.length}]'
     if isinstance(typeref.ref, Pointer):
         if isinstance(typeref.ref.typeref.ref, Struct):
             if typeref.ref.typeref.ref.type_name == 'HWND__':
