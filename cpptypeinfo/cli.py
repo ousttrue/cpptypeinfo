@@ -25,7 +25,8 @@ def debug_args(subparsers: argparse._SubParsersAction):
 
 def gen(args):
     parser = cpptypeinfo.TypeParser()
-    headers = []
+    includes = [pathlib.Path(x) for x in args.include]
+    headers = [pathlib.Path(x) for x in args.header]
     if args.d3d11:
         dir = get_windowskits()
         headers.append(dir / 'shared/ntdef.h')
@@ -43,7 +44,7 @@ def gen(args):
         headers.append(dir / 'um/dxgiformat.h')
         headers.append(dir / 'shared/dxgitype.h')
 
-    decl_map = cpptypeinfo.parse_files(parser, *headers)
+    decl_map = cpptypeinfo.parse_files(parser, includes=includes, *headers)
 
     if args.lang == 'dlang':
         cpptypeinfo.languages.dlang.generate(parser, decl_map, headers,
@@ -62,6 +63,8 @@ def gen_args(subparsers: argparse._SubParsersAction):
     parser.set_defaults(func=gen)
     parser.add_argument('--d3d11', action='store_true')
     parser.add_argument('--windows', action='store_true')
+    parser.add_argument('--header', action='append')
+    parser.add_argument('--include', '-I', action='append')
     parser.add_argument('lang', choices=['csharp', 'dlang'])
     parser.add_argument('dst', help='output folder')
 

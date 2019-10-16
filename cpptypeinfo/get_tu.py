@@ -33,7 +33,7 @@ def get_tu(path: pathlib.Path,
     kw = {'options': 0}
     # kw['options'] |= cindex.TranslationUnit.PARSE_SKIP_FUNCTION_BODIES
     # macro
-    kw['options'] |= cindex.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD
+    # kw['options'] |= cindex.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD
 
     cpp_args = [
         '-x',
@@ -47,6 +47,7 @@ def get_tu(path: pathlib.Path,
         '-fms-compatibility',
         # '-fdelayed-template-parsing'
         # '-fblocks',
+        '-D_MSC_VER=1923'
     ]
     if include_path_list is not None:
         for i in include_path_list:

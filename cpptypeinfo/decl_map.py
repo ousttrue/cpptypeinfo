@@ -271,6 +271,7 @@ class DeclMap:
         if c.hash in self.used:
             return
         self.used.add(c.hash)
+
         # if files and pathlib.Path(c.location.file.name) not in files:
         #     return
         if c.kind == cindex.CursorKind.TRANSLATION_UNIT:

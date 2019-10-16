@@ -50,7 +50,6 @@ class Namespace:
     '''
     UserType を管理する
     '''
-
     def __init__(self, name: str = None, struct: Optional['Struct'] = None):
         if name is None:
             name = ''
@@ -352,6 +351,8 @@ class Function(UserType):
 
     def __eq__(self, value):
         if not super().__eq__(value):
+            return False
+        if self.name != value.name:
             return False
         if not self.result == value.result:
             return False

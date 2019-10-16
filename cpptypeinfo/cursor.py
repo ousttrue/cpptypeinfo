@@ -81,11 +81,14 @@ def debug_print(c, files: List[pathlib.Path], level=''):
 
 def parse_files(parser: TypeParser,
                 *paths: pathlib.Path,
+                includes=None,
                 cpp_flags=None,
                 debug=False) -> DeclMap:
     if cpp_flags is None:
         cpp_flags = []
     cpp_flags += [f'-I{x.parent}' for x in paths]
+    if includes:
+        cpp_flags += [f'-I{x}' for x in includes]
     with tmp_from_source(''.join([f'#include <{x.name}>\n'
                                   for x in paths])) as path:
         tu = get_tu(path, cpp_flags=cpp_flags)

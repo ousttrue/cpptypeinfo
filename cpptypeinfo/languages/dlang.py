@@ -245,16 +245,22 @@ def dlang_function(d: TextIO, m: Function, indent='') -> None:
     d.write(f'{indent}{extern_c}{to_d(ret)} {m.name}({params});\n')
 
 
+def escape_symbol(name: str) -> str:
+    if name in ['module']:
+        return '_' + name
+    return name
+
+
 def dlang_struct(d: TextIO, node: Struct) -> bool:
     if not node.type_name:
         return False
-    if not node.fields:
-        # may forward decl
-        return False
+    # if not node.fields:
+    #     # may forward decl
+    #     return False
 
     d.write(f'{node.struct_type.value} {node.type_name}{{\n')
     for f in node.fields:
-        d.write(f'    {to_d(f.typeref, 1)} {f.name};\n')
+        d.write(f'    {to_d(f.typeref, 1)} {escape_symbol(f.name)};\n')
     d.write(f'}}\n')
     return True
 
@@ -344,6 +350,7 @@ def generate(parser: cpptypeinfo.TypeParser, decl_map: cpptypeinfo.DeclMap,
                     source.add_import(path)
 
         else:
+            source.add_struct(v)
             for f in v.fields:
                 path = register_enum_struct(f.typeref.ref)
                 if path:
@@ -365,14 +372,20 @@ def generate(parser: cpptypeinfo.TypeParser, decl_map: cpptypeinfo.DeclMap,
 
             elif isinstance(v, Function):
                 # dll export
-                if v.extern_c and not v.has_body:
+                # if v.dll_export:
+                if True:
                     # print(f'{v.file}: {v.get_exportname()}')
                     source = get_or_create_source_map(v.file)
                     source.add_export_function(v)
+                    # params
                     for p in v.params:
                         path = register_enum_struct(p.typeref.ref)
                         if path:
                             source.add_import(path)
+                    # return
+                    path = register_enum_struct(v.result.ref)
+                    if path:
+                        source.add_import(path)
 
     for m in decl_map.macro_definitions:
         if m.name == 'D3D11_SDK_VERSION':
